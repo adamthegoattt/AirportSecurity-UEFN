@@ -2,160 +2,176 @@
 
 ## Checkpoint
 
-- Name: **Terminal Lockdown - Validated Reference Pass**
+- Name: **Terminal Lockdown - Extended Replay QA**
 - Date: **2026-07-28 PDT**
 - Project: `AirportSecurity`
 - Map: `/AirportSecurity/AirportSecurity`
-- Intended Git repository: `AirportSecurity-UEFN` (private)
+- Repository: `adamthegoattt/AirportSecurity-UEFN`
+- Branch: `main`
+- Prior Git checkpoint: `5ece9583b1b352f12ff5534bbba70ffa327c45e1`
 
 ## Current game state
 
-- The validated pre-existing graybox was preserved and expanded into the
-  Terminal Lockdown airport-security experience.
-- UEFN and the connected Fortnite client were left running and responsive.
-- The last verified editor state was `Game in Progress`, `All Saved`, and
+- The validated Terminal Lockdown production graybox remains intact at 155
+  actors total, including exactly 143 uniquely named `TL_` production actors.
+- UEFN and the connected Fortnite client are open and responsive.
+- The last verified editor state is `Game in Progress`, `All Saved`, and
   `0 Edits - 0 Pending Push`, with `TL_Controller` selected.
-- The production controller has `DebugEnabled=false` and
-  `AutomatedReplayEnabled=false`.
-- Final level inventory: 155 actors total, including exactly 143 uniquely named
-  `TL_` production actors and no proof/trial leftovers.
+- `DebugEnabled=false` and `AutomatedReplayEnabled=false` in the saved map.
+- A fully generated rolling continuation prompt now preserves the original
+  game brief, reference roles, current architecture, asset contract, validation
+  contract, gaps, and exact continuation order.
 
 ## Systems implemented
 
-- Reference-zoned terminal shell, briefing, queues, checkpoint, bag area,
-  document desk, decision desk, secondary room, detention cell, restricted
-  corridor, power room, security office/response supply, waiting area,
-  runway-window aircraft silhouette, upgrade kiosk, and exit.
-- Physical passenger queue and active-passenger movement through scanner,
-  departure, response, detention intake, and jail-cell destinations.
-- Active-case-linked luggage, document identity/destination/evidence, world
-  boards, and HUD objectives.
-- Body, bag, and document inspections with `CLEAR`, `SECONDARY`, and `DETAIN`.
-- Compliant detainee, runner, and resistant-suspect branches; custody intake
-  awards exactly once.
-- Seven shifts with deterministic templates, staged evidence unlocks, three
-  cases per shift, upgrade breaks, team cash/integrity/risk, and grading.
-- Emergencies for Shifts 4-6, including the complete Shift 5 power-outage and
-  scanner-disable/restore contract.
+- Reference-zoned terminal shell, briefing, waiting/queue, checkpoint, body
+  scanner, linked bag area, document desk, decision desk, secondary room,
+  detention cell, restricted corridor, power room, security office/response
+  supply, runway-window aircraft silhouette, upgrade kiosk, and exit.
+- Physical Character-device passenger queue and active-passenger movement
+  through scanner, departure, response, detention intake, and jail cell.
+- Active-case-linked luggage and fictional document evidence with world boards
+  and HUD objectives.
+- Body, bag, and document checks followed by `CLEAR`, `SECONDARY`, or `DETAIN`.
+- Compliant detainee, runner, resistant-response, custody, and exactly-once
+  intake guards.
+- Seven deterministic shifts, three cases per shift, upgrade breaks, team
+  cash/integrity/risk, emergencies, final threat, results, and replay reset.
+- Complete Shift 5 power outage with scanner disable, utility-room recovery,
+  reward, cleanup, and progression.
 - Detected and missed final-threat branches, four-stage response, victory,
-  results, defeat, and clean replay reset.
-- Player case claiming, stale case/run/emergency guards, duplicate-resolution
-  protection, autostart fallback, and owner-disconnect recovery.
+  defeat, and clean reset.
+- Player case claims, stale run/case/emergency guards, duplicate resolution
+  protection, autostart fallback, and owner-disconnect claim release.
+- Development-only deterministic replay coverage for claim release/reclaim,
+  duplicate-decision rejection, missed final threat, and emergency timeout.
 
-## Files changed or added
+## Files changed or added in this continuation cycle
 
-- `AirportSecurity.uefnproject` - live project configuration, including Python
-  enablement used by the reviewed editor bridge.
-- `Content/AirportSecurity.umap` - active airport level.
-- `Content/__ExternalActors__/AirportSecurity/` and
-  `Content/__ExternalObjects__/AirportSecurity/` - saved world-partition actor
-  and object data for the level.
-- `Content/terminal_lockdown_controller.verse` - authoritative gameplay state
-  machine and device coordination.
-- `Content/terminal_lockdown_types.verse` - game phase, decision, and boss
-  branch types.
-- `Content/Python/build_terminal_lockdown.py` - idempotent 143-actor builder and
-  exact placement ledger output.
-- `Content/Python/init_unreal.py`, `uefn_listener.py`, and listener license -
-  reviewed local editor automation bridge.
-- `Content/Python/probe_airportsecurity.py` and
-  `prove_airportsecurity_primitive.py` - retained historical audit/proof tools;
-  the rejected proof actors themselves were removed from the level.
-- `docs/codex/` - architecture, execution record, asset ledger, tests,
-  validation log, worklog, rebuild instructions, and final report.
-- `.gitignore` and this `CODEX_HANDOFF.md` - Git/bootstrap handoff files.
+- `CODEX_CONTINUATION_PROMPT.md` - complete rolling continuation prompt, fully
+  generated and verified before first use.
+- `Content/terminal_lockdown_controller.verse` - extended development-only
+  replay coverage and parameterized emergency timeout wait while preserving the
+  production 45-second timeout.
+- `Content/__ExternalActors__/AirportSecurity/6/8T/DSHQO1AUSMVF7SCPI69FHT.uasset` -
+  saved `TL_Controller` external-actor state; the QA replay editable was
+  intentionally enabled for testing, returned to false, and saved.
+- `docs/codex/ARCHITECTURE.md`
+- `docs/codex/ASSET_PLACEMENT_LEDGER.md`
+- `docs/codex/EXEC_PLAN.md`
+- `docs/codex/FINAL_BUILD_REPORT.md`
+- `docs/codex/MANUAL_UEFN_STEPS.md`
+- `docs/codex/TEST_MATRIX.md`
+- `docs/codex/VALIDATION_LOG.md`
+- `docs/codex/WORKLOG.md`
+- `CODEX_HANDOFF.md` - refreshed current-state handoff.
 
 ## Verse entry points
 
-- `terminal_lockdown_controller.OnBegin` - subscribes all devices/player
-  events, configures the physical presentation, and starts the guarded fallback.
-- `OnStartButton` and `AutoStartWaitingRun` - initialize a run exactly once.
-- `PrepareNextCase` and `StagePassenger` - select the shift template, reset
-  evidence, update boards, and move the active passenger to screening.
-- `OnScanButton`, `OnBagButton`, and `OnDocumentButton` - collect evidence.
+- `terminal_lockdown_controller.OnBegin` - subscribes devices/player events,
+  configures presentation, starts the guarded fallback, and optionally starts
+  intentional local replay QA.
+- `OnStartButton` and `AutoStartWaitingRun` - initialize a run once.
+- `PrepareNextCase` and `StagePassenger` - select/reset a case and stage the
+  active passenger.
+- `OnScanButton`, `OnBagButton`, and `OnDocumentButton` - claim the active case
+  and collect evidence.
 - `OnClearButton`, `OnSecondaryButton`, `OnDetainButton`, and
-  `ResolveDecision` - enforce prerequisites and commit one decision.
+  `ResolveDecision` - enforce claim/evidence/phase requirements and commit once.
 - `BeginDetention`, `CaptureRunner`, `OnCustodyButton`, and passenger movement
-  coroutines - complete arrest and jail intake.
-- `FinishCase`, `BeginUpgradeBreak`, and `OnUpgradeButton` - advance cases and
-  the seven-shift progression.
+  coroutines - finish arrest and jail intake.
+- `FinishCase`, `BeginUpgradeBreak`, and `OnUpgradeButton` - advance the
+  seven-shift progression.
 - `BeginEmergency`, `EmergencyTimeout`, `OnPowerButton`, and
-  `OnResponseButton` - emergency and response lifecycle.
+  `OnResponseButton` - emergency and response lifecycle. Production calls
+  `EmergencyTimeout` with `EmergencyTimeoutSeconds`; QA uses a one-second wait
+  only inside the disabled replay harness.
 - `BeginBoss`, `FinishVictory`, `FinishDefeat`, and `ResetToWaiting` - final
   threat, results, and replay.
-- `RunAutomatedReplay` - development-only production-handler replay; keep its
-  editable flag false outside an intentional local QA run.
+- `RunAutomatedReplay` - development-only production-handler replay. Keep
+  `AutomatedReplayEnabled=false` outside an intentional local QA run.
 
-## Devices and actors added
+## Devices or actors added
+
+No new placed production actor was added in this continuation cycle. The saved
+inventory remains:
 
 - 118 `/Game/Valkyrie/GridPlane.GridPlane_C` architecture/physical-prop actors.
-- 12 Buttons: `TL_BTN_Start`, `TL_BTN_Scan`, `TL_BTN_Bag`,
-  `TL_BTN_Documents`, `TL_BTN_Clear`, `TL_BTN_Secondary`, `TL_BTN_Detain`,
-  `TL_BTN_Response`, `TL_BTN_Upgrade`, `TL_BTN_Debug`, `TL_BTN_Custody`, and
-  `TL_BTN_Power`.
-- 7 Billboards: checkpoint, case, bag, document, power, custody, and emergency.
-- 4 Character devices: three queued passengers and one active passenger.
+- 12 Button devices: start, scan, bag, documents, clear, secondary, detain,
+  response, upgrade, debug, custody, and power.
+- 7 Billboard devices: checkpoint, case, bag, document, power, custody, and
+  emergency.
+- 4 Character devices: three queue passengers and one active passenger.
 - 1 HUD Message device: `TL_HUD_Status`.
 - 1 Verse device: `TL_Controller`.
 
-## Validation and runtime results
+## Validation and runtime test results
 
-- Complete build:
-  `created=63|updated=80|deleted_proofs=4|expected=143|actors_total=155|level_saved=True|packages_saved=True`.
-- Idempotency rerun:
-  `created=0|updated=143|deleted_proofs=0|expected=143|actors_total=155`.
-- Final reflection audit: 143 `TL_` actors, no duplicate `TL_` labels, no
-  proof/trial labels; class counts 118 GridPlane, 12 Button, 7 Billboard,
-  4 Character, 1 HUD Message, and 1 Verse device.
-- Verse build succeeded. Final hot reload reported `[Push Verse Changes]
-  operation successful` and `Successfully activated content on all platforms`.
-- Live automated replay passed Shift 1 body/clear, Shift 3
-  body/bag/document/secondary, detention and duplicate custody guard, Shift 5
-  scanner-offline/power restore, Shift 7 detected boss victory, and
-  results-to-waiting reset.
-- After returning the QA flag to false, the final reload emitted no new QA
-  marker, Verse error, validation failure, or build failure.
+- Existing builder evidence remains valid: complete build
+  `created=63|updated=80|deleted_proofs=4|expected=143|actors_total=155`, then
+  idempotency rerun `created=0|updated=143|deleted_proofs=0`.
+- Fresh Verse compilation after the controller changes: PASS. UEFN reported
+  `Built successfully`; the log reported global Verse compile `SUCCESS` and
+  `VerseBuild: SUCCESS -- Build complete`.
+- Fresh validation/cook/session activation: PASS. UEFN logged successful push,
+  candidate activation, and `Server Summary - Successfully activated content
+  on all platforms`.
+- Extended production-handler replay ran to completion twice. Logged evidence:
+  - `[QA2] Simulated owner loss released CaseId=7`
+  - `[QA2] Claim release/reclaim and duplicate decision guard complete`
+  - `[QA2] Shift 7 missed boss branch reached victory`
+  - `[QA2] Emergency timeout penalty and recovery complete`
+  - `[QA2] Extended replay complete; returned to waiting`
+- After the replay switch was returned to false, the map was saved and a fresh
+  session activation completed successfully. No new `[QA2]` marker appeared;
+  the live session is back in normal player-driven mode.
+- One Fortnite client remained connected and responsive. Real simultaneous
+  two-client contention/disconnect testing is still not represented by this
+  deterministic one-client harness.
 
 ## Known issues
 
-- Runtime validation used one connected Fortnite client. Simultaneous
-  two-player case contention and live leave/rejoin recovery were not exercised.
-- The replay covered major unlock and failure boundaries rather than a
-  real-time 21-routine-case pacing run.
-- Representative multiplayer performance has not been measured.
-- The terminal is a validated production graybox/silhouette pass, not a final
-  bespoke art, audio, or VFX pass.
-- Lore offline/local status previously reported an inability to deserialize
-  revision states. No destructive Lore repair was attempted; `.lore/` is local
-  revision-control state and is intentionally excluded from Git.
+- Genuine two-client claim contention, disconnect, rejoin, and replication QA
+  remain untested.
+- The replay covers important unlock/failure boundaries but not a normal-speed
+  full 21-case pacing run.
+- False detention, runner capture/escape, and the resistant response fallback
+  still need dedicated runtime evidence.
+- Representative 4/8/16-player performance, memory, and network measurements
+  have not been taken.
+- The terminal is a validated production graybox/silhouette pass, not final
+  bespoke art, lighting, audio, VFX, animation, or UX polish.
+- Queue Characters remain static stand-ins rather than an advancing crowd.
+- Persistence is not implemented.
+- The GitHub repository was observed as public during the earlier bootstrap;
+  the original privacy requirement is not yet independently verified as fixed.
 
 ## Unfinished tasks
 
-- Two-client contention and disconnect/rejoin runtime QA.
-- Full-duration seven-shift pacing and balance pass across all 21 routine cases.
-- Performance capture with representative player counts.
-- Reference-quality art replacement, lighting, audio, VFX, animation, and UX
-  polish under the same asset/placement validation contract.
-- Optional persistence, progression tuning, accessibility, and publish/release
-  preparation. Publishing was not performed.
+- Two-client contention and owner disconnect/rejoin runtime QA.
+- Dedicated false-detention, runner-capture, runner-escape, and resistant
+  response runtime passes.
+- Full-duration seven-shift pacing and balance across all 21 routine cases.
+- Representative multiplayer performance capture.
+- Asset-contract-compliant art, lighting, audio, VFX, animation, and UX pass.
+- Optional persistence, progression/accessibility tuning, and publish/release
+  preparation. Publishing has not been performed.
 
 ## Exact recommended next steps
 
-1. Pull this checkpoint and open `AirportSecurity.uefnproject` in the matching
-   UEFN/Fortnite version (compatibility 41.20).
-2. Confirm `TL_Controller` still has all 12 Button, 7 Billboard, 4 Character,
-   and 1 HUD editable references assigned; keep debug and automated replay off.
-3. Launch two Fortnite clients. Have both interact with one active case, then
-   disconnect the claimant during `Inspecting`; verify the second client can
-   reclaim and finish without duplicate progress.
-4. Run all three cases in Shifts 1-7 without debug skips. Record decision
-   accuracy, cash, integrity, risk, emergency timings, and total session length.
-5. Exercise the missed final-threat branch and the emergency-timeout failure
-   path, which compile but were not the branches selected by the live replay.
-6. Capture frame time, memory, and network behavior with 4, 8, and 16 players.
-7. Before replacing any graybox element, validate the exact asset path, actor
-   class, and placement method with one disposable proof; save, validate, cook,
-   and session-check it before production use.
-8. Commit each accepted art/system milestone separately. Do not modify or
-   remove the current checkpoint until the replacement path passes equivalent
-   runtime evidence.
+1. Launch a genuine second Fortnite client/player. Have both players interact
+   with one active case, then disconnect the claimant during `Inspecting`.
+   Confirm exactly one owner, safe release/reclaim, and one final resolution.
+2. Run dedicated false-detention, runner-capture, runner-escape, and resistant
+   response cases through production handlers; record exact log/state outcomes.
+3. Run all three cases in Shifts 1-7 without debug skips. Record accuracy,
+   cash, integrity, risk, emergency timings, and total session length.
+4. Capture frame time, memory, and network behavior at representative player
+   counts.
+5. Choose one weak physical branch—preferably the static queue or response
+   fallback—and test one exact replacement candidate under the asset and
+   placement-method contract before production placement.
+6. Regenerate `CODEX_CONTINUATION_PROMPT.md` completely from this checkpoint,
+   verify its sentinel/hash, and only then use it for the next continuation.
+7. Keep UEFN/Fortnite open, all production flags false, and the live project
+   saved with zero pending push at every checkpoint.

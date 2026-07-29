@@ -1,23 +1,34 @@
 # Test matrix
 
-| ID | Test | Status | Evidence / expected result |
-|---|---|---|---|
-| B-01 | Project opens | PASS | UEFN 5.8 opened `AirportSecurity` |
-| B-02 | Clean editor baseline | PASS | `All Saved`, `No Changes`, 14 actors |
-| B-03 | Bridge connection | BLOCKED | Port 8765 refused before Python enable; restart pending |
-| B-04 | Verse compile | NOT RUN | Run after text source enters live `Content` |
-| A-01 | Primitive path resolves | NOT RUN | Resolve inside the restarted live editor |
-| A-02 | Exact primitive placement | NOT RUN | Place one proof actor only |
-| A-03 | Save/reopen proof | NOT RUN | Required before production expansion |
-| A-04 | UEFN validation | NOT RUN | Required before approval |
-| C-01 | Start run exactly once | NOT RUN | Repeated input must not duplicate a run |
-| C-02 | Clear valid case | NOT RUN | Evidence -> Clear -> reward/progress once |
-| C-03 | Detain restricted case | NOT RUN | Evidence -> Detain -> secure fallback -> reward once |
-| C-04 | False detain | NOT RUN | Integrity/risk penalty, no duplicate progress |
-| C-05 | Stale input | NOT RUN | Old Case ID/callback cannot resolve next case |
-| C-06 | Owner disconnect | NOT RUN | Claim releases; lane remains usable |
-| E-01 | Runner emergency | NOT RUN | Warning, suspended case, objective, recovery |
-| X-01 | Boss detected branch | NOT RUN | Debug-forced branch reaches secure/results |
-| X-02 | Boss missed branch | NOT RUN | Debug-forced branch reaches secure/results |
-| S-01 | Launch Session smoke | NOT RUN | Player spawn, HUD, representative case, reset |
+Last reconciled: 2026-07-28 PDT
 
+| ID | Test | Status | Evidence / remaining requirement |
+|---|---|---|---|
+| B-01 | Project/map opens | PASS | Active `AirportSecurity`; `/AirportSecurity/AirportSecurity` |
+| B-02 | Saved production inventory | PASS | 155 actors; 143 unique `TL_`; no proof/trial labels |
+| B-03 | Builder idempotency | PASS | Rerun `created=0`, `updated=143`, `duplicates=0` |
+| B-04 | Verse compile | PASS | Original build and fresh 2026-07-28 no-source build succeeded |
+| B-05 | Validation/cook/activation | PASS | Local validation complete; candidate validated; content activated on all platforms |
+| C-01 | Start/autostart exactly once | PASS | Production replay reached Shift 1 once after reload |
+| C-02 | Clean Clear | PASS | Shift 1 body/clear production handlers |
+| C-03 | Secondary | PASS | Shift 3 body/bag/doc/secondary production handlers |
+| C-04 | Correct detention/intake | PASS | Detention and custody movement; +175 transaction |
+| C-05 | Duplicate custody | PASS | Second intake rejected by `CustodyCommitted` guard |
+| C-06 | False detention | PENDING RUNTIME | Compile path present; runtime evidence required |
+| C-07 | Runner capture | IMPLEMENTED / PENDING DEDICATED RUNTIME | Production handler and movement path exist |
+| C-08 | Runner escape | PENDING RUNTIME | Timeout/movement consequence requires dedicated evidence |
+| C-09 | Resistant response | IMPLEMENTED FALLBACK | Response -> custody path; no proven combat AI |
+| M-00 | Deterministic claim regression | PASS | One-client production-handler harness released/reclaimed CaseId 7 and rejected duplicate decision; not multiplayer QA |
+| M-01 | Two-player contention | NOT RUN | One connected client only |
+| M-02 | Claim owner disconnect/rejoin | NOT RUN | Handler and deterministic owner-loss regression pass; genuine disconnect/rejoin still required |
+| E-01 | Shift 5 power outage success | PASS | Scan denied offline; power restored; progression resumed |
+| E-02 | Emergency timeout | PASS | Extended live replay logged one timeout penalty and recovery in each of two runs |
+| E-03 | Shift 4/6 response | IMPLEMENTED FALLBACK | Response button state path; needs stronger physical proof |
+| X-01 | Boss detected victory | PASS | Four response stages -> victory -> results |
+| X-02 | Boss missed branch | PASS | Extended live replay logged Shift 7 missed-boss victory in each of two runs |
+| R-01 | Results -> waiting replay | PASS | Production replay marker and clean reset |
+| R-02 | Extended replay twice | PASS | Two complete QA2 sequences returned to waiting; production flag then restored false |
+| P-01 | Full 21-case pacing | NOT RUN | Requires normal no-skip run and balance record |
+| P-02 | Representative performance | NOT RUN | 4/8/16-player measurements pending |
+
+Never classify one-client automation as real multiplayer testing.

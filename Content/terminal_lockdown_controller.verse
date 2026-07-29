@@ -234,6 +234,57 @@ terminal_lockdown_controller := class(creative_device):
             TerminalLog(true, "[QA] Shift 7 boss victory complete")
             OnResponseButton(Player)
             TerminalLog(true, "[QA] Replay reset complete")
+
+            # One-client deterministic recovery harness. This is not a real
+            # multiplayer test: it proves the production claim can be released,
+            # reclaimed, and resolved once, while a duplicate decision cannot
+            # advance progress again.
+            OnStartButton(Player)
+            Sleep(1.0)
+            OnScanButton(Player)
+            set ClaimOwner = false
+            TerminalLog(true, "[QA2] Simulated owner loss released CaseId={CurrentCaseId}")
+            OnClearButton(Player)
+            OnClearButton(Player)
+            Sleep(4.0)
+            TerminalLog(true, "[QA2] Claim release/reclaim and duplicate decision guard complete")
+
+            # Exercise the missed final-threat branch through the same decision
+            # and response handlers used by players.
+            set Shift = 7
+            set CasesInShift = 2
+            set CurrentCaseId += 1
+            set CurrentTemplate = 12
+            set BodyChecked = true
+            set BagChecked = true
+            set DocumentsChecked = true
+            set SecondaryChecked = false
+            set ResolutionCommitted = false
+            set ClaimOwner = false
+            set Phase = terminal_game_phase.AwaitingDecision
+            OnClearButton(Player)
+            Sleep(1.0)
+            OnResponseButton(Player)
+            OnResponseButton(Player)
+            OnResponseButton(Player)
+            OnResponseButton(Player)
+            Sleep(1.0)
+            TerminalLog(true, "[QA2] Shift 7 missed boss branch reached victory")
+            OnResponseButton(Player)
+
+            # Run the real emergency-timeout handler with a short QA wait. The
+            # production BeginEmergency task still uses the editable 45-second
+            # timeout; its stale callback becomes harmless after this resolves.
+            OnStartButton(Player)
+            set Shift = 6
+            set CasesInShift = CasesPerShift
+            BeginEmergency()
+            CurrentQAGeneration := EmergencyGeneration
+            spawn{EmergencyTimeout(CurrentQAGeneration, 1.0)}
+            Sleep(2.0)
+            TerminalLog(true, "[QA2] Emergency timeout penalty and recovery complete")
+            ResetToWaiting()
+            TerminalLog(true, "[QA2] Extended replay complete; returned to waiting")
             return
 
     AutoStartWaitingRun()<suspends>:void=
@@ -761,10 +812,10 @@ terminal_lockdown_controller := class(creative_device):
             SetBoard(PowerBoard, "POWER ONLINE | SECURITY LOCKDOWN")
             ShowAll("LOCKDOWN | {EmergencyLabel(Shift)} | Use RESPOND / SECURE before the timer expires.", 8.0)
         TerminalLog(DebugEnabled, "[EMERGENCY] Started|Shift={Shift}|Generation={CurrentEmergencyGeneration}")
-        spawn{EmergencyTimeout(CurrentEmergencyGeneration)}
+        spawn{EmergencyTimeout(CurrentEmergencyGeneration, EmergencyTimeoutSeconds)}
 
-    EmergencyTimeout(ExpectedGeneration:int)<suspends>:void=
-        Sleep(EmergencyTimeoutSeconds)
+    EmergencyTimeout(ExpectedGeneration:int, WaitSeconds:float)<suspends>:void=
+        Sleep(WaitSeconds)
         if (Phase = terminal_game_phase.Emergency and ExpectedGeneration = EmergencyGeneration):
             RaiseRisk(12)
             DamageIntegrity(10, "Emergency timeout")
