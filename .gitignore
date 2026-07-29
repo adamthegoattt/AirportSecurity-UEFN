@@ -1,0 +1,72 @@
+# Unreal Engine / UEFN generated output
+Binaries/
+Build/
+DerivedDataCache/
+Intermediate/
+Saved/
+
+# Editor caches and local IDE state
+.vs/
+.vscode/
+.idea/
+*.code-workspace
+*.VC.db
+*.VC.opendb
+*.opensdf
+*.opendb
+*.sdf
+*.sln
+*.suo
+*.xcodeproj/
+*.xcworkspace/
+
+# UEFN local revision-control and editor state
+.lore/
+.urc/
+.skein/
+Content/Collections/
+Content/Developers/
+Content/_INT/
+
+# Python and tool caches
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+Content/.uefn-mcp-snapshots/
+
+# Autosaves, backups, logs, crash data, and temporary files
+Autosaves/
+Backup/
+Backups/
+Crashes/
+Logs/
+*.autosave
+*.bak
+*.log
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+Thumbs.db
+Desktop.ini
+
+# Local environment and credential material
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.pfx
+*.p12
+*.jks
+*.keystore
+credentials*.json
+secrets*.json
+
+# Keep project source and editable UEFN content. In particular, do not ignore:
+# *.uefnproject, *.uplugin, Config/, Content/*.verse, Content/Python/,
+# Content/*.uasset, Content/*.umap, Content/__ExternalActors__/,
+# Content/__ExternalObjects__/, docs/, or Resources/.
