@@ -120,6 +120,8 @@ terminal_lockdown_controller := class(creative_device):
     var PowerOnline:logic = true
     var CurrentCustodyMode:int = 0
     var ClaimOwner:?player = false
+    var QueueFrontIndex:int = 0
+    var QueueGeneration:int = 0
 
     OnBegin<override>()<suspends>:void=
         StartButton.InteractedWithEvent.Subscribe(OnStartButton)
@@ -435,6 +437,7 @@ terminal_lockdown_controller := class(creative_device):
         PassengerQueue2.Show()
         PassengerQueue3.Show()
         PassengerActive.Hide()
+        spawn{ResetPassengerQueue(RunGeneration)}
         CheckpointBoard.SetShowBorder(true)
         CaseBoard.SetShowBorder(true)
         BagBoard.SetShowBorder(true)
@@ -494,12 +497,15 @@ terminal_lockdown_controller := class(creative_device):
         set PowerOnline = true
         set CurrentCustodyMode = 0
         set CustodyCommitted = false
+        set QueueFrontIndex = 0
+        set QueueGeneration += 1
         ScanButton.Enable()
         CustodyButton.Disable()
         PowerButton.Disable()
         SetBoard(PowerBoard, "POWER ONLINE")
         SetBoard(EmergencyBoard, "RESPONSE SUPPLY | STANDBY")
         set Phase = terminal_game_phase.Briefing
+        spawn{ResetPassengerQueue(RunGeneration)}
         ShowAll("ASTRA TERMINAL SAFETY UNIT | Inspect evidence, then CLEAR, SECONDARY, or DETAIN.", 7.0)
         TerminalLog(DebugEnabled, "[BOOT] RunGeneration={RunGeneration} started")
         PrepareNextCase()
@@ -796,7 +802,7 @@ terminal_lockdown_controller := class(creative_device):
             else:
                 BeginUpgradeBreak()
         else:
-            PrepareNextCase()
+            spawn{AdvanceQueueAndPrepare(CurrentCaseId, RunGeneration, QueueGeneration)}
 
     PrepareNextCase():void=
         set CurrentCaseId += 1
@@ -855,6 +861,115 @@ terminal_lockdown_controller := class(creative_device):
         )
         if (ExpectedCaseId = CurrentCaseId and ExpectedRun = RunGeneration):
             SetBoard(CheckpointBoard, "ACTIVE PASSENGER | CASE {CurrentCaseId} | BODY SCAN")
+
+    ResetPassengerQueue(ExpectedRun:int)<suspends>:void=
+        PassengerQueue1.Hide()
+        PassengerQueue2.Hide()
+        PassengerQueue3.Hide()
+        Move1 := PassengerQueue1.MoveTo(
+            vector3{X := -1200.0, Y := -2150.0, Z := 70.0},
+            IdentityRotation(),
+            0.1
+        )
+        Move2 := PassengerQueue2.MoveTo(
+            vector3{X := -1700.0, Y := -2150.0, Z := 70.0},
+            IdentityRotation(),
+            0.1
+        )
+        Move3 := PassengerQueue3.MoveTo(
+            vector3{X := -2200.0, Y := -2150.0, Z := 70.0},
+            IdentityRotation(),
+            0.1
+        )
+        if (ExpectedRun <> RunGeneration):
+            return
+        PassengerQueue1.Show()
+        PassengerQueue2.Show()
+        PassengerQueue3.Show()
+        SetBoard(CheckpointBoard, "SECURITY CHECKPOINT | 3 PASSENGERS WAITING")
+
+    AdvanceQueueAndPrepare(ExpectedCaseId:int, ExpectedRun:int, ExpectedQueueGeneration:int)<suspends>:void=
+        if (ExpectedCaseId <> CurrentCaseId or ExpectedRun <> RunGeneration or ExpectedQueueGeneration <> QueueGeneration):
+            return
+        set QueueGeneration += 1
+        ThisQueueGeneration := QueueGeneration
+
+        if (QueueFrontIndex = 0):
+            FrontMove := PassengerQueue1.MoveTo(
+                vector3{X := -800.0, Y := -2150.0, Z := 70.0},
+                IdentityRotation(),
+                0.6
+            )
+            MidMove := PassengerQueue2.MoveTo(
+                vector3{X := -1200.0, Y := -2150.0, Z := 70.0},
+                IdentityRotation(),
+                0.7
+            )
+            RearMove := PassengerQueue3.MoveTo(
+                vector3{X := -1700.0, Y := -2150.0, Z := 70.0},
+                IdentityRotation(),
+                0.7
+            )
+            PassengerQueue1.Hide()
+            Recycle := PassengerQueue1.MoveTo(
+                vector3{X := -2200.0, Y := -2150.0, Z := 70.0},
+                IdentityRotation(),
+                0.1
+            )
+            PassengerQueue1.Show()
+            set QueueFrontIndex = 1
+        else if (QueueFrontIndex = 1):
+            FrontMove := PassengerQueue2.MoveTo(
+                vector3{X := -800.0, Y := -2150.0, Z := 70.0},
+                IdentityRotation(),
+                0.6
+            )
+            MidMove := PassengerQueue3.MoveTo(
+                vector3{X := -1200.0, Y := -2150.0, Z := 70.0},
+                IdentityRotation(),
+                0.7
+            )
+            RearMove := PassengerQueue1.MoveTo(
+                vector3{X := -1700.0, Y := -2150.0, Z := 70.0},
+                IdentityRotation(),
+                0.7
+            )
+            PassengerQueue2.Hide()
+            Recycle := PassengerQueue2.MoveTo(
+                vector3{X := -2200.0, Y := -2150.0, Z := 70.0},
+                IdentityRotation(),
+                0.1
+            )
+            PassengerQueue2.Show()
+            set QueueFrontIndex = 2
+        else:
+            FrontMove := PassengerQueue3.MoveTo(
+                vector3{X := -800.0, Y := -2150.0, Z := 70.0},
+                IdentityRotation(),
+                0.6
+            )
+            MidMove := PassengerQueue1.MoveTo(
+                vector3{X := -1200.0, Y := -2150.0, Z := 70.0},
+                IdentityRotation(),
+                0.7
+            )
+            RearMove := PassengerQueue2.MoveTo(
+                vector3{X := -1700.0, Y := -2150.0, Z := 70.0},
+                IdentityRotation(),
+                0.7
+            )
+            PassengerQueue3.Hide()
+            Recycle := PassengerQueue3.MoveTo(
+                vector3{X := -2200.0, Y := -2150.0, Z := 70.0},
+                IdentityRotation(),
+                0.1
+            )
+            PassengerQueue3.Show()
+            set QueueFrontIndex = 0
+
+        if (ExpectedCaseId <> CurrentCaseId or ExpectedRun <> RunGeneration or ThisQueueGeneration <> QueueGeneration):
+            return
+        PrepareNextCase()
 
     BeginUpgradeBreak():void=
         set Phase = terminal_game_phase.UpgradeBreak
@@ -1042,7 +1157,10 @@ terminal_lockdown_controller := class(creative_device):
         set ResolutionCommitted = false
         set CustodyCommitted = false
         set CurrentCustodyMode = 0
+        set QueueFrontIndex = 0
+        set QueueGeneration += 1
         PassengerActive.Hide()
+        spawn{ResetPassengerQueue(RunGeneration)}
         CustodyButton.Disable()
         RestoreNormalPower()
         SetBoard(CheckpointBoard, "SECURITY CHECKPOINT | OPEN")
