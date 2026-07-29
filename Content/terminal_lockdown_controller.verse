@@ -106,6 +106,27 @@ terminal_lockdown_controller := class(creative_device):
     DetainBoard:billboard_device = billboard_device{}
 
     @editable
+    ResponseGranter:item_granter_device = item_granter_device{}
+
+    @editable
+    ResponseRemover:item_remover_device = item_remover_device{}
+
+    @editable
+    ResponseRemote:signal_remote_manager_device = signal_remote_manager_device{}
+
+    @editable
+    ResponseAlarm:audio_player_device = audio_player_device{}
+
+    @editable
+    ResponseLightA:customizable_light_device = customizable_light_device{}
+
+    @editable
+    ResponseLightB:customizable_light_device = customizable_light_device{}
+
+    @editable
+    ResponseLoadoutBoard:billboard_device = billboard_device{}
+
+    @editable
     CasesPerShift:int = 3
 
     @editable
@@ -119,6 +140,9 @@ terminal_lockdown_controller := class(creative_device):
 
     @editable
     ResponseProximityRadius:float = 850.0
+
+    @editable
+    ResponseTimeoutSeconds:float = 30.0
 
     @editable
     DebugEnabled:logic = false
@@ -160,6 +184,7 @@ terminal_lockdown_controller := class(creative_device):
     var BagGeneration:int = 0
     var ActiveBagIndex:int = 0
     var DocumentGeneration:int = 0
+    var ResponseGeneration:int = 0
     var DocumentRootUI:[player]canvas = map{}
     var DocumentOpenCase:[player]int = map{}
 
@@ -172,6 +197,7 @@ terminal_lockdown_controller := class(creative_device):
         SecondaryButton.InteractedWithEvent.Subscribe(OnSecondaryButton)
         DetainButton.InteractedWithEvent.Subscribe(OnDetainButton)
         ResponseButton.InteractedWithEvent.Subscribe(OnResponseButton)
+        ResponseRemote.PrimarySignalEvent.Subscribe(OnResponseRemote)
         UpgradeButton.InteractedWithEvent.Subscribe(OnUpgradeButton)
         CustodyButton.InteractedWithEvent.Subscribe(OnCustodyButton)
         PowerButton.InteractedWithEvent.Subscribe(OnPowerButton)
@@ -387,7 +413,9 @@ terminal_lockdown_controller := class(creative_device):
             ResetToWaiting()
 
             # Resistant response through the real Shift 6 template schedule,
-            # response interaction, physical intake, and custody handlers.
+            # event start, cleanup, physical intake, and custody handlers. The
+            # disabled-by-default harness resolves the event directly because
+            # it cannot reposition its only client into the response room.
             OnStartButton(Player)
             set Shift = 6
             set CasesInShift = 1
@@ -398,8 +426,7 @@ terminal_lockdown_controller := class(creative_device):
             OnDocumentButton(Player)
             OnDetainButton(Player)
             Sleep(4.5)
-            OnResponseButton(Player)
-            OnResponseButton(Player)
+            SecureResponseThreat(Player)
             Sleep(4.5)
             OnCustodyButton(Player)
             OnCustodyButton(Player)
@@ -488,6 +515,7 @@ terminal_lockdown_controller := class(creative_device):
         ClearBoard.SetShowBorder(true)
         SecondaryBoard.SetShowBorder(true)
         DetainBoard.SetShowBorder(true)
+        ResponseLoadoutBoard.SetShowBorder(true)
         CheckpointBoard.SetTextSize(24)
         CaseBoard.SetTextSize(18)
         BagBoard.SetTextSize(16)
@@ -499,6 +527,7 @@ terminal_lockdown_controller := class(creative_device):
         ClearBoard.SetTextSize(26)
         SecondaryBoard.SetTextSize(26)
         DetainBoard.SetTextSize(26)
+        ResponseLoadoutBoard.SetTextSize(20)
         SetBoard(CheckpointBoard, "SECURITY CHECKPOINT | OPEN")
         SetBoard(CaseBoard, "CURRENT PASSENGER | WAITING FOR SHIFT")
         SetBoard(BagBoard, "BAG INSPECTION | NO ACTIVE BAG")
@@ -507,13 +536,26 @@ terminal_lockdown_controller := class(creative_device):
         SetBoard(CustodyBoard, "DETENTION INTAKE | READY")
         SetBoard(CellBoard, "DETENTION CELL | VACANT")
         SetBoard(EmergencyBoard, "RESPONSE SUPPLY | STANDBY")
+        SetBoard(ResponseLoadoutBoard, "SECURITY RESPONSE KIT\nSIGNAL REMOTE A\nSTANDBY")
         SetDecisionControlsAvailable(false)
         JailOccupant.Hide()
         CustodyButton.Disable()
         PowerButton.Disable()
+        ResponseButton.Disable()
+        ResponseGranter.Disable()
+        ResponseRemover.Enable()
+        ResponseRemote.Disable()
+        ResponseAlarm.Enable()
+        ResponseAlarm.Stop()
+        ResponseLightA.Enable()
+        ResponseLightA.TurnOff()
+        ResponseLightB.Enable()
+        ResponseLightB.TurnOff()
 
     OnPlayerAdded(Player:player):void=
         StatusHUD.Show(Player, TerminalMessage(CurrentStatus()), ?DisplayTime := 8.0)
+        if (Phase = terminal_game_phase.HostileResponse):
+            ResponseGranter.GrantItem(Player)
         TerminalLog(DebugEnabled, "[PLAYER] Joined during phase {PhaseLabel()}")
 
     OnPlayerRemoved(Player:player):void=
@@ -913,11 +955,7 @@ terminal_lockdown_controller := class(creative_device):
             return
         if (CurrentTemplate = 9):
             set CurrentCustodyMode = 3
-            set Phase = terminal_game_phase.HostileResponse
-            SetBoard(CaseBoard, "CASE {CurrentCaseId} | RESISTANT SUSPECT")
-            SetBoard(EmergencyBoard, "RESPONSE SUPPLY AUTHORIZED | INCAPACITATE")
-            ShowAll("RESISTANT SUSPECT | Response supply authorized. Use RESPOND, then complete jail intake.", 8.0)
-            spawn{MovePassengerToResponse(CurrentCaseId, RunGeneration)}
+            StartResponseEvent()
             return
         set CurrentCustodyMode = 1
         set Phase = terminal_game_phase.Custody
@@ -1045,6 +1083,9 @@ terminal_lockdown_controller := class(creative_device):
             spawn{AdvanceQueueAndPrepare(CurrentCaseId, RunGeneration, QueueGeneration)}
 
     PrepareNextCase():void=
+        set ResponseGeneration += 1
+        CleanupResponseEquipment()
+        ResponseButton.Disable()
         set DocumentGeneration += 1
         CloseAllDocumentInterfaces()
         set CurrentCaseId += 1
@@ -1278,6 +1319,9 @@ terminal_lockdown_controller := class(creative_device):
         PrepareNextCase()
 
     BeginUpgradeBreak():void=
+        set ResponseGeneration += 1
+        CleanupResponseEquipment()
+        ResponseButton.Disable()
         set DocumentGeneration += 1
         CloseAllDocumentInterfaces()
         set Phase = terminal_game_phase.UpgradeBreak
@@ -1317,6 +1361,9 @@ terminal_lockdown_controller := class(creative_device):
         PrepareNextCase()
 
     BeginEmergency():void=
+        set ResponseGeneration += 1
+        CleanupResponseEquipment()
+        ResponseButton.Enable()
         set Phase = terminal_game_phase.Emergency
         SetDecisionControlsAvailable(false)
         set ClaimOwner = false
@@ -1370,19 +1417,132 @@ terminal_lockdown_controller := class(creative_device):
         PowerButton.Disable()
         SetBoard(PowerBoard, "POWER ONLINE")
 
+    StartResponseEvent():void=
+        set Phase = terminal_game_phase.HostileResponse
+        set ResponseGeneration += 1
+        CurrentResponseGeneration := ResponseGeneration
+        ResponseButton.Enable()
+        ResponseGranter.Enable()
+        ResponseRemote.Enable()
+        ResponseAlarm.Enable()
+        ResponseAlarm.Play()
+        ResponseLightA.Enable()
+        ResponseLightA.TurnOn()
+        ResponseLightB.Enable()
+        ResponseLightB.TurnOn()
+        SetBoard(CheckpointBoard, "CHECKPOINT CLOSED | RESPONSE ALERT")
+        SetBoard(CaseBoard, "CASE {CurrentCaseId} | RESISTANT SUSPECT | CONTAINED")
+        SetBoard(EmergencyBoard, "RED ALERT | RESPONSE KIT AUTHORIZED")
+        SetBoard(ResponseLoadoutBoard, "SECURITY RESPONSE KIT\nSIGNAL REMOTE A\nPRIMARY FIRE TO INCAPACITATE")
+        for (Player : GetPlayspace().GetPlayers()):
+            ResponseGranter.GrantItem(Player)
+        ShowAll("RESPONSE ALERT | Take Signal Remote A at the secured station. Enter the contained response room and use PRIMARY FIRE.", 10.0)
+        TerminalLog(DebugEnabled, "[RESPONSE] Started|CaseId={CurrentCaseId}|Generation={CurrentResponseGeneration}")
+        spawn{ThreatPatrolLoop(CurrentCaseId, RunGeneration, CurrentResponseGeneration)}
+        spawn{ResponseTimeout(CurrentCaseId, RunGeneration, CurrentResponseGeneration, ResponseTimeoutSeconds)}
+
+    ThreatPatrolLoop(ExpectedCaseId:int, ExpectedRun:int, ExpectedResponseGeneration:int)<suspends>:void=
+        Arrival := PassengerActive.MoveTo(
+            vector3{X := 5200.0, Y := -1900.0, Z := 70.0},
+            IdentityRotation(),
+            3.0
+        )
+        if (not IsResponseEventCurrent(ExpectedCaseId, ExpectedRun, ExpectedResponseGeneration)?):
+            return
+        SetBoard(EmergencyBoard, "ACTIVE THREAT | CONTAINED IN RESPONSE ROOM")
+        loop:
+            PatrolA := PassengerActive.MoveTo(
+                vector3{X := 5750.0, Y := -1900.0, Z := 70.0},
+                IdentityRotation(),
+                2.2
+            )
+            if (not IsResponseEventCurrent(ExpectedCaseId, ExpectedRun, ExpectedResponseGeneration)?):
+                return
+            PatrolB := PassengerActive.MoveTo(
+                vector3{X := 5750.0, Y := -2550.0, Z := 70.0},
+                IdentityRotation(),
+                2.2
+            )
+            if (not IsResponseEventCurrent(ExpectedCaseId, ExpectedRun, ExpectedResponseGeneration)?):
+                return
+            PatrolC := PassengerActive.MoveTo(
+                vector3{X := 5200.0, Y := -2450.0, Z := 70.0},
+                IdentityRotation(),
+                2.2
+            )
+            if (not IsResponseEventCurrent(ExpectedCaseId, ExpectedRun, ExpectedResponseGeneration)?):
+                return
+
+    ResponseTimeout(ExpectedCaseId:int, ExpectedRun:int, ExpectedResponseGeneration:int, WaitSeconds:float)<suspends>:void=
+        Sleep(WaitSeconds)
+        if (not IsResponseEventCurrent(ExpectedCaseId, ExpectedRun, ExpectedResponseGeneration)?):
+            return
+        set Phase = terminal_game_phase.Resolving
+        set ResponseGeneration += 1
+        CleanupResponseEquipment()
+        ResponseButton.Disable()
+        PassengerActive.Hide()
+        set CurrentCustodyMode = 0
+        RaiseRisk(10)
+        DamageIntegrity(8, "Response event timeout")
+        if (Phase = terminal_game_phase.Results):
+            return
+        SetBoard(CaseBoard, "CASE {CurrentCaseId} | CONTAINMENT FALLBACK")
+        SetBoard(CellBoard, "DETENTION CELL | VACANT | TRANSFERRED")
+        ShowAll("RESPONSE TIMEOUT | Automated containment transferred the suspect | -8 integrity, +10 risk.", 8.0)
+        TerminalLog(DebugEnabled, "[RESPONSE] Timeout|CaseId={CurrentCaseId}")
+        FinishCase()
+
+    OnResponseRemote(Agent:agent):void=
+        if (Phase <> terminal_game_phase.HostileResponse):
+            return
+        if (not IsAgentNear(Agent, vector3{X := 5525.0, Y := -2200.0, Z := 70.0}, ResponseProximityRadius)?):
+            ShowAgent(Agent, "REMOTE OUT OF RANGE | Enter the contained response room.", 5.0)
+            TerminalLog(DebugEnabled, "[RESPONSE] Out-of-range remote signal rejected for CaseId={CurrentCaseId}")
+            return
+        SecureResponseThreat(Agent)
+
+    SecureResponseThreat(Agent:agent):void=
+        if (Phase <> terminal_game_phase.HostileResponse):
+            return
+        set Phase = terminal_game_phase.Custody
+        set ResponseGeneration += 1
+        CleanupResponseEquipment()
+        ResponseButton.Disable()
+        set CurrentCustodyMode = 1
+        CustodyButton.Enable()
+        SetBoard(CheckpointBoard, "SECURITY CHECKPOINT | RESPONSE SECURED")
+        SetBoard(EmergencyBoard, "SUSPECT INCAPACITATED | ALL CLEAR")
+        SetBoard(CustodyBoard, "SUSPECT SECURED | COMPLETE JAIL INTAKE")
+        SetBoard(ResponseLoadoutBoard, "SECURITY RESPONSE KIT\nEVENT COMPLETE\nEQUIPMENT RECALLED")
+        ShowAll("SUSPECT INCAPACITATED | Signal remote recalled. Complete SECURE / JAIL INTAKE.", 7.0)
+        TerminalLog(DebugEnabled, "[RESPONSE] Success|CaseId={CurrentCaseId}")
+        spawn{MovePassengerToIntake(CurrentCaseId, RunGeneration)}
+
+    CleanupResponseEquipment():void=
+        for (Player : GetPlayspace().GetPlayers()):
+            ResponseRemover.Remove(Player)
+        ResponseGranter.Disable()
+        ResponseRemote.Disable()
+        ResponseAlarm.Stop()
+        ResponseLightA.TurnOff()
+        ResponseLightB.TurnOff()
+        SetBoard(ResponseLoadoutBoard, "SECURITY RESPONSE KIT\nSIGNAL REMOTE A\nSTANDBY")
+
+    IsResponseEventCurrent(ExpectedCaseId:int, ExpectedRun:int, ExpectedResponseGeneration:int)<transacts>:logic=
+        if (Phase = terminal_game_phase.HostileResponse and ExpectedCaseId = CurrentCaseId and ExpectedRun = RunGeneration and ExpectedResponseGeneration = ResponseGeneration):
+            return true
+        false
+
     OnResponseButton(Agent:agent):void=
         if (Phase = terminal_game_phase.HostileResponse):
-            if (not IsAgentNear(Agent, vector3{X := 5650.0, Y := -3000.0, Z := 70.0}, ResponseProximityRadius)?):
+            if (not IsAgentNear(Agent, vector3{X := 5570.0, Y := -2290.0, Z := 70.0}, ResponseProximityRadius)?):
                 ShowAgent(Agent, "TOO FAR FROM RESPONSE ZONE | Reach the secured supply station.", 5.0)
                 TerminalLog(DebugEnabled, "[RESPONSE] Remote resistant response rejected for CaseId={CurrentCaseId}")
                 return
-            set Phase = terminal_game_phase.Custody
-            set CurrentCustodyMode = 1
-            CustodyButton.Enable()
-            SetBoard(EmergencyBoard, "SUSPECT INCAPACITATED | SUPPLY STANDBY")
-            SetBoard(CustodyBoard, "SUSPECT SECURED | COMPLETE JAIL INTAKE")
-            ShowAll("SUSPECT INCAPACITATED | Complete SECURE / JAIL INTAKE.", 6.0)
-            spawn{MovePassengerToIntake(CurrentCaseId, RunGeneration)}
+            ResponseGranter.GrantItem(Agent)
+            ShowAgent(Agent, "SIGNAL REMOTE A ISSUED | Enter the contained room and use PRIMARY FIRE.", 6.0)
+            TerminalLog(DebugEnabled, "[RESPONSE] Loadout issued|CaseId={CurrentCaseId}")
             return
         if (Phase = terminal_game_phase.Emergency):
             if (Shift = 5 and not PowerOnline?):
@@ -1421,6 +1581,9 @@ terminal_lockdown_controller := class(creative_device):
         ShowAgent(Agent, "No emergency response is active.", 4.0)
 
     BeginBoss(Detected:logic):void=
+        set ResponseGeneration += 1
+        CleanupResponseEquipment()
+        ResponseButton.Enable()
         set ClaimOwner = false
         if (Detected?):
             set BossBranch = terminal_boss_branch.Detected
@@ -1443,6 +1606,9 @@ terminal_lockdown_controller := class(creative_device):
         TerminalLog(DebugEnabled, "[BOSS] Branch={BossBranchLabel()}|Integrity={TeamIntegrity}|Risk={TeamRisk}")
 
     FinishVictory():void=
+        set ResponseGeneration += 1
+        CleanupResponseEquipment()
+        ResponseButton.Enable()
         set Phase = terminal_game_phase.Results
         set TeamCash += 500
         PassengerActive.Hide()
@@ -1454,6 +1620,9 @@ terminal_lockdown_controller := class(creative_device):
         TerminalLog(DebugEnabled, "[RESULTS] Victory|Grade={Grade}|Correct={CorrectDecisions}|Resolved={TotalCasesResolved}|Integrity={TeamIntegrity}|Risk={TeamRisk}|Cash={TeamCash}|Boss={BossBranchLabel()}")
 
     FinishDefeat(Reason:string):void=
+        set ResponseGeneration += 1
+        CleanupResponseEquipment()
+        ResponseButton.Enable()
         set Phase = terminal_game_phase.Results
         set ClaimOwner = false
         set EmergencyGeneration += 1
@@ -1466,6 +1635,9 @@ terminal_lockdown_controller := class(creative_device):
         TerminalLog(DebugEnabled, "[RESULTS] Defeat|Reason={Reason}|Shift={Shift}|CaseId={CurrentCaseId}")
 
     ResetToWaiting():void=
+        set ResponseGeneration += 1
+        CleanupResponseEquipment()
+        ResponseButton.Disable()
         set DocumentGeneration += 1
         CloseAllDocumentInterfaces()
         set RunGeneration += 1
@@ -1620,7 +1792,7 @@ terminal_lockdown_controller := class(creative_device):
         if (Phase = terminal_game_phase.Runner):
             return "RUNNER | Intercept Case {CurrentCaseId} before departure."
         if (Phase = terminal_game_phase.HostileResponse):
-            return "RESISTANT SUSPECT | Use response supply."
+            return "RESISTANT SUSPECT | Take Signal Remote A; use PRIMARY FIRE inside response room."
         if (Phase = terminal_game_phase.Custody):
             return "CUSTODY | Deliver Case {CurrentCaseId} to detention intake."
         "SHIFT {Shift} {ShiftLabel(Shift)} | CASE {CurrentCaseId} {TemplateName(CurrentTemplate)} | {EvidencePrompt()}"
