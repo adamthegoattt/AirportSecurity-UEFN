@@ -122,6 +122,7 @@ terminal_lockdown_controller := class(creative_device):
     var ClaimOwner:?player = false
     var QueueFrontIndex:int = 0
     var QueueGeneration:int = 0
+    var ScannerGeneration:int = 0
 
     OnBegin<override>()<suspends>:void=
         StartButton.InteractedWithEvent.Subscribe(OnStartButton)
@@ -527,9 +528,21 @@ terminal_lockdown_controller := class(creative_device):
         set Phase = terminal_game_phase.Inspecting
         set BodyChecked = true
         set Phase = terminal_game_phase.AwaitingDecision
-        SetBoard(CheckpointBoard, "BODY SCAN | {BodyEvidence(CurrentTemplate)}")
-        ShowAgent(Agent, "BODY | {BodyEvidence(CurrentTemplate)} | {EvidencePrompt()}", 6.0)
+        set ScannerGeneration += 1
+        SetBoard(CheckpointBoard, "SCANNER ACTIVE | AMBER SWEEP | BEEP")
+        ShowAgent(Agent, "BODY SCANNER ACTIVE | Hold for the physical result.", 3.0)
+        spawn{RunScannerSequence(CurrentCaseId, RunGeneration, ScannerGeneration, CurrentTemplate)}
         TerminalLog(DebugEnabled, "[SCAN] CaseId={CurrentCaseId}|Template={CurrentTemplate}|CheckedOnce=True")
+
+    RunScannerSequence(ExpectedCaseId:int, ExpectedRun:int, ExpectedScannerGeneration:int, Template:int)<suspends>:void=
+        Sleep(1.0)
+        if (ExpectedCaseId <> CurrentCaseId or ExpectedRun <> RunGeneration or ExpectedScannerGeneration <> ScannerGeneration):
+            return
+        if (not PowerOnline?):
+            SetBoard(CheckpointBoard, "SCANNER OFFLINE | RESTORE POWER")
+            return
+        SetBoard(CheckpointBoard, "SCANNER RESULT | {ScannerResultText(Template)} | {BodyEvidence(Template)}")
+        ShowAll("SCANNER RESULT | {ScannerResultText(Template)} | {BodyEvidence(Template)}", 5.0)
 
     OnBagButton(Agent:agent):void=
         if (Shift < 2):
@@ -808,6 +821,7 @@ terminal_lockdown_controller := class(creative_device):
         set CurrentCaseId += 1
         set CurrentTemplate = SelectTemplate(Shift, CasesInShift)
         set BodyChecked = false
+        set ScannerGeneration += 1
         set BagChecked = false
         set DocumentsChecked = false
         set SecondaryChecked = false
@@ -1016,6 +1030,7 @@ terminal_lockdown_controller := class(creative_device):
         SetBoard(EmergencyBoard, "RED ALERT | {EmergencyLabel(Shift)}")
         if (Shift = 5):
             set PowerOnline = false
+            set ScannerGeneration += 1
             ScanButton.Disable()
             PowerButton.Enable()
             SetBoard(PowerBoard, "POWER OFFLINE | RESTORE AT UTILITY CONSOLE")
@@ -1159,6 +1174,7 @@ terminal_lockdown_controller := class(creative_device):
         set CurrentCustodyMode = 0
         set QueueFrontIndex = 0
         set QueueGeneration += 1
+        set ScannerGeneration += 1
         PassengerActive.Hide()
         spawn{ResetPassengerQueue(RunGeneration)}
         CustodyButton.Disable()
@@ -1388,6 +1404,14 @@ terminal_lockdown_controller := class(creative_device):
         if (Template = 2 or Template = 4 or Template = 5 or Template = 8 or Template = 9 or Template = 12):
             return terminal_decision.Detain
         terminal_decision.Clear
+
+    ScannerResultText(Template:int):string=
+        Required := RequiredDecision(Template)
+        if (Required = terminal_decision.Detain):
+            return "RED / SUSPICIOUS"
+        if (Required = terminal_decision.Secondary):
+            return "YELLOW / UNCERTAIN"
+        "GREEN / CLEAR"
 
     TemplateName(Template:int)<computes>:string=
         if (Template = 1):
