@@ -2,7 +2,7 @@
 
 ## Checkpoint
 
-- Name: **Terminal Lockdown - Failure Branch Replay QA**
+- Name: **Terminal Lockdown - Reference Match / Moving Luggage**
 - Date: **2026-07-28 PDT**
 - Project: `AirportSecurity`
 - Map: `/AirportSecurity/AirportSecurity`
@@ -12,11 +12,12 @@
 
 ## Current game state
 
-- The validated Terminal Lockdown production graybox remains intact at 155
-  actors total, including exactly 143 uniquely named `TL_` production actors.
-- UEFN and the connected Fortnite client are open and responsive.
-- The last verified editor state is `Game in Progress`, `All Saved`, and
-  `0 Edits - 0 Pending Push`, with `TL_Controller` selected.
+- The validated reference-match terminal and support-room pass is saved in
+  `/AirportSecurity/AirportSecurity`; the current editor audit reports 234
+  loaded actors.
+- UEFN is open, responsive, disconnected from a live session, and all saved.
+- Three class-backed production luggage props are wired to `TL_Controller` for
+  active-case-linked inbound, X-ray, result, and exit movement.
 - `DebugEnabled=false` and `AutomatedReplayEnabled=false` in the saved map.
 - Fully verified rolling continuation prompt V2 preserves the original
   game brief, reference roles, current architecture, asset contract, validation
@@ -97,8 +98,8 @@ No new placed production actor was added in this continuation cycle. The saved
 inventory remains:
 
 - 118 `/Game/Valkyrie/GridPlane.GridPlane_C` architecture/physical-prop actors.
-- 12 Button devices: start, scan, bag, documents, clear, secondary, detain,
-  response, upgrade, debug, custody, and power.
+- 11 Button devices: start, scan, bag, documents, clear, secondary, detain,
+  response, upgrade, custody, and power. The temporary debug button was removed.
 - 7 Billboard devices: checkpoint, case, bag, document, power, custody, and
   emergency.
 - 4 Character devices: three queue passengers and one active passenger.
@@ -141,6 +142,10 @@ inventory remains:
   deterministic one-client harness.
 
 ## Known issues
+
+- Current live-session startup is externally blocked by Epic handshake error
+  `errors.com.epicgames.common.processing` after two clean attempts. Final
+  in-session reference-angle proof is therefore still pending.
 
 - Genuine two-client claim contention, disconnect, rejoin, and replication QA
   remain untested.

@@ -36,9 +36,6 @@ terminal_lockdown_controller := class(creative_device):
     UpgradeButton:button_device = button_device{}
 
     @editable
-    DebugButton:button_device = button_device{}
-
-    @editable
     CustodyButton:button_device = button_device{}
 
     @editable
@@ -58,6 +55,15 @@ terminal_lockdown_controller := class(creative_device):
 
     @editable
     PassengerActive:character_device = character_device{}
+
+    @editable
+    BagPropSmall:creative_prop = creative_prop{}
+
+    @editable
+    BagPropMedium:creative_prop = creative_prop{}
+
+    @editable
+    BagPropHardShell:creative_prop = creative_prop{}
 
     @editable
     CheckpointBoard:billboard_device = billboard_device{}
@@ -123,6 +129,8 @@ terminal_lockdown_controller := class(creative_device):
     var QueueFrontIndex:int = 0
     var QueueGeneration:int = 0
     var ScannerGeneration:int = 0
+    var BagGeneration:int = 0
+    var ActiveBagIndex:int = 0
 
     OnBegin<override>()<suspends>:void=
         StartButton.InteractedWithEvent.Subscribe(OnStartButton)
@@ -134,7 +142,6 @@ terminal_lockdown_controller := class(creative_device):
         DetainButton.InteractedWithEvent.Subscribe(OnDetainButton)
         ResponseButton.InteractedWithEvent.Subscribe(OnResponseButton)
         UpgradeButton.InteractedWithEvent.Subscribe(OnUpgradeButton)
-        DebugButton.InteractedWithEvent.Subscribe(OnDebugButton)
         CustodyButton.InteractedWithEvent.Subscribe(OnCustodyButton)
         PowerButton.InteractedWithEvent.Subscribe(OnPowerButton)
         GetPlayspace().PlayerAddedEvent().Subscribe(OnPlayerAdded)
@@ -423,9 +430,6 @@ terminal_lockdown_controller := class(creative_device):
         UpgradeButton.SetInteractionText(TerminalMessage("UPGRADE / NEXT SHIFT"))
         UpgradeButton.SetInteractionTime(0.5)
         UpgradeButton.SetMaxTriggerCount(0)
-        DebugButton.SetInteractionText(TerminalMessage("DEBUG ADVANCE"))
-        DebugButton.SetInteractionTime(0.25)
-        DebugButton.SetMaxTriggerCount(0)
         CustodyButton.SetInteractionText(TerminalMessage("SECURE / JAIL INTAKE"))
         CustodyButton.SetInteractionTime(0.75)
         CustodyButton.SetMaxTriggerCount(0)
@@ -438,6 +442,9 @@ terminal_lockdown_controller := class(creative_device):
         PassengerQueue2.Show()
         PassengerQueue3.Show()
         PassengerActive.Hide()
+        BagPropSmall.Hide()
+        BagPropMedium.Hide()
+        BagPropHardShell.Hide()
         spawn{ResetPassengerQueue(RunGeneration)}
         CheckpointBoard.SetShowBorder(true)
         CaseBoard.SetShowBorder(true)
@@ -500,6 +507,8 @@ terminal_lockdown_controller := class(creative_device):
         set CustodyCommitted = false
         set QueueFrontIndex = 0
         set QueueGeneration += 1
+        set BagGeneration += 1
+        HideAllBags()
         ScanButton.Enable()
         CustodyButton.Disable()
         PowerButton.Disable()
@@ -560,9 +569,59 @@ terminal_lockdown_controller := class(creative_device):
         set Phase = terminal_game_phase.Inspecting
         set BagChecked = true
         set Phase = terminal_game_phase.AwaitingDecision
-        SetBoard(BagBoard, "CASE {CurrentCaseId} LINKED BAG | {BagEvidence(CurrentTemplate)}")
-        ShowAgent(Agent, "BAG | {BagEvidence(CurrentTemplate)} | {EvidencePrompt()}", 6.0)
+        set BagGeneration += 1
+        SetBoard(BagBoard, "X-RAY ACTIVE | CASE {CurrentCaseId} | LINKED BAG MOVING")
+        ShowAgent(Agent, "X-RAY ACTIVE | Linked bag moving through the inspection tunnel.", 4.0)
+        spawn{RunBagInspection(CurrentCaseId, RunGeneration, BagGeneration, CurrentTemplate, ActiveBagIndex)}
         TerminalLog(DebugEnabled, "[BAG] CaseId={CurrentCaseId}|Template={CurrentTemplate}|CheckedOnce=True")
+
+    RunBagInspection(ExpectedCaseId:int, ExpectedRun:int, ExpectedBagGeneration:int, Template:int, BagIndex:int)<suspends>:void=
+        if (BagIndex = 0):
+            TunnelMove := BagPropSmall.MoveTo(
+                vector3{X := 2525.0, Y := -1325.0, Z := 175.0},
+                IdentityRotation(),
+                1.0
+            )
+        else if (BagIndex = 1):
+            TunnelMove := BagPropMedium.MoveTo(
+                vector3{X := 2525.0, Y := -1325.0, Z := 175.0},
+                IdentityRotation(),
+                1.0
+            )
+        else:
+            TunnelMove := BagPropHardShell.MoveTo(
+                vector3{X := 2525.0, Y := -1325.0, Z := 175.0},
+                IdentityRotation(),
+                1.0
+            )
+        if (ExpectedCaseId <> CurrentCaseId or ExpectedRun <> RunGeneration or ExpectedBagGeneration <> BagGeneration):
+            return
+        SetBoard(BagBoard, "X-RAY ANALYZING | CASE {CurrentCaseId} | AMBER SWEEP")
+        Sleep(0.8)
+        if (ExpectedCaseId <> CurrentCaseId or ExpectedRun <> RunGeneration or ExpectedBagGeneration <> BagGeneration):
+            return
+        if (BagIndex = 0):
+            ExitMove := BagPropSmall.MoveTo(
+                vector3{X := 3050.0, Y := -1325.0, Z := 175.0},
+                IdentityRotation(),
+                1.0
+            )
+        else if (BagIndex = 1):
+            ExitMove := BagPropMedium.MoveTo(
+                vector3{X := 3050.0, Y := -1325.0, Z := 175.0},
+                IdentityRotation(),
+                1.0
+            )
+        else:
+            ExitMove := BagPropHardShell.MoveTo(
+                vector3{X := 3050.0, Y := -1325.0, Z := 175.0},
+                IdentityRotation(),
+                1.0
+            )
+        if (ExpectedCaseId <> CurrentCaseId or ExpectedRun <> RunGeneration or ExpectedBagGeneration <> BagGeneration):
+            return
+        SetBoard(BagBoard, "X-RAY RESULT | CASE {CurrentCaseId} | {BagResultText(Template)} | {BagEvidence(Template)}")
+        ShowAll("X-RAY RESULT | {BagResultText(Template)} | {BagEvidence(Template)} | {EvidencePrompt()}", 6.0)
 
     OnDocumentButton(Agent:agent):void=
         if (Shift < 3):
@@ -822,6 +881,7 @@ terminal_lockdown_controller := class(creative_device):
         set CurrentTemplate = SelectTemplate(Shift, CasesInShift)
         set BodyChecked = false
         set ScannerGeneration += 1
+        set BagGeneration += 1
         set BagChecked = false
         set DocumentsChecked = false
         set SecondaryChecked = false
@@ -833,7 +893,7 @@ terminal_lockdown_controller := class(creative_device):
         CustodyButton.Disable()
         SetBoard(CheckpointBoard, "SECURITY CHECKPOINT | CASE {CurrentCaseId} READY")
         SetBoard(CaseBoard, "SHIFT {Shift} | CASE {CurrentCaseId} | {TemplateName(CurrentTemplate)}")
-        SetBoard(BagBoard, "LINKED BAG {CurrentCaseId} | SCAN PENDING")
+        SetBoard(BagBoard, "LINKED BAG {CurrentCaseId} | CONVEYOR INBOUND")
         SetBoard(
             DocumentBoard,
             "TRAVEL ID {CurrentCaseId} | {IdentityName(CurrentTemplate)} | {Destination(CurrentTemplate)} | CHECK PENDING"
@@ -841,8 +901,69 @@ terminal_lockdown_controller := class(creative_device):
         SetBoard(CustodyBoard, "DETENTION INTAKE | NO ACTIVE CUSTODY")
         SetBoard(EmergencyBoard, "RESPONSE SUPPLY | STANDBY")
         spawn{StagePassenger(CurrentCaseId, RunGeneration)}
+        spawn{StageLinkedBag(CurrentCaseId, RunGeneration, BagGeneration, CurrentTemplate)}
         ShowAll("SHIFT {Shift}: {ShiftLabel(Shift)} | CASE {CurrentCaseId}: {TemplateName(CurrentTemplate)} | {EvidencePrompt()}", 8.0)
         TerminalLog(DebugEnabled, "[CASE] Ready|CaseId={CurrentCaseId}|Template={CurrentTemplate}|Shift={Shift}")
+
+    StageLinkedBag(ExpectedCaseId:int, ExpectedRun:int, ExpectedBagGeneration:int, Template:int)<suspends>:void=
+        HideAllBags()
+        set ActiveBagIndex = BagIndexForTemplate(Template)
+        if (ActiveBagIndex = 0):
+            StartMove := BagPropSmall.MoveTo(
+                vector3{X := 1500.0, Y := -1325.0, Z := 175.0},
+                IdentityRotation(),
+                0.1
+            )
+            if (ExpectedCaseId <> CurrentCaseId or ExpectedRun <> RunGeneration or ExpectedBagGeneration <> BagGeneration):
+                return
+            BagPropSmall.Show()
+            ArrivalMove := BagPropSmall.MoveTo(
+                vector3{X := 2050.0, Y := -1325.0, Z := 175.0},
+                IdentityRotation(),
+                1.5
+            )
+        else if (ActiveBagIndex = 1):
+            StartMove := BagPropMedium.MoveTo(
+                vector3{X := 1500.0, Y := -1325.0, Z := 175.0},
+                IdentityRotation(),
+                0.1
+            )
+            if (ExpectedCaseId <> CurrentCaseId or ExpectedRun <> RunGeneration or ExpectedBagGeneration <> BagGeneration):
+                return
+            BagPropMedium.Show()
+            ArrivalMove := BagPropMedium.MoveTo(
+                vector3{X := 2050.0, Y := -1325.0, Z := 175.0},
+                IdentityRotation(),
+                1.5
+            )
+        else:
+            StartMove := BagPropHardShell.MoveTo(
+                vector3{X := 1500.0, Y := -1325.0, Z := 175.0},
+                IdentityRotation(),
+                0.1
+            )
+            if (ExpectedCaseId <> CurrentCaseId or ExpectedRun <> RunGeneration or ExpectedBagGeneration <> BagGeneration):
+                return
+            BagPropHardShell.Show()
+            ArrivalMove := BagPropHardShell.MoveTo(
+                vector3{X := 2050.0, Y := -1325.0, Z := 175.0},
+                IdentityRotation(),
+                1.5
+            )
+        if (ExpectedCaseId = CurrentCaseId and ExpectedRun = RunGeneration and ExpectedBagGeneration = BagGeneration):
+            SetBoard(BagBoard, "LINKED BAG {CurrentCaseId} | AT X-RAY | SCAN PENDING")
+
+    HideAllBags():void=
+        BagPropSmall.Hide()
+        BagPropMedium.Hide()
+        BagPropHardShell.Hide()
+
+    BagIndexForTemplate(Template:int)<computes>:int=
+        if (Template = 1 or Template = 4 or Template = 7 or Template = 10):
+            return 0
+        if (Template = 2 or Template = 5 or Template = 8 or Template = 11):
+            return 1
+        2
 
     StagePassenger(ExpectedCaseId:int, ExpectedRun:int)<suspends>:void=
         PassengerActive.Hide()
@@ -993,6 +1114,8 @@ terminal_lockdown_controller := class(creative_device):
         CustodyButton.Disable()
         PowerButton.Disable()
         PassengerActive.Hide()
+        set BagGeneration += 1
+        HideAllBags()
         SetBoard(PowerBoard, "POWER ONLINE")
         SetBoard(CheckpointBoard, "CHECKPOINT CLOSED | SHIFT CHANGE")
         SetBoard(EmergencyBoard, "RESPONSE SUPPLY | STANDBY")
@@ -1188,47 +1311,6 @@ terminal_lockdown_controller := class(creative_device):
         ShowAll("TERMINAL LOCKDOWN | Run reset cleanly. Press START SHIFT.", 8.0)
         TerminalLog(DebugEnabled, "[RECOVERY] Reset complete|Generation={RunGeneration}")
 
-    OnDebugButton(Agent:agent):void=
-        if (not DebugEnabled?):
-            ShowAgent(Agent, "Debug controls are disabled.", 3.0)
-            return
-        if (Phase = terminal_game_phase.Waiting):
-            OnStartButton(Agent)
-            return
-        if (Phase = terminal_game_phase.CaseReady or Phase = terminal_game_phase.AwaitingDecision):
-            if (Shift < 5):
-                set Shift = 5
-                set CasesInShift = CasesPerShift
-                set ClaimOwner = false
-                PassengerActive.Hide()
-                BeginEmergency()
-                ShowAll("DEBUG | Shift 5 POWER OUTAGE forced. Restore power in the utility room.", 7.0)
-                return
-            set Shift = 7
-            set CasesInShift = 2
-            set CurrentTemplate = 12
-            set BodyChecked = true
-            set BagChecked = true
-            set DocumentsChecked = true
-            set ResolutionCommitted = false
-            set Phase = terminal_game_phase.AwaitingDecision
-            ShowAll("DEBUG | Boss inspection forced. Choose DETAIN for detected or CLEAR for missed.", 7.0)
-            return
-        if (Phase = terminal_game_phase.Runner):
-            CaptureRunner(Agent)
-            return
-        if (Phase = terminal_game_phase.HostileResponse):
-            OnResponseButton(Agent)
-            return
-        if (Phase = terminal_game_phase.Custody):
-            OnCustodyButton(Agent)
-            return
-        if (Phase = terminal_game_phase.Emergency or Phase = terminal_game_phase.BossJammer or Phase = terminal_game_phase.BossBreach or Phase = terminal_game_phase.BossVulnerable or Phase = terminal_game_phase.BossSecure or Phase = terminal_game_phase.Results):
-            OnResponseButton(Agent)
-            return
-        if (Phase = terminal_game_phase.UpgradeBreak):
-            OnUpgradeButton(Agent)
-
     TryClaim(Agent:agent):logic=
         if (Player := player[Agent]):
             if (Owner := ClaimOwner?):
@@ -1412,6 +1494,15 @@ terminal_lockdown_controller := class(creative_device):
         if (Required = terminal_decision.Secondary):
             return "YELLOW / UNCERTAIN"
         "GREEN / CLEAR"
+
+    BagResultText(Template:int):string=
+        Evidence := BagEvidence(Template)
+        if (Evidence = "CLEAR"):
+            return "GREEN / CLEAR"
+        Required := RequiredDecision(Template)
+        if (Required = terminal_decision.Secondary):
+            return "YELLOW / POLICY HOLD"
+        "RED / RESTRICTED ITEM"
 
     TemplateName(Template:int)<computes>:string=
         if (Template = 1):

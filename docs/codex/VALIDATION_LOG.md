@@ -77,3 +77,21 @@
 - Returned `AutomatedReplayEnabled` to false, saved, and completed a clean
   normal-mode activation at 01:24:10 UTC. No QA3 marker and no relevant error
   appeared after that activation.
+
+## Reference-match luggage milestone - 2026-07-28 PDT
+
+- Added three Asteria commerce-luggage Blueprint props with stable labels
+  `TL_BAG_Small`, `TL_BAG_Medium`, and `TL_BAG_HardShell`; wired all three
+  controller editables in UEFN and saved the map.
+- Added guarded inbound conveyor, X-ray tunnel, result, and exit movement tied
+  to the active case/template. Verse compilation reported `Built successfully`.
+- Removed the physical `TL_BTN_Debug` actor, its editable reference, setup, and
+  handler. Production flags remain `DebugEnabled=false` and
+  `AutomatedReplayEnabled=false`.
+- Fresh editor validation: result code 0; 1 requested, 1 checked, 1 valid,
+  0 invalid, 0 warnings. Actor audit: 234 actors, exactly three `TL_BAG_`
+  actors, and no proof/debug/replay label residue.
+- Current live activation remains blocked outside project code: two clean
+  attempts failed the Epic session handshake with
+  `errors.com.epicgames.common.processing`. No final in-session reference proof
+  is claimed from editor-only screenshots.

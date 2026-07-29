@@ -1,6 +1,6 @@
 # Asset placement ledger
 
-Last reconciled: 2026-07-28 PDT
+Last reconciled: 2026-07-28 PDT (reference-match luggage milestone)
 
 Status values: `CANDIDATE`, `LOADABLE`, `PLACED_IN_TEST`, `COOKED`,
 `SESSION_VERIFIED`, `APPROVED_FOR_PRODUCTION`, `REJECTED`,
@@ -15,6 +15,7 @@ Status values: `CANDIDATE`, `LOADABLE`, `PLACED_IN_TEST`, `COOKED`,
 | HUD status | `/CreativeCoreDevices/Device_HUDMessage_V2.Device_HUDMessage_V2_C` / `hud_message_device` | Fortnite-provided | Editor Python spawn; one editable controller reference | Saved, compiled, activated, and displayed during the live replay | `APPROVED_FOR_PRODUCTION` | Billboard status boards |
 | World evidence/signage | `/CreativeCoreDevices/Device_Billboard_V2.Device_Billboard_V2_C` / `billboard_device` | Fortnite-provided | Editor Python spawn; seven editable controller references; runtime text update | Saved and reflected as 7 unique actors; compiled/activated; current case, bag, document, power, custody, and emergency text exercised | `APPROVED_FOR_PRODUCTION` | HUD-only text |
 | Physical passenger fallback | `/CRD_Mannequin/Device_Character_V2.Device_Character_V2_C` / `character_device` | Fortnite-provided | Four pre-placed Character devices; controller `Show/Hide/MoveTo`; stale case/run guards | Saved and reflected as 4 unique devices; clear, detention, response, intake, cell, and reset paths exercised by production replay | `APPROVED_FOR_PRODUCTION` as current fallback | Keep fixed queue/active Character system if an NPC replacement fails |
+| Moving luggage pool | `/Game/Environments/Asteria/Props/Commerce/Luggage/Blueprints/BP_Commerce_Luggage_A_A.BP_Commerce_Luggage_A_A_C`; `/Game/Environments/Asteria/Props/Commerce/Luggage/Blueprints/BP_Commerce_Luggage_A_D.BP_Commerce_Luggage_A_D_C`; `/Game/Environments/Asteria/Props/Commerce/Luggage/Blueprints/BP_Commerce_Luggage_B_B.BP_Commerce_Luggage_B_B_C` | Fortnite-provided | Exact `BlueprintGeneratedClass` spawn, stable `TL_BAG_` labels, controller editables, runtime `Show/Hide/MoveTo` conveyor path with stale case/run/bag guards | Three production actors saved; Verse build succeeded; editor validation checked 1/1 map valid with 0 warnings; actor audit found exactly the three bags and no proof/debug/replay residue | `APPROVED_FOR_PRODUCTION` for the saved class-spawn and controller-motion workflow | Static linked-bag board remains available if runtime prop movement is unavailable |
 | Verse controller | `/AirportSecurity/_Verse.terminal_lockdown_controller` | Project-owned compiled Verse | Spawn from compiled Verse class; stable `TL_Controller`; editable references wired in UEFN | Successful Verse builds, push/refresh, content activation, two QA2 replays, one QA3 failure-branch replay, then normal-mode reload with QA false | `APPROVED_FOR_PRODUCTION` | Restore the latest validated local Git checkpoint without destructive reset |
 | Rejected raw static-mesh/material assignment | Raw `StaticMeshActor` references tested from Fortnite content; Helios `BP_Brimstone_Cell_Door_A_B_C`; Athena `Artemis_Commerce_HotelBench_A_C` | Fortnite-provided | Direct static-mesh assignment or restricted class spawn | Raw mesh/material references failed Asset Check; the Helios cell door and Athena hotel bench were explicitly rejected at 02:13:09 UTC; all failed actors were deleted | `REJECTED` | Use only the approved class-spawn paths above |
 | Bespoke airport audio/VFX | Not selected | Unknown | Must prove exact candidate and method in one disposable test before production | No replacement candidate has completed the required chain | `NEEDS_EDITOR_VERIFICATION` | Current validated devices/boards |
@@ -25,6 +26,6 @@ No path or class is considered production-approved merely because it loads.
 Approval above applies only to the exact placement/assignment methods that were
 saved, validated, activated, and exercised at the checkpoint.
 
-The failure-branch replay checkpoint added no asset, class, placement, or spawn
-dependency. Existing production approvals and unproven-candidate statuses are
-therefore unchanged.
+The luggage milestone removed the development debug Button actor and its Verse
+hook. `DebugEnabled=false` and `AutomatedReplayEnabled=false` remain production
+defaults; no proof actor or unattended replay control remains in the level.
