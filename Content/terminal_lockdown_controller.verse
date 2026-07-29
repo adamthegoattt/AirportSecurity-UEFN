@@ -285,6 +285,103 @@ terminal_lockdown_controller := class(creative_device):
             TerminalLog(true, "[QA2] Emergency timeout penalty and recovery complete")
             ResetToWaiting()
             TerminalLog(true, "[QA2] Extended replay complete; returned to waiting")
+
+            # False detention through the production inspection, decision,
+            # departure, penalty, and next-case handlers.
+            OnStartButton(Player)
+            set Shift = 3
+            set CasesInShift = 0
+            PrepareNextCase()
+            Sleep(3.5)
+            OnScanButton(Player)
+            OnBagButton(Player)
+            OnDocumentButton(Player)
+            OnDetainButton(Player)
+            Sleep(4.0)
+            TerminalLog(
+                true,
+                "[QA3] False detention complete|FalseDetentions={FalseDetentions}|Resolved={TotalCasesResolved}|Integrity={TeamIntegrity}|Risk={TeamRisk}|Cash={TeamCash}"
+            )
+            ResetToWaiting()
+
+            # Runner capture through the real Shift 6 template schedule,
+            # DETAIN intercept, physical intake, and exactly-once custody path.
+            OnStartButton(Player)
+            set Shift = 6
+            set CasesInShift = 0
+            PrepareNextCase()
+            Sleep(3.5)
+            OnScanButton(Player)
+            OnBagButton(Player)
+            OnDocumentButton(Player)
+            OnDetainButton(Player)
+            Sleep(1.0)
+            OnDetainButton(Player)
+            Sleep(4.5)
+            OnCustodyButton(Player)
+            OnCustodyButton(Player)
+            Sleep(4.0)
+            TerminalLog(
+                true,
+                "[QA3] Runner capture complete|Correct={CorrectDecisions}|Resolved={TotalCasesResolved}|Integrity={TeamIntegrity}|Risk={TeamRisk}|Cash={TeamCash}"
+            )
+            ResetToWaiting()
+
+            # Runner escape through the real ten-second movement window and
+            # one failure consequence. No intercept is submitted.
+            OnStartButton(Player)
+            set Shift = 6
+            set CasesInShift = 0
+            PrepareNextCase()
+            Sleep(3.5)
+            OnScanButton(Player)
+            OnBagButton(Player)
+            OnDocumentButton(Player)
+            OnDetainButton(Player)
+            Sleep(11.5)
+            TerminalLog(
+                true,
+                "[QA3] Runner escape complete|Correct={CorrectDecisions}|Resolved={TotalCasesResolved}|Integrity={TeamIntegrity}|Risk={TeamRisk}|Cash={TeamCash}"
+            )
+            ResetToWaiting()
+
+            # Resistant response through the real Shift 6 template schedule,
+            # response interaction, physical intake, and custody handlers.
+            OnStartButton(Player)
+            set Shift = 6
+            set CasesInShift = 1
+            PrepareNextCase()
+            Sleep(3.5)
+            OnScanButton(Player)
+            OnBagButton(Player)
+            OnDocumentButton(Player)
+            OnDetainButton(Player)
+            Sleep(4.5)
+            OnResponseButton(Player)
+            OnResponseButton(Player)
+            Sleep(4.5)
+            OnCustodyButton(Player)
+            OnCustodyButton(Player)
+            Sleep(4.0)
+            TerminalLog(
+                true,
+                "[QA3] Resistant response complete|Correct={CorrectDecisions}|Resolved={TotalCasesResolved}|Integrity={TeamIntegrity}|Risk={TeamRisk}|Cash={TeamCash}"
+            )
+
+            # A final clean run proves that branch-specific phase, custody,
+            # passenger, claim, and board state does not leak across reset.
+            ResetToWaiting()
+            OnStartButton(Player)
+            Sleep(3.5)
+            OnScanButton(Player)
+            OnClearButton(Player)
+            Sleep(4.0)
+            TerminalLog(
+                true,
+                "[QA3] Post-branch clean case complete|Correct={CorrectDecisions}|Resolved={TotalCasesResolved}|Integrity={TeamIntegrity}|Risk={TeamRisk}|Cash={TeamCash}"
+            )
+            ResetToWaiting()
+            TerminalLog(true, "[QA3] Failure-branch replay complete; returned to waiting")
             return
 
     AutoStartWaitingRun()<suspends>:void=

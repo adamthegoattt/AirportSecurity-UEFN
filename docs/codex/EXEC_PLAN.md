@@ -1,6 +1,6 @@
 # Terminal Lockdown execution plan
 
-Last updated: 2026-07-28 PDT (extended replay QA)
+Last updated: 2026-07-28 PDT (failure branch replay QA)
 
 ## Goal
 
@@ -17,7 +17,7 @@ without restarting from scratch.
 - Compatibility: 41.20
 - Inventory: 155 total actors, 143 unique `TL_` production actors
 - Production flags: Debug false; Automated Replay false
-- Current continuation checkpoint: `Terminal Lockdown - Extended Replay QA`
+- Current continuation checkpoint: `Terminal Lockdown - Failure Branch Replay QA`
 
 ## Milestones
 
@@ -33,6 +33,7 @@ without restarting from scratch.
 | Deterministic claim/recovery regression | PASS | Production handlers released/reclaimed CaseId 7 and rejected a duplicate decision; one-client QA only |
 | Two-player claim/recovery | PENDING | Two real clients contend; owner loss; exactly one resolution |
 | Missed boss + emergency timeout | PASS | Extended live replay logged missed-boss victory and timeout penalty/recovery twice |
+| False detention + runner + resistant branches | PASS | QA3 recorded expected counters for all four paths and a clean post-branch case |
 | Full 21-case pacing | PENDING | All shifts without debug skips, balance/timing record |
 | Performance | PENDING | Representative player counts and memory/frame/network capture |
 | Final art/audio/VFX | PENDING | Asset-contract-compliant replacement batches with live evidence |
@@ -42,8 +43,8 @@ without restarting from scratch.
 1. Keep the reconciled documents consistent with `CODEX_HANDOFF.md`.
 2. Run genuine two-client contention/disconnect QA; keep the completed
    deterministic one-client regression classified separately.
-3. Runtime-test runner capture/escape, false detention, and resistant response.
-4. Run and tune the full 21-case pacing path.
+3. Run and tune the full 21-case pacing path.
+4. Capture representative performance evidence.
 5. Productionize one weaker physical branch, then begin small validated
    reference-quality presentation batches.
 

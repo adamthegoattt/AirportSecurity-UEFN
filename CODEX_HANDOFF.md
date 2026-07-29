@@ -2,13 +2,13 @@
 
 ## Checkpoint
 
-- Name: **Terminal Lockdown - Extended Replay QA**
+- Name: **Terminal Lockdown - Failure Branch Replay QA**
 - Date: **2026-07-28 PDT**
 - Project: `AirportSecurity`
 - Map: `/AirportSecurity/AirportSecurity`
 - Repository: `adamthegoattt/AirportSecurity-UEFN`
 - Branch: `main`
-- Prior Git checkpoint: `5ece9583b1b352f12ff5534bbba70ffa327c45e1`
+- Base Git checkpoint: `37b6477b030728a34b5289c31837968b0cdf4450`
 
 ## Current game state
 
@@ -18,7 +18,7 @@
 - The last verified editor state is `Game in Progress`, `All Saved`, and
   `0 Edits - 0 Pending Push`, with `TL_Controller` selected.
 - `DebugEnabled=false` and `AutomatedReplayEnabled=false` in the saved map.
-- A fully generated rolling continuation prompt now preserves the original
+- Fully verified rolling continuation prompt V2 preserves the original
   game brief, reference roles, current architecture, asset contract, validation
   contract, gaps, and exact continuation order.
 
@@ -44,15 +44,15 @@
 - Player case claims, stale run/case/emergency guards, duplicate resolution
   protection, autostart fallback, and owner-disconnect claim release.
 - Development-only deterministic replay coverage for claim release/reclaim,
-  duplicate-decision rejection, missed final threat, and emergency timeout.
+  duplicate-decision rejection, missed final threat, emergency timeout, false
+  detention, runner capture, runner escape, resistant response, and a clean
+  post-branch case.
 
 ## Files changed or added in this continuation cycle
 
-- `CODEX_CONTINUATION_PROMPT.md` - complete rolling continuation prompt, fully
-  generated and verified before first use.
 - `Content/terminal_lockdown_controller.verse` - extended development-only
-  replay coverage and parameterized emergency timeout wait while preserving the
-  production 45-second timeout.
+  replay coverage through the remaining false-detention, runner, resistant,
+  and post-branch-clean paths while preserving all production defaults.
 - `Content/__ExternalActors__/AirportSecurity/6/8T/DSHQO1AUSMVF7SCPI69FHT.uasset` -
   saved `TL_Controller` external-actor state; the QA replay editable was
   intentionally enabled for testing, returned to false, and saved.
@@ -125,6 +125,17 @@ inventory remains:
 - After the replay switch was returned to false, the map was saved and a fresh
   session activation completed successfully. No new `[QA2]` marker appeared;
   the live session is back in normal player-driven mode.
+- Failure-branch replay completed once through production handlers with exact
+  observed counters:
+  - `[QA3] False detention complete|FalseDetentions=1|Resolved=1|Integrity=95|Risk=4|Cash=-100`
+  - `[QA3] Runner capture complete|Correct=1|Resolved=1|Integrity=100|Risk=0|Cash=175`
+  - `[QA3] Runner escape complete|Correct=1|Resolved=1|Integrity=90|Risk=16|Cash=0`
+  - `[QA3] Resistant response complete|Correct=1|Resolved=1|Integrity=100|Risk=0|Cash=175`
+  - `[QA3] Post-branch clean case complete|Correct=1|Resolved=1|Integrity=100|Risk=0|Cash=100`
+  - `[QA3] Failure-branch replay complete; returned to waiting`
+- QA3 ended at `01:22:32 UTC`. The flag was restored false, saved, and a clean
+  normal-mode session activated at `01:24:10 UTC`; no QA3 marker appeared after
+  that activation and no relevant error was found after it.
 - One Fortnite client remained connected and responsive. Real simultaneous
   two-client contention/disconnect testing is still not represented by this
   deterministic one-client harness.
@@ -135,8 +146,6 @@ inventory remains:
   remain untested.
 - The replay covers important unlock/failure boundaries but not a normal-speed
   full 21-case pacing run.
-- False detention, runner capture/escape, and the resistant response fallback
-  still need dedicated runtime evidence.
 - Representative 4/8/16-player performance, memory, and network measurements
   have not been taken.
 - The terminal is a validated production graybox/silhouette pass, not final
@@ -149,8 +158,6 @@ inventory remains:
 ## Unfinished tasks
 
 - Two-client contention and owner disconnect/rejoin runtime QA.
-- Dedicated false-detention, runner-capture, runner-escape, and resistant
-  response runtime passes.
 - Full-duration seven-shift pacing and balance across all 21 routine cases.
 - Representative multiplayer performance capture.
 - Asset-contract-compliant art, lighting, audio, VFX, animation, and UX pass.
@@ -162,16 +169,15 @@ inventory remains:
 1. Launch a genuine second Fortnite client/player. Have both players interact
    with one active case, then disconnect the claimant during `Inspecting`.
    Confirm exactly one owner, safe release/reclaim, and one final resolution.
-2. Run dedicated false-detention, runner-capture, runner-escape, and resistant
-   response cases through production handlers; record exact log/state outcomes.
-3. Run all three cases in Shifts 1-7 without debug skips. Record accuracy,
+2. Run all three cases in Shifts 1-7 without debug skips. Record accuracy,
    cash, integrity, risk, emergency timings, and total session length.
-4. Capture frame time, memory, and network behavior at representative player
+3. Capture frame time, memory, and network behavior at representative player
    counts.
-5. Choose one weak physical branch—preferably the static queue or response
+4. Choose one weak physical branch—preferably the static queue or response
    fallback—and test one exact replacement candidate under the asset and
    placement-method contract before production placement.
-6. Regenerate `CODEX_CONTINUATION_PROMPT.md` completely from this checkpoint,
+5. Regenerate `CODEX_CONTINUATION_PROMPT.md` completely as V3 from this
+   checkpoint,
    verify its sentinel/hash, and only then use it for the next continuation.
-7. Keep UEFN/Fortnite open, all production flags false, and the live project
+6. Keep UEFN/Fortnite open, all production flags false, and the live project
    saved with zero pending push at every checkpoint.

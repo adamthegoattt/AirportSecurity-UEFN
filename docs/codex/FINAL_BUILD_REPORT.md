@@ -1,4 +1,4 @@
-# Final build report — extended replay QA checkpoint
+# Final build report — failure branch replay QA checkpoint
 
 Date: 2026-07-28 PDT
 
@@ -24,13 +24,14 @@ results, and can reset to a clean waiting state.
   regression.
 - Missed final-threat victory and emergency-timeout penalty/recovery, each
   completed twice in the live session before the QA switch was restored false.
+- False detention, runner capture, runner escape, resistant response/custody,
+  and a clean post-branch case completed with exact expected counters before a
+  clean normal-mode activation.
 
 ## Implemented but runtime coverage incomplete
 
 - Real two-player contention and disconnect/rejoin recovery.
 - Full real-time 21-case pacing and performance at representative counts.
-- Dedicated false-detention, runner capture/escape, and resistant-response
-  runtime passes.
 - Shift 4/6 and resistant response are functional interaction fallbacks rather
   than fully physical AI encounters.
 
@@ -70,5 +71,4 @@ approved merely because its path loads.
 ## Recommended next target
 
 Prove case-claim contention and owner-loss recovery with two real clients, then
-exercise false detention and runner capture/escape through dedicated runtime
-passes.
+run and tune the complete normal-speed 21-case seven-shift path.

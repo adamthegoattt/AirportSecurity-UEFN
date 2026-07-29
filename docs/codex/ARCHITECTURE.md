@@ -14,8 +14,9 @@ Last reconciled: 2026-07-28 PDT
 UEFN compiles and saves the live project. The workspace mirror is not an
 automatic synchronization target. At checkpoint `5ece958`, controller, types,
 and builder matched their live copies by SHA-256. In the extended replay cycle,
-the controller mirror/live copy was updated together and verified at SHA-256
-`A1727B49AA6FA4DBFA093EAB2012C168204C253D0269D661E3F4F0E81C7F6989`.
+the controller mirror/live copy was updated together. The failure-branch replay
+checkpoint controller SHA-256 is
+`C4FF3C9943D56DD9E4824BEE52AB8F65421F02273F876F89D15D1009039EC4A1`.
 
 ## Authoritative state ownership
 
@@ -63,8 +64,10 @@ labels remained.
 - Claim releases on owner leave and case/reset transitions.
 - `ResolutionCommitted` and `CustodyCommitted` reject duplicate transactions.
 - The disabled replay harness exercises claim release/reclaim, duplicate
-  decision rejection, missed-boss victory, and emergency timeout through the
-  production handlers; it does not substitute for real multiplayer QA.
+  decision rejection, both boss branches, emergency success/timeout, false
+  detention, runner capture/escape, resistant response/custody, and a clean
+  post-branch case through production handlers. It does not substitute for real
+  multiplayer, normal-speed pacing, or performance QA.
 - Reset hides the active passenger, restores power, disables custody, clears
   claims, increments generations, and returns every status board to waiting.
 - Missing optional art cannot replace a working gameplay fallback.

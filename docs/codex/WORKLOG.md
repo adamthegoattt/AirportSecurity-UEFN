@@ -41,3 +41,19 @@
   Shift 7 victory, emergency-timeout penalty/recovery, and clean waiting reset.
 - Returned the replay flag to false, saved, refreshed, and confirmed a clean
   normal-mode live session with zero pending edits/pushes.
+
+## 2026-07-28 PDT — rolling continuation cycle 2
+
+- Regenerated the full continuation prompt as V2 from local checkpoint
+  `9b477895a49bbae6d299779ea181060acfb8d10e`, verified 844 lines, 36,888
+  bytes, SHA-256
+  `13E0BF5BE8571E6524E5DDE8AEA1DA560277D3E8F2669004543AA1DB5C1D8655`,
+  all required sections, zero trailing whitespace, and the exact V2 sentinel.
+- Checkpointed V2 locally at `37b6477b030728a34b5289c31837968b0cdf4450`
+  before executing it.
+- Extended the disabled replay through false detention, runner capture, runner
+  escape, resistant response/custody, and one post-branch clean case using
+  production preparation, interaction, movement, finish, and reset handlers.
+- Verse build, QA activation, and all QA3 state outcomes passed.
+- Restored Automated Replay false, saved, and completed a clean normal-mode
+  activation at 01:24:10 UTC with no later QA3 marker or relevant error.

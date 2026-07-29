@@ -57,3 +57,23 @@
   session, and confirmed no QA2 marker later than 00:55:29 UTC.
 - Final editor state: `Game in Progress`, `All Saved`, `0 Edits - 0 Pending
   Push`. One-client deterministic evidence is not classified as multiplayer.
+
+## Failure branch replay QA — 2026-07-28 PDT
+
+- Extended the disabled-by-default replay through real `PrepareNextCase`, body,
+  bag, document, decision, runner, response, custody, movement, finish, and reset
+  handlers. No production default or asset dependency changed.
+- Verse compile: PASS at 01:18:21 and 01:18:24 UTC; both log entries ended with
+  `VerseBuild: SUCCESS -- Build complete`.
+- QA activation: PASS at 01:20:56 UTC.
+- Exact branch evidence:
+  - false detention: `FalseDetentions=1|Resolved=1|Integrity=95|Risk=4|Cash=-100`;
+  - runner capture: `Correct=1|Resolved=1|Integrity=100|Risk=0|Cash=175`;
+  - runner escape: `Correct=1|Resolved=1|Integrity=90|Risk=16|Cash=0`;
+  - resistant response: `Correct=1|Resolved=1|Integrity=100|Risk=0|Cash=175`;
+  - post-branch clean case: `Correct=1|Resolved=1|Integrity=100|Risk=0|Cash=100`.
+- `[QA3] Failure-branch replay complete; returned to waiting` logged at
+  01:22:32 UTC.
+- Returned `AutomatedReplayEnabled` to false, saved, and completed a clean
+  normal-mode activation at 01:24:10 UTC. No QA3 marker and no relevant error
+  appeared after that activation.

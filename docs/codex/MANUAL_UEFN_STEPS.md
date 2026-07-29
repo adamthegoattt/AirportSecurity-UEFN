@@ -21,9 +21,10 @@ wired, saved, validated Terminal Lockdown checkpoint.
 7. For real multiplayer QA, launch a genuine second Fortnite client/player,
    contend for one case, disconnect the claimant during inspection, and verify
    the remaining player completes the case exactly once.
-8. The deterministic one-client owner-loss, missed-boss, and timeout harness is
-   already logged as passing. Do not rerun it by default and do not describe it
-   as genuine two-client coverage.
+8. The deterministic one-client owner-loss, missed-boss, timeout, false
+   detention, runner capture/escape, resistant response, and clean-reset
+   harness is already logged as passing. Do not rerun it by default and do not
+   describe it as genuine two-client or normal-speed pacing coverage.
 
 ## Production dependency rule
 
