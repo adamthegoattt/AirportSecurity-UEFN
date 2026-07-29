@@ -118,6 +118,24 @@ terminal_lockdown_controller := class(creative_device):
     ResponseAlarm:audio_player_device = audio_player_device{}
 
     @editable
+    ScannerStartAudio:audio_player_device = audio_player_device{}
+
+    @editable
+    ScannerResultAudio:audio_player_device = audio_player_device{}
+
+    @editable
+    BagScanAudio:audio_player_device = audio_player_device{}
+
+    @editable
+    DecisionPressAudio:audio_player_device = audio_player_device{}
+
+    @editable
+    PositiveAudio:audio_player_device = audio_player_device{}
+
+    @editable
+    NegativeAudio:audio_player_device = audio_player_device{}
+
+    @editable
     ResponseLightA:customizable_light_device = customizable_light_device{}
 
     @editable
@@ -626,6 +644,7 @@ terminal_lockdown_controller := class(creative_device):
         set ScannerGeneration += 1
         SetBoard(CheckpointBoard, "SCANNER ACTIVE | AMBER SWEEP | BEEP")
         ShowAgent(Agent, "BODY SCANNER ACTIVE | Hold for the physical result.", 3.0)
+        ScannerStartAudio.Play()
         spawn{RunScannerSequence(CurrentCaseId, RunGeneration, ScannerGeneration, CurrentTemplate)}
         TerminalLog(DebugEnabled, "[SCAN] CaseId={CurrentCaseId}|Template={CurrentTemplate}|CheckedOnce=True")
 
@@ -636,6 +655,7 @@ terminal_lockdown_controller := class(creative_device):
         if (not PowerOnline?):
             SetBoard(CheckpointBoard, "SCANNER OFFLINE | RESTORE POWER")
             return
+        ScannerResultAudio.Play()
         SetBoard(CheckpointBoard, "SCANNER RESULT | {ScannerResultText(Template)} | {BodyEvidence(Template)}")
         ShowAll("SCANNER RESULT | {ScannerResultText(Template)} | {BodyEvidence(Template)}", 5.0)
 
@@ -659,6 +679,7 @@ terminal_lockdown_controller := class(creative_device):
         set BagGeneration += 1
         SetBoard(BagBoard, "X-RAY ACTIVE | CASE {CurrentCaseId} | LINKED BAG MOVING")
         ShowAgent(Agent, "X-RAY ACTIVE | Linked bag moving through the inspection tunnel.", 4.0)
+        BagScanAudio.Play()
         spawn{RunBagInspection(CurrentCaseId, RunGeneration, BagGeneration, CurrentTemplate, ActiveBagIndex)}
         TerminalLog(DebugEnabled, "[BAG] CaseId={CurrentCaseId}|Template={CurrentTemplate}|CheckedOnce=True")
 
@@ -897,7 +918,12 @@ terminal_lockdown_controller := class(creative_device):
         CloseAllDocumentInterfaces()
         set Phase = terminal_game_phase.Resolving
         ShowDecisionSubmitted(Decision)
+        DecisionPressAudio.Play()
         Expected := RequiredDecision(CurrentTemplate)
+        if (Decision = Expected):
+            PositiveAudio.Play()
+        else:
+            NegativeAudio.Play()
         TerminalLog(DebugEnabled, "[DECISION] CaseId={CurrentCaseId}|Submitted={DecisionLabel(Decision)}|Expected={DecisionLabel(Expected)}")
 
         if (CurrentTemplate = 12):
@@ -1006,6 +1032,7 @@ terminal_lockdown_controller := class(creative_device):
         SetBoard(CellBoard, "CELL GATE CLOSING | CASE {CurrentCaseId}")
         SetBoard(CaseBoard, "CASE {CurrentCaseId} | ARREST COMPLETE | +175")
         ShowAll("JAIL INTAKE COMPLETE | Arrest finalized exactly once | +175 cash.", 6.0)
+        PositiveAudio.Play()
         spawn{MovePassengerIntoCellAndFinish(CurrentCaseId, RunGeneration)}
 
     RunnerEscape(ExpectedCaseId:int, ExpectedRun:int)<suspends>:void=
@@ -1373,6 +1400,7 @@ terminal_lockdown_controller := class(creative_device):
         CurrentEmergencyGeneration := EmergencyGeneration
         SetBoard(CheckpointBoard, "CHECKPOINT CLOSED | RED ALERT")
         SetBoard(EmergencyBoard, "RED ALERT | {EmergencyLabel(Shift)}")
+        NegativeAudio.Play()
         if (Shift = 5):
             set PowerOnline = false
             set ScannerGeneration += 1
@@ -1408,6 +1436,7 @@ terminal_lockdown_controller := class(creative_device):
         RestoreNormalPower()
         SetBoard(EmergencyBoard, "POWER RESTORED | TERMINAL NORMAL")
         ShowAll("POWER RESTORED | Scanner and checkpoint systems online | +200 cash.", 7.0)
+        PositiveAudio.Play()
         TerminalLog(DebugEnabled, "[EMERGENCY] Power restored|Shift={Shift}")
         BeginUpgradeBreak()
 
@@ -1490,6 +1519,7 @@ terminal_lockdown_controller := class(creative_device):
         SetBoard(CaseBoard, "CASE {CurrentCaseId} | CONTAINMENT FALLBACK")
         SetBoard(CellBoard, "DETENTION CELL | VACANT | TRANSFERRED")
         ShowAll("RESPONSE TIMEOUT | Automated containment transferred the suspect | -8 integrity, +10 risk.", 8.0)
+        NegativeAudio.Play()
         TerminalLog(DebugEnabled, "[RESPONSE] Timeout|CaseId={CurrentCaseId}")
         FinishCase()
 
@@ -1516,6 +1546,7 @@ terminal_lockdown_controller := class(creative_device):
         SetBoard(CustodyBoard, "SUSPECT SECURED | COMPLETE JAIL INTAKE")
         SetBoard(ResponseLoadoutBoard, "SECURITY RESPONSE KIT\nEVENT COMPLETE\nEQUIPMENT RECALLED")
         ShowAll("SUSPECT INCAPACITATED | Signal remote recalled. Complete SECURE / JAIL INTAKE.", 7.0)
+        PositiveAudio.Play()
         TerminalLog(DebugEnabled, "[RESPONSE] Success|CaseId={CurrentCaseId}")
         spawn{MovePassengerToIntake(CurrentCaseId, RunGeneration)}
 
@@ -1554,6 +1585,7 @@ terminal_lockdown_controller := class(creative_device):
             RestoreNormalPower()
             SetBoard(EmergencyBoard, "EMERGENCY SECURED | TERMINAL NORMAL")
             ShowAll("EMERGENCY SECURED | Systems restored | +200 cash, Risk reduced.", 6.0)
+            PositiveAudio.Play()
             TerminalLog(DebugEnabled, "[EMERGENCY] Success|Shift={Shift}")
             BeginUpgradeBreak()
             return
@@ -1617,6 +1649,7 @@ terminal_lockdown_controller := class(creative_device):
         SetBoard(EmergencyBoard, "ALL CLEAR | RESPOND TO REPLAY")
         Grade := ResultGrade()
         ShowAll("TERMINAL SECURED | Grade {Grade} | Accuracy {CorrectDecisions}/{TotalCasesResolved} | Integrity {TeamIntegrity} | Branch {BossBranchLabel()} | RESPOND to replay.", 0.0)
+        PositiveAudio.Play()
         TerminalLog(DebugEnabled, "[RESULTS] Victory|Grade={Grade}|Correct={CorrectDecisions}|Resolved={TotalCasesResolved}|Integrity={TeamIntegrity}|Risk={TeamRisk}|Cash={TeamCash}|Boss={BossBranchLabel()}")
 
     FinishDefeat(Reason:string):void=
@@ -1632,6 +1665,7 @@ terminal_lockdown_controller := class(creative_device):
         SetBoard(CheckpointBoard, "TERMINAL OVERRUN | RESULTS")
         SetBoard(EmergencyBoard, "RUN ENDED | RESPOND TO RETRY")
         ShowAll("TERMINAL OVERRUN | {Reason} | Correct {CorrectDecisions}/{TotalCasesResolved} | RESPOND to retry.", 0.0)
+        NegativeAudio.Play()
         TerminalLog(DebugEnabled, "[RESULTS] Defeat|Reason={Reason}|Shift={Shift}|CaseId={CurrentCaseId}")
 
     ResetToWaiting():void=

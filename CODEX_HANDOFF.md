@@ -2,7 +2,7 @@
 
 ## Checkpoint
 
-- Name: **Terminal Lockdown - Reference Match / Physical Decisions**
+- Name: **Terminal Lockdown - Airport Feedback and Alert States**
 - Date: **2026-07-28 PDT**
 - Project: `AirportSecurity`
 - Map: `/AirportSecurity/AirportSecurity`
@@ -12,9 +12,9 @@
 
 ## Current game state
 
-- The validated reference-match terminal and support-room pass is saved in
-  `/AirportSecurity/AirportSecurity`; the current editor audit reports 240
-  loaded actors.
+- The validated reference-match terminal and gameplay pass is saved in
+  `/AirportSecurity/AirportSecurity`; the current editor audit reports 255
+  loaded actors and no proof/debug/replay actor labels.
 - UEFN is open, responsive, disconnected from a live session, and all saved.
 - Three class-backed production luggage props are wired to `TL_Controller` for
   active-case-linked inbound, X-ray, result, and exit movement.
@@ -194,3 +194,24 @@ The current saved inventory includes:
    verify its sentinel/hash, and only then use it for the next continuation.
 6. Keep UEFN/Fortnite open, all production flags false, and the live project
    saved with zero pending push at every checkpoint.
+
+## Airport feedback and alert states - 2026-07-28 PDT
+
+- Added six global, non-looping Audio Players under
+  `TerminalLockdown/Gameplay/Feedback`: scanner start/result, bag X-ray,
+  decision press, positive result, and negative result.
+- Verse triggers them during scanner and bag actions, decision submission and
+  correctness, custody completion, power outage/restore, response
+  success/timeout, and victory/defeat. The existing response siren and red
+  lights remain the bounded hostile-alert layer.
+- Existing scanner/result, checkpoint, power, cell, emergency, and response
+  boards plus colored decision pads supply visible normal/alert state changes.
+- Final Verse compile: PASS (`Built successfully`). Map validation: PASS (1/1
+  valid, zero invalid, zero warnings). Actor audit: 255 level actors; all six
+  feedback actors saved; no proof/debug/replay residue.
+- Controller serialization contains all six editable names and assigned actor
+  package IDs. Audio packages contain the selected cue references.
+  `DebugEnabled=false` and `AutomatedReplayEnabled=false`.
+- Live feedback/alert proof and the eleven final reference-angle captures are
+  blocked by Epic's `errors.com.epicgames.common.processing` launch handshake;
+  no editor screenshot is claimed as live proof.

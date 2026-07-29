@@ -38,3 +38,12 @@ Last reconciled: 2026-07-28 PDT
 | P-03 | Current post-reference live activation | BLOCKED EXTERNAL | Two clean launches stopped at Epic `errors.com.epicgames.common.processing`; editor validation and Verse compile pass |
 
 Never classify one-client automation as real multiplayer testing.
+
+## Feedback-and-alert milestone delta - 2026-07-28 PDT
+
+| ID | Test | Status | Evidence / remaining requirement |
+|---|---|---|---|
+| FA-01 | Six feedback devices exist and are controller-wired | PASS (STATIC/VALIDATION) | Actor audit found six Audio Players in `TerminalLockdown/Gameplay/Feedback`; controller package contains all six editable names and assigned package IDs |
+| FA-02 | Scanner, bag, decision, custody, power, alert, and results triggers compile | PASS (CODE/VALIDATION) | Final UEFN Verse build reported `Built successfully`; selected cues are serialized in the six actor packages |
+| FA-03 | Final map validation and residue audit | PASS | 1/1 valid, zero invalid, zero warnings; 255 actors; no proof/debug/replay labels |
+| FA-04 | Live sound, normal/alert comparison, and reference-angle proof | BLOCKED (EXTERNAL) | Epic launch handshake returns `errors.com.epicgames.common.processing`; no editor-only image is promoted as runtime proof |

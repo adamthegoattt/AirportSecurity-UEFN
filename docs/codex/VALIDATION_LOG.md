@@ -126,3 +126,23 @@
 - The disposable cube proof was removed through supported editor actor
   destruction. Live press/light/audio confirmation remains pending behind the
   existing external Epic session-handshake blocker.
+
+## Airport feedback and alert states - 2026-07-28 PDT
+
+- Added six saved Audio Players in `TerminalLockdown/Gameplay/Feedback` for
+  scanner start/result, bag scan, decision press, positive, and negative cues.
+  All are global, non-looping, and restart on activation.
+- Controller serialization contains the six editable property names and the
+  six assigned external-actor package IDs; each audio package contains its
+  selected cue reference.
+- Final Verse compile: PASS; UEFN tooltip reported `Built successfully`.
+- Final map validation: PASS; `num_requested=1`, `num_checked=1`,
+  `num_valid=1`, `num_invalid=0`, `num_warnings=0`.
+- Actor audit: 255 level actors; all six feedback actors in the production
+  folder; three pooled bags and both custody actors present; no
+  proof/debug/replay actor labels.
+- Saved editor state is `All Saved`. `DebugEnabled=false` and
+  `AutomatedReplayEnabled=false` remain the production defaults.
+- Live feedback/alert testing and eleven final reference-angle captures remain
+  blocked by Epic's `errors.com.epicgames.common.processing` handshake. No
+  screenshot-proof commit was created.

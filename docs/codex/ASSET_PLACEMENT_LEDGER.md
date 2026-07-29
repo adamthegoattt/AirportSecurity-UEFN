@@ -30,3 +30,12 @@ saved, validated, activated, and exercised at the checkpoint.
 The luggage milestone removed the development debug Button actor and its Verse
 hook. `DebugEnabled=false` and `AutomatedReplayEnabled=false` remain production
 defaults; no proof actor or unattended replay control remains in the level.
+
+## Feedback-and-alert milestone additions - 2026-07-28 PDT
+
+| Purpose | Exact class / cue | Exact placement method | Evidence | Status |
+|---|---|---|---|---|
+| Scanner start/result | `/CRD_AudioPlayer/Device_CRD_AudioPlayer.Device_CRD_AudioPlayer_C`; `Stinger_Accent_01`, `CP_Silver_Collect_Cue` | `TL_AUDIO_ScannerStart` at `(1050,-1300,520)` and `TL_AUDIO_ScannerResult` at `(1320,-1300,520)`; global, non-looping, restart enabled; controller-wired | Packages `9/UG/AH2YEMDCSKXJCKEXVQSSM9` and `D/0N/9NQ2YUH3M0E65ZJC7CAI11`; compile and validation passed | `APPROVED_FOR_PRODUCTION`; live audio proof blocked |
+| Bag X-ray movement | Same Audio Player class; `SlidingDoor_Open` | `TL_AUDIO_BagScan` at `(2200,-1300,620)`; global, non-looping, restart enabled; controller-wired | Package `D/BR/2M2I9MMYJUB61WF1IFAUQ4`; compile and validation passed | `APPROVED_FOR_PRODUCTION`; live audio proof blocked |
+| Decision press | Same Audio Player class; `Timer_Tick` | `TL_AUDIO_DecisionPress` at `(4350,0,720)`; global, non-looping, restart enabled; controller-wired | Package `9/LU/OJW3XV5OJ1771UI1Z0G4X4`; compile and validation passed | `APPROVED_FOR_PRODUCTION`; live audio proof blocked |
+| Positive/negative outcomes | Same Audio Player class; `Sticky_Collect`, `SlidingDoor_Close` | `TL_AUDIO_Positive` at `(4350,-720,720)` and `TL_AUDIO_Negative` at `(4350,720,720)`; global, non-looping, restart enabled; controller-wired | Packages `2/GR/3ZWFG11BCY5QM0KUDQYAXW` and `6/O3/N2LOYNTKH127W8CC4R2U7X`; compile and validation passed | `APPROVED_FOR_PRODUCTION`; live audio proof blocked |
