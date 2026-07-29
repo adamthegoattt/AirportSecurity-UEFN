@@ -1,4 +1,5 @@
 using { /Fortnite.com/Devices }
+using { /Fortnite.com/Characters }
 using { /Fortnite.com/UI }
 using { /Verse.org/Colors }
 using { /Verse.org/Simulation }
@@ -60,6 +61,9 @@ terminal_lockdown_controller := class(creative_device):
     PassengerActive:character_device = character_device{}
 
     @editable
+    JailOccupant:character_device = character_device{}
+
+    @editable
     BagPropSmall:creative_prop = creative_prop{}
 
     @editable
@@ -87,6 +91,9 @@ terminal_lockdown_controller := class(creative_device):
     CustodyBoard:billboard_device = billboard_device{}
 
     @editable
+    CellBoard:billboard_device = billboard_device{}
+
+    @editable
     EmergencyBoard:billboard_device = billboard_device{}
 
     @editable
@@ -103,6 +110,15 @@ terminal_lockdown_controller := class(creative_device):
 
     @editable
     EmergencyTimeoutSeconds:float = 45.0
+
+    @editable
+    CustodyProximityRadius:float = 600.0
+
+    @editable
+    RunnerCaptureRadius:float = 850.0
+
+    @editable
+    ResponseProximityRadius:float = 850.0
 
     @editable
     DebugEnabled:logic = false
@@ -467,6 +483,7 @@ terminal_lockdown_controller := class(creative_device):
         DocumentBoard.SetShowBorder(true)
         PowerBoard.SetShowBorder(true)
         CustodyBoard.SetShowBorder(true)
+        CellBoard.SetShowBorder(true)
         EmergencyBoard.SetShowBorder(true)
         ClearBoard.SetShowBorder(true)
         SecondaryBoard.SetShowBorder(true)
@@ -477,6 +494,7 @@ terminal_lockdown_controller := class(creative_device):
         DocumentBoard.SetTextSize(16)
         PowerBoard.SetTextSize(20)
         CustodyBoard.SetTextSize(18)
+        CellBoard.SetTextSize(22)
         EmergencyBoard.SetTextSize(20)
         ClearBoard.SetTextSize(26)
         SecondaryBoard.SetTextSize(26)
@@ -487,8 +505,10 @@ terminal_lockdown_controller := class(creative_device):
         SetBoard(DocumentBoard, "TRAVEL DOCUMENTS | NO ACTIVE CASE")
         SetBoard(PowerBoard, "POWER ONLINE")
         SetBoard(CustodyBoard, "DETENTION INTAKE | READY")
+        SetBoard(CellBoard, "DETENTION CELL | VACANT")
         SetBoard(EmergencyBoard, "RESPONSE SUPPLY | STANDBY")
         SetDecisionControlsAvailable(false)
+        JailOccupant.Hide()
         CustodyButton.Disable()
         PowerButton.Disable()
 
@@ -881,6 +901,8 @@ terminal_lockdown_controller := class(creative_device):
     BeginDetention():void=
         set CustodyCommitted = false
         CustodyButton.Disable()
+        JailOccupant.Hide()
+        SetBoard(CellBoard, "DETENTION CELL | OPEN FOR INTAKE")
         if (CurrentTemplate = 8):
             set CurrentCustodyMode = 2
             set Phase = terminal_game_phase.Runner
@@ -906,10 +928,14 @@ terminal_lockdown_controller := class(creative_device):
         spawn{MovePassengerToIntake(CurrentCaseId, RunGeneration)}
 
     CaptureRunner(Agent:agent):void=
+        if (Phase <> terminal_game_phase.Runner):
+            return
+        if (not IsAgentNear(Agent, vector3{X := 4350.0, Y := 720.0, Z := 70.0}, RunnerCaptureRadius)?):
+            ShowAgent(Agent, "RUNNER TOO FAR | Intercept at the red decision lane before detaining.", 5.0)
+            TerminalLog(DebugEnabled, "[CUSTODY] Remote runner capture rejected for CaseId={CurrentCaseId}")
+            return
         Claimed := TryClaim(Agent)
         if (not Claimed?):
-            return
-        if (Phase <> terminal_game_phase.Runner):
             return
         set CurrentCustodyMode = 1
         set Phase = terminal_game_phase.Custody
@@ -923,6 +949,10 @@ terminal_lockdown_controller := class(creative_device):
         if (Phase <> terminal_game_phase.Custody):
             ShowAgent(Agent, "No suspect is ready for detention intake.", 4.0)
             return
+        if (not IsAgentNear(Agent, vector3{X := 5000.0, Y := 1450.0, Z := 70.0}, CustodyProximityRadius)?):
+            ShowAgent(Agent, "TOO FAR FROM INTAKE | Escort the secured suspect to the jail gate.", 5.0)
+            TerminalLog(DebugEnabled, "[CUSTODY] Remote intake rejected for CaseId={CurrentCaseId}")
+            return
         Claimed := TryClaim(Agent)
         if (not Claimed?):
             return
@@ -935,6 +965,7 @@ terminal_lockdown_controller := class(creative_device):
         set TeamCash += 175
         LowerRisk(2)
         SetBoard(CustodyBoard, "CASE {CurrentCaseId} | JAILED | INTAKE COMPLETE")
+        SetBoard(CellBoard, "CELL GATE CLOSING | CASE {CurrentCaseId}")
         SetBoard(CaseBoard, "CASE {CurrentCaseId} | ARREST COMPLETE | +175")
         ShowAll("JAIL INTAKE COMPLETE | Arrest finalized exactly once | +175 cash.", 6.0)
         spawn{MovePassengerIntoCellAndFinish(CurrentCaseId, RunGeneration)}
@@ -992,8 +1023,10 @@ terminal_lockdown_controller := class(creative_device):
             2.0
         )
         if (ExpectedCaseId = CurrentCaseId and ExpectedRun = RunGeneration and Phase = terminal_game_phase.Resolving):
-            Sleep(1.0)
+            Sleep(0.5)
             PassengerActive.Hide()
+            JailOccupant.Show()
+            SetBoard(CellBoard, "CELL SECURED | OCCUPIED | CASE {CurrentCaseId}")
             FinishCase()
 
     FinishCase():void=
@@ -1339,6 +1372,10 @@ terminal_lockdown_controller := class(creative_device):
 
     OnResponseButton(Agent:agent):void=
         if (Phase = terminal_game_phase.HostileResponse):
+            if (not IsAgentNear(Agent, vector3{X := 5650.0, Y := -3000.0, Z := 70.0}, ResponseProximityRadius)?):
+                ShowAgent(Agent, "TOO FAR FROM RESPONSE ZONE | Reach the secured supply station.", 5.0)
+                TerminalLog(DebugEnabled, "[RESPONSE] Remote resistant response rejected for CaseId={CurrentCaseId}")
+                return
             set Phase = terminal_game_phase.Custody
             set CurrentCustodyMode = 1
             CustodyButton.Enable()
@@ -1409,6 +1446,7 @@ terminal_lockdown_controller := class(creative_device):
         set Phase = terminal_game_phase.Results
         set TeamCash += 500
         PassengerActive.Hide()
+        JailOccupant.Hide()
         SetBoard(CheckpointBoard, "TERMINAL SECURED | RESULTS")
         SetBoard(EmergencyBoard, "ALL CLEAR | RESPOND TO REPLAY")
         Grade := ResultGrade()
@@ -1420,6 +1458,7 @@ terminal_lockdown_controller := class(creative_device):
         set ClaimOwner = false
         set EmergencyGeneration += 1
         PassengerActive.Hide()
+        JailOccupant.Hide()
         RestoreNormalPower()
         SetBoard(CheckpointBoard, "TERMINAL OVERRUN | RESULTS")
         SetBoard(EmergencyBoard, "RUN ENDED | RESPOND TO RETRY")
@@ -1444,6 +1483,7 @@ terminal_lockdown_controller := class(creative_device):
         set QueueGeneration += 1
         set ScannerGeneration += 1
         PassengerActive.Hide()
+        JailOccupant.Hide()
         spawn{ResetPassengerQueue(RunGeneration)}
         CustodyButton.Disable()
         RestoreNormalPower()
@@ -1452,6 +1492,7 @@ terminal_lockdown_controller := class(creative_device):
         SetBoard(BagBoard, "BAG INSPECTION | NO ACTIVE BAG")
         SetBoard(DocumentBoard, "TRAVEL DOCUMENTS | NO ACTIVE CASE")
         SetBoard(CustodyBoard, "DETENTION INTAKE | READY")
+        SetBoard(CellBoard, "DETENTION CELL | VACANT")
         SetBoard(EmergencyBoard, "RESPONSE SUPPLY | STANDBY")
         ShowAll("TERMINAL LOCKDOWN | Run reset cleanly. Press START SHIFT.", 8.0)
         TerminalLog(DebugEnabled, "[RECOVERY] Reset complete|Generation={RunGeneration}")
@@ -1523,6 +1564,17 @@ terminal_lockdown_controller := class(creative_device):
         SetBoard(ClearBoard, "CLEAR\nSTANDBY")
         SetBoard(SecondaryBoard, "SECONDARY\nSTANDBY")
         SetBoard(DetainBoard, "DETAIN\nSUBMITTED")
+
+    IsAgentNear(Agent:agent, Target:vector3, Radius:float)<transacts>:logic=
+        if (Character := Agent.GetFortCharacter[]):
+            Location := Character.GetTransform().Translation
+            DeltaX := Location.X - Target.X
+            DeltaY := Location.Y - Target.Y
+            DeltaZ := Location.Z - Target.Z
+            RangeDistanceSquared := DeltaX * DeltaX + DeltaY * DeltaY + DeltaZ * DeltaZ
+            if (RangeDistanceSquared <= Radius * Radius):
+                return true
+        false
 
     IsHumanAgent(Agent:agent)<transacts>:logic=
         if (player[Agent]):
