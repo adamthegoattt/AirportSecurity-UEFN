@@ -2,7 +2,7 @@
 
 ## Checkpoint
 
-- Name: **Terminal Lockdown - Reference Match / Moving Luggage**
+- Name: **Terminal Lockdown - Reference Match / Physical Decisions**
 - Date: **2026-07-28 PDT**
 - Project: `AirportSecurity`
 - Map: `/AirportSecurity/AirportSecurity`
@@ -13,7 +13,7 @@
 ## Current game state
 
 - The validated reference-match terminal and support-room pass is saved in
-  `/AirportSecurity/AirportSecurity`; the current editor audit reports 234
+  `/AirportSecurity/AirportSecurity`; the current editor audit reports 240
   loaded actors.
 - UEFN is open, responsive, disconnected from a live session, and all saved.
 - Three class-backed production luggage props are wired to `TL_Controller` for
@@ -36,6 +36,11 @@
 - A per-player document-reader interface now presents structured fictional
   identity fields and independent consistency checks; it closes on return,
   decision, case change, player removal, shift break, and reset.
+- The decision desk now uses three large, spaced, color-coded physical pads
+  (green Clear, yellow Secondary, red Detain), enlarged fallback Button
+  devices, and dedicated dynamic labels. Verse locks the station until all
+  required evidence is collected, disables it after submission, and shows the
+  committed outcome.
 - Body, bag, and document checks followed by `CLEAR`, `SECONDARY`, or `DETAIN`.
 - Compliant detainee, runner, resistant-response, custody, and exactly-once
   intake guards.
@@ -97,14 +102,14 @@
 
 ## Devices or actors added
 
-No new placed production actor was added in this continuation cycle. The saved
-inventory remains:
+The current saved inventory includes:
 
 - 118 `/Game/Valkyrie/GridPlane.GridPlane_C` architecture/physical-prop actors.
 - 11 Button devices: start, scan, bag, documents, clear, secondary, detain,
   response, upgrade, custody, and power. The temporary debug button was removed.
-- 7 Billboard devices: checkpoint, case, bag, document, power, custody, and
-  emergency.
+- 10 Billboard devices: checkpoint, case, bag, document, power, custody,
+  emergency, plus dedicated Clear, Secondary, and Detain control labels.
+- 3 colored physical decision pads using the proven Fortnite cube classes.
 - 4 Character devices: three queue passengers and one active passenger.
 - 1 HUD Message device: `TL_HUD_Status`.
 - 1 Verse device: `TL_Controller`.

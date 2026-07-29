@@ -90,6 +90,15 @@ terminal_lockdown_controller := class(creative_device):
     EmergencyBoard:billboard_device = billboard_device{}
 
     @editable
+    ClearBoard:billboard_device = billboard_device{}
+
+    @editable
+    SecondaryBoard:billboard_device = billboard_device{}
+
+    @editable
+    DetainBoard:billboard_device = billboard_device{}
+
+    @editable
     CasesPerShift:int = 3
 
     @editable
@@ -421,13 +430,13 @@ terminal_lockdown_controller := class(creative_device):
         DocumentButton.SetInteractionText(TerminalMessage("CHECK DOCUMENTS"))
         DocumentButton.SetInteractionTime(0.5)
         DocumentButton.SetMaxTriggerCount(0)
-        ClearButton.SetInteractionText(TerminalMessage("CLEAR"))
+        ClearButton.SetInteractionText(TerminalMessage("GREEN | CLEAR PASSENGER"))
         ClearButton.SetInteractionTime(0.25)
         ClearButton.SetMaxTriggerCount(0)
-        SecondaryButton.SetInteractionText(TerminalMessage("SECONDARY"))
+        SecondaryButton.SetInteractionText(TerminalMessage("YELLOW | SECONDARY INSPECTION"))
         SecondaryButton.SetInteractionTime(0.5)
         SecondaryButton.SetMaxTriggerCount(0)
-        DetainButton.SetInteractionText(TerminalMessage("DETAIN"))
+        DetainButton.SetInteractionText(TerminalMessage("RED | DETAIN SUSPECT"))
         DetainButton.SetInteractionTime(0.75)
         DetainButton.SetMaxTriggerCount(0)
         ResponseButton.SetInteractionText(TerminalMessage("RESPOND / SECURE"))
@@ -459,6 +468,9 @@ terminal_lockdown_controller := class(creative_device):
         PowerBoard.SetShowBorder(true)
         CustodyBoard.SetShowBorder(true)
         EmergencyBoard.SetShowBorder(true)
+        ClearBoard.SetShowBorder(true)
+        SecondaryBoard.SetShowBorder(true)
+        DetainBoard.SetShowBorder(true)
         CheckpointBoard.SetTextSize(24)
         CaseBoard.SetTextSize(18)
         BagBoard.SetTextSize(16)
@@ -466,6 +478,9 @@ terminal_lockdown_controller := class(creative_device):
         PowerBoard.SetTextSize(20)
         CustodyBoard.SetTextSize(18)
         EmergencyBoard.SetTextSize(20)
+        ClearBoard.SetTextSize(26)
+        SecondaryBoard.SetTextSize(26)
+        DetainBoard.SetTextSize(26)
         SetBoard(CheckpointBoard, "SECURITY CHECKPOINT | OPEN")
         SetBoard(CaseBoard, "CURRENT PASSENGER | WAITING FOR SHIFT")
         SetBoard(BagBoard, "BAG INSPECTION | NO ACTIVE BAG")
@@ -473,6 +488,7 @@ terminal_lockdown_controller := class(creative_device):
         SetBoard(PowerBoard, "POWER ONLINE")
         SetBoard(CustodyBoard, "DETENTION INTAKE | READY")
         SetBoard(EmergencyBoard, "RESPONSE SUPPLY | STANDBY")
+        SetDecisionControlsAvailable(false)
         CustodyButton.Disable()
         PowerButton.Disable()
 
@@ -544,6 +560,7 @@ terminal_lockdown_controller := class(creative_device):
         set Phase = terminal_game_phase.Inspecting
         set BodyChecked = true
         set Phase = terminal_game_phase.AwaitingDecision
+        RefreshDecisionControls()
         set ScannerGeneration += 1
         SetBoard(CheckpointBoard, "SCANNER ACTIVE | AMBER SWEEP | BEEP")
         ShowAgent(Agent, "BODY SCANNER ACTIVE | Hold for the physical result.", 3.0)
@@ -576,6 +593,7 @@ terminal_lockdown_controller := class(creative_device):
         set Phase = terminal_game_phase.Inspecting
         set BagChecked = true
         set Phase = terminal_game_phase.AwaitingDecision
+        RefreshDecisionControls()
         set BagGeneration += 1
         SetBoard(BagBoard, "X-RAY ACTIVE | CASE {CurrentCaseId} | LINKED BAG MOVING")
         ShowAgent(Agent, "X-RAY ACTIVE | Linked bag moving through the inspection tunnel.", 4.0)
@@ -652,6 +670,7 @@ terminal_lockdown_controller := class(creative_device):
         set Phase = terminal_game_phase.Inspecting
         set DocumentsChecked = true
         set Phase = terminal_game_phase.AwaitingDecision
+        RefreshDecisionControls()
         SetBoard(
             DocumentBoard,
             "TRAVEL ID {CurrentCaseId} | {IdentityName(CurrentTemplate)} | {Destination(CurrentTemplate)} | {DocumentEvidence(CurrentTemplate)}"
@@ -815,6 +834,7 @@ terminal_lockdown_controller := class(creative_device):
         set ResolutionCommitted = true
         CloseAllDocumentInterfaces()
         set Phase = terminal_game_phase.Resolving
+        ShowDecisionSubmitted(Decision)
         Expected := RequiredDecision(CurrentTemplate)
         TerminalLog(DebugEnabled, "[DECISION] CaseId={CurrentCaseId}|Submitted={DecisionLabel(Decision)}|Expected={DecisionLabel(Expected)}")
 
@@ -1007,6 +1027,7 @@ terminal_lockdown_controller := class(creative_device):
         set CurrentCustodyMode = 0
         set ClaimOwner = false
         set Phase = terminal_game_phase.CaseReady
+        SetDecisionControlsAvailable(false)
         CustodyButton.Disable()
         SetBoard(CheckpointBoard, "SECURITY CHECKPOINT | CASE {CurrentCaseId} READY")
         SetBoard(CaseBoard, "SHIFT {Shift} | CASE {CurrentCaseId} | {TemplateName(CurrentTemplate)}")
@@ -1227,6 +1248,7 @@ terminal_lockdown_controller := class(creative_device):
         set DocumentGeneration += 1
         CloseAllDocumentInterfaces()
         set Phase = terminal_game_phase.UpgradeBreak
+        SetDecisionControlsAvailable(false)
         set ClaimOwner = false
         set PowerOnline = true
         ScanButton.Enable()
@@ -1263,6 +1285,7 @@ terminal_lockdown_controller := class(creative_device):
 
     BeginEmergency():void=
         set Phase = terminal_game_phase.Emergency
+        SetDecisionControlsAvailable(false)
         set ClaimOwner = false
         PassengerActive.Hide()
         CustodyButton.Disable()
@@ -1409,6 +1432,7 @@ terminal_lockdown_controller := class(creative_device):
         set RunGeneration += 1
         set EmergencyGeneration += 1
         set Phase = terminal_game_phase.Waiting
+        SetDecisionControlsAvailable(false)
         set BossBranch = terminal_boss_branch.None
         set Shift = 0
         set CasesInShift = 0
@@ -1458,6 +1482,47 @@ terminal_lockdown_controller := class(creative_device):
         if (Shift >= 3, not DocumentsChecked?):
             return false
         true
+
+    RefreshDecisionControls():void=
+        if (Phase = terminal_game_phase.CaseReady or Phase = terminal_game_phase.AwaitingDecision):
+            Ready := ReadyForDecision()
+            SetDecisionControlsAvailable(Ready)
+            return
+        SetDecisionControlsAvailable(false)
+
+    SetDecisionControlsAvailable(Available:logic):void=
+        if (Available?):
+            ClearButton.Enable()
+            SecondaryButton.Enable()
+            DetainButton.Enable()
+            SetBoard(ClearBoard, "GREEN | CLEAR\nAUTHORIZED")
+            SetBoard(SecondaryBoard, "YELLOW | SECONDARY\nAUTHORIZED")
+            SetBoard(DetainBoard, "RED | DETAIN\nAUTHORIZED")
+            return
+        ClearButton.Disable()
+        SecondaryButton.Disable()
+        DetainButton.Disable()
+        SetBoard(ClearBoard, "CLEAR\nLOCKED - COMPLETE CHECKS")
+        SetBoard(SecondaryBoard, "SECONDARY\nLOCKED - COMPLETE CHECKS")
+        SetBoard(DetainBoard, "DETAIN\nLOCKED - COMPLETE CHECKS")
+
+    ShowDecisionSubmitted(Decision:terminal_decision):void=
+        ClearButton.Disable()
+        SecondaryButton.Disable()
+        DetainButton.Disable()
+        if (Decision = terminal_decision.Clear):
+            SetBoard(ClearBoard, "CLEAR\nSUBMITTED")
+            SetBoard(SecondaryBoard, "SECONDARY\nSTANDBY")
+            SetBoard(DetainBoard, "DETAIN\nSTANDBY")
+            return
+        if (Decision = terminal_decision.Secondary):
+            SetBoard(ClearBoard, "CLEAR\nSTANDBY")
+            SetBoard(SecondaryBoard, "SECONDARY\nSUBMITTED")
+            SetBoard(DetainBoard, "DETAIN\nSTANDBY")
+            return
+        SetBoard(ClearBoard, "CLEAR\nSTANDBY")
+        SetBoard(SecondaryBoard, "SECONDARY\nSTANDBY")
+        SetBoard(DetainBoard, "DETAIN\nSUBMITTED")
 
     IsHumanAgent(Agent:agent)<transacts>:logic=
         if (player[Agent]):

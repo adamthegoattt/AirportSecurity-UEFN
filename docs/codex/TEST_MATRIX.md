@@ -21,6 +21,7 @@ Last reconciled: 2026-07-28 PDT
 | C-09 | Resistant response | PASS (FALLBACK) | Response -> physical intake -> custody; 1 correct/resolved, cash 175; no combat AI claim |
 | C-10 | Linked luggage motion / X-ray result | PASS (COMPILE + EDITOR) | Three class-backed props wired to controller; guarded inbound, tunnel, and exit `MoveTo` paths compile; live-session proof pending |
 | C-11 | Player document interface | PASS (COMPILE + EDITOR) | Per-player 720x760 UI compiles with fictional identity, portrait placeholder, number, expiry, route, access, five consistency checks, evidence status, duplicate-open guard, return control, claim release, and case/reset/removal cleanup; live UI proof pending |
+| C-12 | Physical Clear / Secondary / Detain station | PASS (COMPILE + EDITOR) | Three large green/yellow/red pads, enlarged underlying Button devices, dedicated dynamic labels, evidence-gated enablement, submit lockout, and committed-outcome feedback are saved; Verse build succeeded; live input/audio proof pending |
 | M-00 | Deterministic claim regression | PASS | One-client production-handler harness released/reclaimed CaseId 7 and rejected duplicate decision; not multiplayer QA |
 | M-01 | Two-player contention | NOT RUN | One connected client only |
 | M-02 | Claim owner disconnect/rejoin | NOT RUN | Handler and deterministic owner-loss regression pass; genuine disconnect/rejoin still required |

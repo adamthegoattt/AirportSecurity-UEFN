@@ -109,3 +109,20 @@
   returned 1/1 valid with 0 invalid and 0 warnings; residue audit remained empty.
 - Live UI interaction and screenshot proof remain pending behind the recorded
   Epic session-handshake blocker.
+
+## Physical decision controls - 2026-07-28 PDT
+
+- Added three large, spaced physical pads using the proven Fortnite green,
+  yellow, and red cube classes. Existing Clear, Secondary, and Detain Button
+  devices were enlarged and retained as the interaction/fallback layer.
+- Added dedicated control Billboards and wired all three references to
+  `TL_Controller`. Runtime presentation identifies each outcome, locks the
+  station until required evidence is complete, disables after submission, and
+  displays the committed decision.
+- Focused Verse build reported `Built successfully`. Fresh map validation
+  returned result code 0: 1 requested, 1 checked, 1 valid, 0 invalid, and
+  0 warnings. Actor audit reports 240 actors, exactly three `TL_DECISION_`
+  pads, three dedicated control boards, and no proof/debug/replay residue.
+- The disposable cube proof was removed through supported editor actor
+  destruction. Live press/light/audio confirmation remains pending behind the
+  existing external Epic session-handshake blocker.
