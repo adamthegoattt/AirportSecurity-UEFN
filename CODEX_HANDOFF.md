@@ -33,6 +33,9 @@
   through scanner, departure, response, detention intake, and jail cell.
 - Active-case-linked luggage and fictional document evidence with world boards
   and HUD objectives.
+- A per-player document-reader interface now presents structured fictional
+  identity fields and independent consistency checks; it closes on return,
+  decision, case change, player removal, shift break, and reset.
 - Body, bag, and document checks followed by `CLEAR`, `SECONDARY`, or `DETAIN`.
 - Compliant detainee, runner, resistant-response, custody, and exactly-once
   intake guards.

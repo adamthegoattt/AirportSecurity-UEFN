@@ -1,5 +1,8 @@
 using { /Fortnite.com/Devices }
+using { /Fortnite.com/UI }
+using { /Verse.org/Colors }
 using { /Verse.org/Simulation }
+using { /UnrealEngine.com/Temporary/UI }
 using { /UnrealEngine.com/Temporary/SpatialMath }
 
 # Terminal Lockdown's authoritative inspection state machine. Device/HUD
@@ -131,6 +134,9 @@ terminal_lockdown_controller := class(creative_device):
     var ScannerGeneration:int = 0
     var BagGeneration:int = 0
     var ActiveBagIndex:int = 0
+    var DocumentGeneration:int = 0
+    var DocumentRootUI:[player]canvas = map{}
+    var DocumentOpenCase:[player]int = map{}
 
     OnBegin<override>()<suspends>:void=
         StartButton.InteractedWithEvent.Subscribe(OnStartButton)
@@ -475,6 +481,7 @@ terminal_lockdown_controller := class(creative_device):
         TerminalLog(DebugEnabled, "[PLAYER] Joined during phase {PhaseLabel()}")
 
     OnPlayerRemoved(Player:player):void=
+        CloseDocumentInterface(Player)
         if (Owner := ClaimOwner?, Owner = Player):
             set ClaimOwner = false
             if (Phase = terminal_game_phase.Inspecting):
@@ -633,8 +640,14 @@ terminal_lockdown_controller := class(creative_device):
         Legal := IsCaseInteractionLegal(Agent)
         if (not Legal?):
             return
+        if (Player := player[Agent]):
+            if (OpenCase := DocumentOpenCase[Player], OpenCase = CurrentCaseId):
+                ShowAgent(Agent, "Document interface is already open for Case {CurrentCaseId}.", 3.0)
+                return
         if (DocumentsChecked?):
-            ShowAgent(Agent, "DOCUMENTS already checked | {DocumentEvidence(CurrentTemplate)}", 4.0)
+            if (Player := player[Agent]):
+                OpenDocumentInterface(Player, CurrentCaseId, CurrentTemplate, DocumentGeneration)
+            ShowAgent(Agent, "DOCUMENTS already checked | Reopened Case {CurrentCaseId} record.", 4.0)
             return
         set Phase = terminal_game_phase.Inspecting
         set DocumentsChecked = true
@@ -643,8 +656,108 @@ terminal_lockdown_controller := class(creative_device):
             DocumentBoard,
             "TRAVEL ID {CurrentCaseId} | {IdentityName(CurrentTemplate)} | {Destination(CurrentTemplate)} | {DocumentEvidence(CurrentTemplate)}"
         )
-        ShowAgent(Agent, "DOCUMENTS | {DocumentEvidence(CurrentTemplate)} | {EvidencePrompt()}", 6.0)
+        if (Player := player[Agent]):
+            OpenDocumentInterface(Player, CurrentCaseId, CurrentTemplate, DocumentGeneration)
+        ShowAgent(Agent, "DOCUMENT READER | Compare portrait, expiry, route, seal, and access fields.", 5.0)
         TerminalLog(DebugEnabled, "[DOC] CaseId={CurrentCaseId}|Template={CurrentTemplate}|CheckedOnce=True")
+
+    OpenDocumentInterface(Player:player, CaseId:int, Template:int, ExpectedDocumentGeneration:int):void=
+        if (CaseId <> CurrentCaseId or ExpectedDocumentGeneration <> DocumentGeneration):
+            return
+        CloseDocumentInterface(Player)
+
+        Header := text_block:
+            DefaultText := TerminalMessage("ASTRA TERMINAL TRAVEL RECORD  |  CASE {CaseId}")
+            DefaultTextColor := NamedColors.White
+            DefaultTextSize := 27.0
+        Subheader := text_block:
+            DefaultText := TerminalMessage("FICTIONAL SECURITY TRAINING DOCUMENT  |  FIELD COMPARISON REQUIRED")
+            DefaultTextColor := NamedColors.LightCyan
+            DefaultTextSize := 14.0
+        PortraitLabel := text_block:
+            DefaultText := TerminalMessage("PORTRAIT\n\n[ FACE SAMPLE ]\n\n{PortraitCheck(Template)}")
+            DefaultTextColor := NamedColors.White
+            DefaultTextSize := 18.0
+            AutoWrap := true
+            WrapWidth := 205.0
+        PortraitPanel := overlay:
+            Slots := array:
+                overlay_slot:
+                    Widget := color_block:
+                        DefaultColor := MakeColorFromSRGBValues(23, 43, 68)
+                        DefaultOpacity := 1.0
+                        DefaultDesiredSize := vector2{X := 220.0, Y := 280.0}
+                overlay_slot:
+                    Widget := PortraitLabel
+                    Padding := margin{Left := 18.0, Top := 22.0, Right := 18.0, Bottom := 18.0}
+        IdentityFields := text_block:
+            DefaultText := TerminalMessage("NAME\n{IdentityName(Template)}\n\nDOCUMENT NUMBER\n{DocumentNumber(Template)}\n\nEXPIRATION\n{ExpirationDate(Template)}\n\nDESTINATION\n{Destination(Template)}\n\nFLIGHT / GATE\n{FlightAndGate(Template)}\n\nACCESS LEVEL\n{AccessLevel(Template)}")
+            DefaultTextColor := NamedColors.White
+            DefaultTextSize := 18.0
+            AutoWrap := true
+            WrapWidth := 385.0
+        IdentityRow := stack_box:
+            Orientation := orientation.Horizontal
+            Slots := array:
+                stack_box_slot{Widget := PortraitPanel, Padding := margin{Right := 24.0}}
+                stack_box_slot{Widget := IdentityFields}
+        Checks := text_block:
+            DefaultText := TerminalMessage("CONSISTENCY CHECKS\n{ExpiryCheck(Template)}\n{SealCheck(Template)}\n{GateCheck(Template)}\n{AccessCheck(Template)}\n\nEVIDENCE STATUS\n{DocumentEvidence(Template)}")
+            DefaultTextColor := DocumentStatusColor(Template)
+            DefaultTextSize := 17.0
+            AutoWrap := true
+            WrapWidth := 650.0
+        ReturnButton := button_loud{DefaultText := TerminalMessage("RETURN TO CHECKPOINT")}
+        ReturnButton.OnClick().Subscribe(OnCloseDocument)
+        Content := stack_box:
+            Orientation := orientation.Vertical
+            Slots := array:
+                stack_box_slot{Widget := Header, Padding := margin{Bottom := 5.0}}
+                stack_box_slot{Widget := Subheader, Padding := margin{Bottom := 20.0}}
+                stack_box_slot{Widget := IdentityRow, Padding := margin{Bottom := 20.0}}
+                stack_box_slot{Widget := Checks, Padding := margin{Bottom := 20.0}}
+                stack_box_slot{Widget := ReturnButton}
+        Panel := overlay:
+            Slots := array:
+                overlay_slot:
+                    Widget := color_block:
+                        DefaultColor := MakeColorFromSRGBValues(7, 16, 28)
+                        DefaultOpacity := 0.97
+                        DefaultDesiredSize := vector2{X := 720.0, Y := 760.0}
+                overlay_slot:
+                    Widget := Content
+                    Padding := margin{Left := 30.0, Top := 26.0, Right := 30.0, Bottom := 26.0}
+        Root := canvas:
+            Slots := array:
+                canvas_slot:
+                    Anchors := anchors{Minimum := vector2{X := 0.5, Y := 0.5}, Maximum := vector2{X := 0.5, Y := 0.5}}
+                    Offsets := margin{Right := 720.0, Bottom := 760.0}
+                    Alignment := vector2{X := 0.5, Y := 0.5}
+                    SizeToContent := false
+                    Widget := Panel
+
+        if (CaseId <> CurrentCaseId or ExpectedDocumentGeneration <> DocumentGeneration):
+            return
+        if (set DocumentRootUI[Player] = Root) {}
+        if (set DocumentOpenCase[Player] = CaseId) {}
+        if (PlayerUI := GetPlayerUI[Player]):
+            PlayerUI.AddWidget(Root, player_ui_slot{InputMode := ui_input_mode.All, ZOrder := 120})
+
+    OnCloseDocument(Message:widget_message):void=
+        Player := Message.Player
+        CloseDocumentInterface(Player)
+        if (Owner := ClaimOwner?, Owner = Player, not ResolutionCommitted?):
+            set ClaimOwner = false
+            ShowAll("Document desk released for Case {CurrentCaseId}.", 3.0)
+
+    CloseDocumentInterface(Player:player):void=
+        if (Root := DocumentRootUI[Player], PlayerUI := GetPlayerUI[Player]):
+            PlayerUI.RemoveWidget(Root)
+        if (set DocumentOpenCase[Player] = -1) {}
+
+    CloseAllDocumentInterfaces():void=
+        for (Player : GetPlayspace().GetPlayers()):
+            CloseDocumentInterface(Player)
 
     OnClearButton(Agent:agent):void=
         ResolveDecision(Agent, terminal_decision.Clear)
@@ -700,6 +813,7 @@ terminal_lockdown_controller := class(creative_device):
             return
 
         set ResolutionCommitted = true
+        CloseAllDocumentInterfaces()
         set Phase = terminal_game_phase.Resolving
         Expected := RequiredDecision(CurrentTemplate)
         TerminalLog(DebugEnabled, "[DECISION] CaseId={CurrentCaseId}|Submitted={DecisionLabel(Decision)}|Expected={DecisionLabel(Expected)}")
@@ -863,6 +977,7 @@ terminal_lockdown_controller := class(creative_device):
             FinishCase()
 
     FinishCase():void=
+        CloseAllDocumentInterfaces()
         set TotalCasesResolved += 1
         set CasesInShift += 1
         set ClaimOwner = false
@@ -877,6 +992,8 @@ terminal_lockdown_controller := class(creative_device):
             spawn{AdvanceQueueAndPrepare(CurrentCaseId, RunGeneration, QueueGeneration)}
 
     PrepareNextCase():void=
+        set DocumentGeneration += 1
+        CloseAllDocumentInterfaces()
         set CurrentCaseId += 1
         set CurrentTemplate = SelectTemplate(Shift, CasesInShift)
         set BodyChecked = false
@@ -1107,6 +1224,8 @@ terminal_lockdown_controller := class(creative_device):
         PrepareNextCase()
 
     BeginUpgradeBreak():void=
+        set DocumentGeneration += 1
+        CloseAllDocumentInterfaces()
         set Phase = terminal_game_phase.UpgradeBreak
         set ClaimOwner = false
         set PowerOnline = true
@@ -1285,6 +1404,8 @@ terminal_lockdown_controller := class(creative_device):
         TerminalLog(DebugEnabled, "[RESULTS] Defeat|Reason={Reason}|Shift={Shift}|CaseId={CurrentCaseId}")
 
     ResetToWaiting():void=
+        set DocumentGeneration += 1
+        CloseAllDocumentInterfaces()
         set RunGeneration += 1
         set EmergencyGeneration += 1
         set Phase = terminal_game_phase.Waiting
@@ -1436,6 +1557,90 @@ terminal_lockdown_controller := class(creative_device):
         if (Template = 9):
             return "SECURE CONCOURSE"
         "SKYLINE GATE"
+
+    DocumentNumber(Template:int)<computes>:string=
+        if (Template = 1):
+            return "AS-1048-NE"
+        if (Template = 2):
+            return "AS-2281-CR"
+        if (Template = 3):
+            return "AS-3107-TA"
+        if (Template = 4):
+            return "AS-4420-JR"
+        if (Template = 5):
+            return "AS-5144-PM"
+        if (Template = 6):
+            return "AS-6082-EN"
+        if (Template = 7):
+            return "AS-7349-RS"
+        if (Template = 8):
+            return "AS-8091-KV"
+        if (Template = 9):
+            return "AS-9175-NA"
+        if (Template = 10):
+            return "AS-0318-MQ"
+        if (Template = 11):
+            return "AS-1142-SL"
+        "AS-1200-AV"
+
+    ExpirationDate(Template:int)<computes>:string=
+        if (Template = 3):
+            return "2025-11-30"
+        "2028-09-14"
+
+    FlightAndGate(Template:int)<computes>:string=
+        if (Template = 3 or Template = 10):
+            return "AT-310 / A3"
+        if (Template = 7):
+            return "CX-707 / CARGO 2"
+        if (Template = 9):
+            return "AT-901 / S4"
+        "AT-118 / B6"
+
+    AccessLevel(Template:int)<computes>:string=
+        if (Template = 7):
+            return "CARGO TRANSFER"
+        if (Template = 9 or Template = 12):
+            return "SECURE TIER 4"
+        "PUBLIC DEPARTURES"
+
+    PortraitCheck(Template:int)<computes>:string=
+        if (Template = 5):
+            return "2 FEATURES DIFFER"
+        "FEATURES CONSISTENT"
+
+    ExpiryCheck(Template:int)<computes>:string=
+        if (Template = 3):
+            return "[!] EXPIRY: DATE PRECEDES CURRENT SHIFT"
+        "[OK] EXPIRY: CURRENT"
+
+    SealCheck(Template:int)<computes>:string=
+        if (Template = 4):
+            return "[!] SEAL: CHECKSUM DOES NOT MATCH"
+        if (Template = 12):
+            return "[!] SEAL: INTELLIGENCE CODE DUPLICATED"
+        "[OK] SEAL: CHECKSUM MATCH"
+
+    GateCheck(Template:int)<computes>:string=
+        if (Template = 10):
+            return "[!] ROUTE: GATE A3 CLOSED"
+        "[OK] ROUTE: ACTIVE"
+
+    AccessCheck(Template:int)<computes>:string=
+        if (Template = 9):
+            return "[!] ACCESS: TIER ALTERATION DETECTED"
+        if (Template = 5):
+            return "[!] PORTRAIT: IDENTITY COMPARISON REQUIRED"
+        "[OK] ACCESS: ROUTE CONSISTENT"
+
+    DocumentStatusColor(Template:int):color=
+        Evidence := DocumentEvidence(Template)
+        if (Evidence = "VALID"):
+            return NamedColors.LightGreen
+        Required := RequiredDecision(Template)
+        if (Required = terminal_decision.Secondary):
+            return NamedColors.Yellow
+        NamedColors.OrangeRed
 
     SelectTemplate(CurrentShift:int, CompletedInShift:int):int=
         if (CurrentShift = 1):

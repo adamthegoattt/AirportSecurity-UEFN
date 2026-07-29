@@ -95,3 +95,17 @@
   attempts failed the Epic session handshake with
   `errors.com.epicgames.common.processing`. No final in-session reference proof
   is claimed from editor-only screenshots.
+
+## Document inspection interface - 2026-07-28 PDT
+
+- Replaced the long world-board-only inspection path with a centered, per-player
+  Verse UI. It presents fictional identity fields, a portrait placeholder,
+  expiry, destination, flight/gate, access tier, and separate portrait, expiry,
+  seal, route, and access consistency checks.
+- Added duplicate-open protection, a keyboard/controller return button, explicit
+  claim release on close, and cleanup on decision, case change, player removal,
+  shift break, and reset. The world Billboard remains the fallback summary.
+- Focused Verse build reported `Built successfully`. Fresh map validation again
+  returned 1/1 valid with 0 invalid and 0 warnings; residue audit remained empty.
+- Live UI interaction and screenshot proof remain pending behind the recorded
+  Epic session-handshake blocker.
