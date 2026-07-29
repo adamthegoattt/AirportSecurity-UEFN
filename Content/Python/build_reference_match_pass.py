@@ -29,6 +29,7 @@ PLAYER_START_TRANSFORMS = (
 
 CLASSES = {
     "primitive": "/Game/Creative/Sets/PropSets/Primitives/Rounds/Props/CP_Primitive_Cube.CP_Primitive_Cube_C",
+    "sphere": "/Game/Creative/Sets/PropSets/Primitives/Rounds/Props/CP_Primitive_Sphere_Solid.CP_Primitive_Sphere_Solid_C",
     "smooth_wall": "/Game/Creative/Sets/PropSets/Primitives/Rounds/Props/CP_Primitive_Cube.CP_Primitive_Cube_C",
     "glass": "/Game/Creative/Sets/Glass/Props/CP_Glass_PropWall.CP_Glass_PropWall_C",
     "beam": "/Game/Creative/Items/Building_Parts/MetalBeams/CP_Metal_I_Bar.CP_Metal_I_Bar_C",
@@ -52,11 +53,79 @@ CLASSES = {
     "prison_bed": "/Game/Athena/Apollo/Environments/BuildingActors/SharkPrison/Props/Apollo_SharkPrison_SingleBed_01.Apollo_SharkPrison_SingleBed_01_C",
 }
 
+MATERIALS = {
+    "marble_white": "/Game/Creative/Sets/PropSets/Primitives/Customization/Materials/MI_Primitive_WorldGrid_Marble_White.MI_Primitive_WorldGrid_Marble_White",
+    "marble_beige": "/Game/Creative/Sets/PropSets/Primitives/Customization/Materials/MI_Primitive_WorldGrid_Marble_Beige.MI_Primitive_WorldGrid_Marble_Beige",
+    "marble_gray": "/Game/Creative/Sets/PropSets/Primitives/Customization/Materials/MI_Primitive_WorldGrid_Marble_Gray.MI_Primitive_WorldGrid_Marble_Gray",
+    "concrete": "/Game/Creative/Sets/PropSets/Primitives/Customization/Materials/MI_Primitive_WorldGrid_Concrete.MI_Primitive_WorldGrid_Concrete",
+    "carbon_fiber": "/Game/Creative/Sets/PropSets/Primitives/Customization/Materials/MI_Primitive_WorldGrid_CarbonFiber.MI_Primitive_WorldGrid_CarbonFiber",
+    "ice": "/Game/Creative/Sets/PropSets/Primitives/Customization/Materials/MI_Primitive_WorldGrid_Ice.MI_Primitive_WorldGrid_Ice",
+}
+
+# Project-owned surface actors receive explicit Fortnite-native finishes instead
+# of the default white primitive material. Names are exact and therefore safe to
+# reapply on every idempotent pass.
+SURFACE_MATERIALS = {
+    "TerminalFloor": "concrete",
+    "ExitFloor": "concrete",
+    "EntryFloor": "marble_beige",
+    "WaitingCarpet": "carbon_fiber",
+    "DecisionZoneCarpet": "carbon_fiber",
+    "CorridorFloor": "carbon_fiber",
+    "OfficeFloor": "carbon_fiber",
+    "CellFloor": "carbon_fiber",
+    "ScannerSouthPad": "ice",
+    "ScannerNorthPad": "ice",
+    "QueueLaneSouth": "marble_gray",
+    "QueueLaneNorth": "marble_gray",
+    "BagBeltSouth": "carbon_fiber",
+    "BagBeltNorth": "carbon_fiber",
+    "DocumentCounter": "marble_gray",
+    "DecisionCounter": "marble_gray",
+    "CheckpointSignBacking": "carbon_fiber",
+    "PowerConsole": "marble_gray",
+    "DetentionIntake": "marble_gray",
+    "CellBench": "marble_gray",
+    "PowerWallWest": "concrete",
+    "PowerWallEast": "concrete",
+    "PowerWallNorth": "concrete",
+    "CellWallEast": "concrete",
+    "CellWallNorth": "concrete",
+    "CellWallSouth": "concrete",
+    "CorridorWallSouth": "concrete",
+    "CorridorWallNorth": "concrete",
+    "RunwayApron": "concrete",
+    "RunwayStripeNear": "marble_white",
+    "RunwayStripeFar": "marble_white",
+    "StaffHeader": "carbon_fiber",
+    "PowerHeader": "carbon_fiber",
+    "OfficeHeader": "carbon_fiber",
+    "DetentionHeader": "carbon_fiber",
+    "AircraftBody": "marble_white",
+    "AircraftWing": "marble_white",
+    "AircraftTailWing": "marble_white",
+    "AircraftTailFin": "marble_white",
+    "AircraftEngineNear": "marble_gray",
+    "AircraftEngineFar": "marble_gray",
+    "AircraftCockpit": "carbon_fiber",
+    "AircraftDoor": "carbon_fiber",
+    "AircraftWindow01": "carbon_fiber",
+    "AircraftWindow02": "carbon_fiber",
+    "AircraftWindow03": "carbon_fiber",
+    "AircraftWindow04": "carbon_fiber",
+    "AircraftWindow05": "carbon_fiber",
+    "AircraftWindow06": "carbon_fiber",
+    "AircraftWindow07": "carbon_fiber",
+    "AircraftWindow08": "carbon_fiber",
+}
+
 ARCHITECTURE = [
     # Bright public floor and lower-wall lining.
     ("TerminalFloor", "primitive", (2500, 0, 76), (7800, 7600, 24), 0),
     ("ExitFloor", "primitive", (6700, 0, 96), (2100, 3500, 24), 0),
     ("EntryFloor", "primitive", (-1700, 0, 58), (1700, 2500, 20), 0),
+    ("WaitingCarpet", "primitive", (2250, 2820, 93), (4600, 1550, 8), 0),
+    ("DecisionZoneCarpet", "primitive", (4100, 0, 93), (2500, 3000, 8), 0),
     ("NorthSill", "primitive", (2500, 3800, 155), (8000, 90, 310), 0),
     ("SouthWallLiner", "smooth_wall", (2500, -3780, 650), (8000, 60, 1300), 0),
     ("WestWallNorth", "smooth_wall", (-1460, 2820, 650), (60, 2050, 1300), 90),
@@ -95,6 +164,39 @@ ARCHITECTURE = [
     ("MullionE", "beam", (4100, 3750, 810), (70, 70, 1120), 0),
     ("MullionF", "beam", (5500, 3750, 810), (70, 70, 1120), 0),
     ("MullionG", "beam", (6450, 3750, 810), (70, 70, 1120), 0),
+    # The pilot pane passed placement/save inspection, so the same approved
+    # class now completes the full blue-tinted runway wall.
+    ("WindowA", "glass", (-800, 3775, 810), (1200, 36, 1000), 0),
+    ("WindowB", "glass", (600, 3775, 810), (1200, 36, 1000), 0),
+    ("WindowC", "glass", (2000, 3775, 810), (1200, 36, 1000), 0),
+    ("WindowD", "glass", (3400, 3775, 810), (1200, 36, 1000), 0),
+    ("WindowE", "glass", (4800, 3775, 810), (1200, 36, 1000), 0),
+    ("WindowF", "glass", (6100, 3775, 810), (700, 36, 1000), 0),
+    # A real apron beneath the aircraft prevents the exterior from reading as
+    # an empty skybox and gives the window view strong runway striping.
+    ("RunwayApron", "primitive", (2500, 5200, 72), (8000, 2700, 24), 0),
+    ("RunwayStripeNear", "primitive", (2500, 4450, 87), (7600, 45, 6), 0),
+    ("RunwayStripeFar", "primitive", (2500, 6100, 87), (7600, 45, 6), 0),
+    # A clean passenger-aircraft silhouette. The previous broken-plane kit
+    # exposed a torn fuselage ring through the terminal window and read as a
+    # crash scene. These approved primitives produce a continuous jet body,
+    # side windows, wings, engines, and tail from the public viewing angle.
+    ("AircraftBody", "sphere", (2750, 5700, 430), (3300, 520, 520), 0),
+    ("AircraftWing", "primitive", (2750, 5700, 300), (1450, 1750, 70), 0),
+    ("AircraftTailWing", "primitive", (1450, 5700, 470), (700, 1050, 55), 0),
+    ("AircraftTailFin", "primitive", (1450, 5700, 710), (520, 65, 520), 0),
+    ("AircraftEngineNear", "sphere", (3050, 5200, 230), (520, 280, 280), 0),
+    ("AircraftEngineFar", "sphere", (3050, 6200, 230), (520, 280, 280), 0),
+    ("AircraftCockpit", "sphere", (4220, 5435, 480), (300, 34, 125), 0),
+    ("AircraftDoor", "primitive", (3770, 5432, 390), (115, 28, 240), 0),
+    ("AircraftWindow01", "primitive", (3450, 5430, 480), (95, 26, 62), 0),
+    ("AircraftWindow02", "primitive", (3240, 5430, 480), (95, 26, 62), 0),
+    ("AircraftWindow03", "primitive", (3030, 5430, 480), (95, 26, 62), 0),
+    ("AircraftWindow04", "primitive", (2820, 5430, 480), (95, 26, 62), 0),
+    ("AircraftWindow05", "primitive", (2610, 5430, 480), (95, 26, 62), 0),
+    ("AircraftWindow06", "primitive", (2400, 5430, 480), (95, 26, 62), 0),
+    ("AircraftWindow07", "primitive", (2190, 5430, 480), (95, 26, 62), 0),
+    ("AircraftWindow08", "primitive", (1980, 5430, 480), (95, 26, 62), 0),
     # Checkpoint hierarchy, floor guidance, and X-ray portals.
     ("CheckpointSignBacking", "primitive", (1080, -1300, 1120), (120, 1500, 300), 0),
     ("CheckpointSignCap", "beam", (1080, -1300, 1300), (150, 1580, 70), 0),
@@ -126,15 +228,21 @@ ARCHITECTURE = [
     # Restricted corridor surfaces and airport-like support-room enclosures.
     ("CorridorFloor", "primitive", (2450, -3320, 102), (3100, 720, 24), 0),
     ("CorridorCeiling", "primitive", (2450, -3320, 1160), (3100, 720, 80), 0),
+    ("CorridorWallSouth", "smooth_wall", (2450, -3670, 580), (3100, 70, 1120), 0),
+    ("CorridorWallNorth", "smooth_wall", (2150, -2970, 580), (2100, 70, 1120), 0),
+    ("StaffHeader", "primitive", (1450, -3320, 980), (100, 620, 180), 0),
     ("PowerWallWest", "smooth_wall", (3350, -3340, 580), (70, 1000, 1120), 90),
     ("PowerWallEast", "smooth_wall", (4550, -3340, 580), (70, 1000, 1120), 90),
     ("PowerWallNorth", "smooth_wall", (3950, -2860, 580), (1280, 70, 1120), 0),
     ("PowerConsole", "primitive", (3950, -3030, 180), (520, 220, 320), 0),
+    ("PowerHeader", "primitive", (3950, -2880, 980), (900, 70, 180), 0),
     ("OfficeFloor", "primitive", (5550, -3100, 112), (1650, 1250, 24), 0),
     ("OfficeCabinet", "primitive", (6200, -3100, 320), (240, 800, 600), 0),
     ("ResponseSupplyRack", "primitive", (5850, -2400, 300), (620, 260, 560), 0),
+    ("OfficeHeader", "primitive", (5550, -2520, 980), (1000, 70, 180), 0),
     ("CellFloor", "primitive", (5550, 1450, 100), (1500, 1250, 24), 0),
     ("DetentionIntake", "primitive", (4660, 1450, 180), (320, 700, 320), 0),
+    ("DetentionHeader", "primitive", (4890, 1450, 1120), (100, 1160, 170), 0),
     ("CellBench", "primitive", (5950, 1450, 160), (450, 300, 140), 0),
     ("CellWallEast", "smooth_wall", (6280, 1450, 580), (70, 1250, 1120), 90),
     ("CellWallNorth", "smooth_wall", (5550, 2030, 580), (1500, 70, 1120), 0),
@@ -145,6 +253,9 @@ ARCHITECTURE = [
 ]
 
 PROPS = [
+    # Pilot one native scanner in the active south lane. The surrounding arch
+    # remains as the stable collision/readability fallback during validation.
+    ("ScannerSouth", "scanner", (2200, -1300, 90), 760, 0),
     # Belt stanchions make the active traveler queue read immediately at eye level.
     ("QueueStanchionSouth01", "stanchion", (-2100, -1850, 90), 130, 0),
     ("QueueStanchionSouth02", "stanchion", (-1600, -1850, 90), 130, 0),
@@ -211,12 +322,6 @@ PROPS = [
     ("CorridorEmergencyLightB", "emergency_light", (2850, -3650, 780), 190, 0),
     ("PowerEmergencyLight", "emergency_light", (3950, -3650, 780), 190, 0),
     ("OfficeEmergencyLight", "emergency_light", (5500, -3650, 780), 190, 0),
-    # A composed aircraft set gives the runway window a genuine external focal point.
-    ("AircraftFuselage", "aircraft_fuselage", (2750, 5800, 120), 1200, 90),
-    ("AircraftNose", "aircraft_nose", (3750, 5800, 120), 800, 90),
-    ("AircraftTail", "aircraft_tail", (1650, 5800, 120), 1050, 90),
-    ("AircraftWing", "aircraft_wing", (2750, 5650, 220), 1450, 90),
-    ("AircraftEngine", "aircraft_engine", (3050, 5450, 170), 380, 90),
 ]
 
 HIDE_OLD_PREFIXES = (
@@ -252,12 +357,35 @@ def load_classes():
     return loaded
 
 
+def load_materials():
+    loaded = {}
+    for key, path in MATERIALS.items():
+        loaded[key] = unreal.load_asset(path)
+        if loaded[key] is None:
+            raise RuntimeError(f"Approved material failed to load: {path}")
+    return loaded
+
+
 def clear_material_overrides(actor):
     for component in actor.get_components_by_class(unreal.StaticMeshComponent):
         try:
             component.set_editor_property("override_materials", [])
         except Exception:
             component.set_material(0, None)
+
+
+def apply_surface_material(actor, material):
+    try:
+        actor.set_editor_property("allow_custom_material", True)
+    except Exception:
+        pass
+    applied = False
+    for component in actor.get_components_by_class(unreal.StaticMeshComponent):
+        if component.get_num_materials() > 0:
+            component.set_material(0, material)
+            applied = True
+    if not applied:
+        raise RuntimeError(f"Surface material target has no slot: {actor.get_actor_label()}")
 
 
 def center_actor(actor, center):
@@ -274,7 +402,7 @@ def center_actor(actor, center):
     )
 
 
-def spawn_box(classes, suffix, class_key, center, size, yaw):
+def spawn_box(classes, materials, suffix, class_key, center, size, yaw):
     label = PREFIX + suffix
     rotation = (
         unreal.Rotator(pitch=0, yaw=yaw, roll=90)
@@ -315,8 +443,11 @@ def spawn_box(classes, suffix, class_key, center, size, yaw):
         actor.set_actor_scale3d(
             unreal.Vector(size[0] / base[0], size[1] / base[1], size[2] / base[2])
         )
-    if class_key in ("primitive", "smooth_wall"):
+    if class_key in ("primitive", "smooth_wall", "sphere"):
         clear_material_overrides(actor)
+    material_key = SURFACE_MATERIALS.get(suffix)
+    if material_key:
+        apply_surface_material(actor, materials[material_key])
     center_actor(actor, center)
     return actor
 
@@ -370,9 +501,10 @@ EXISTING_BY_LABEL.update(
 existing_managed_labels = set(EXISTING_BY_LABEL)
 
 classes = load_classes()
+materials = load_materials()
 created = []
 for spec in ARCHITECTURE:
-    created.append(spawn_box(classes, *spec).get_actor_label())
+    created.append(spawn_box(classes, materials, *spec).get_actor_label())
 for spec in PROPS:
     created.append(spawn_prop(classes, *spec).get_actor_label())
 

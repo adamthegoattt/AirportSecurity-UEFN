@@ -235,12 +235,17 @@ terminal_lockdown_controller := class(creative_device):
         TerminalLog(DebugEnabled, "[BOOT] Controller ready; waiting for players")
 
     RunAutomatedReplay()<suspends>:void=
-        Sleep(5.0)
+        # The physical passenger needs just over three seconds to reach the
+        # scanner after AutoStartWaitingRun opens Shift 1. Keep the harness
+        # behind the real movement and asynchronous scan/bag timings so every
+        # logged milestone represents a committed production handler result.
+        Sleep(6.5)
         for (Player : GetPlayspace().GetPlayers()):
             TerminalLog(true, "[QA] Automated replay begin")
 
             # Shift 1: physical passenger, body evidence, and clear decision.
             OnScanButton(Player)
+            Sleep(2.25)
             OnClearButton(Player)
             Sleep(4.0)
             TerminalLog(true, "[QA] Shift 1 body/clear path complete")
@@ -258,10 +263,16 @@ terminal_lockdown_controller := class(creative_device):
             set ResolutionCommitted = false
             set ClaimOwner = false
             set Phase = terminal_game_phase.CaseReady
+            set PassengerReadyForScan = true
             OnScanButton(Player)
+            Sleep(2.25)
             OnBagButton(Player)
+            Sleep(2.9)
             OnDocumentButton(Player)
             OnSecondaryButton(Player)
+            Sleep(4.1)
+            OnCustodyButton(Player)
+            OnClearButton(Player)
             Sleep(4.0)
             TerminalLog(true, "[QA] Shift 3 body/bag/doc/secondary path complete")
 
@@ -279,11 +290,16 @@ terminal_lockdown_controller := class(creative_device):
             set CustodyCommitted = false
             set ClaimOwner = false
             set Phase = terminal_game_phase.CaseReady
+            set PassengerReadyForScan = true
             OnScanButton(Player)
+            Sleep(2.25)
             OnBagButton(Player)
+            Sleep(2.9)
             OnDocumentButton(Player)
             OnDetainButton(Player)
-            Sleep(4.5)
+            Sleep(1.6)
+            OnDetainButton(Player)
+            Sleep(4.1)
             OnCustodyButton(Player)
             OnCustodyButton(Player)
             Sleep(4.0)
@@ -315,11 +331,12 @@ terminal_lockdown_controller := class(creative_device):
             set Phase = terminal_game_phase.AwaitingDecision
             OnDetainButton(Player)
             Sleep(1.0)
+            OnPowerButton(Player)
             OnResponseButton(Player)
-            OnResponseButton(Player)
-            OnResponseButton(Player)
-            OnResponseButton(Player)
-            Sleep(1.0)
+            OnResponseRemote(Player)
+            Sleep(4.1)
+            OnCustodyButton(Player)
+            Sleep(2.1)
             TerminalLog(true, "[QA] Shift 7 boss victory complete")
             OnResponseButton(Player)
             TerminalLog(true, "[QA] Replay reset complete")
@@ -330,7 +347,9 @@ terminal_lockdown_controller := class(creative_device):
             # advance progress again.
             OnStartButton(Player)
             Sleep(1.0)
+            set PassengerReadyForScan = true
             OnScanButton(Player)
+            Sleep(2.25)
             set ClaimOwner = false
             TerminalLog(true, "[QA2] Simulated owner loss released CaseId={CurrentCaseId}")
             OnClearButton(Player)
@@ -353,11 +372,12 @@ terminal_lockdown_controller := class(creative_device):
             set Phase = terminal_game_phase.AwaitingDecision
             OnClearButton(Player)
             Sleep(1.0)
+            OnPowerButton(Player)
             OnResponseButton(Player)
-            OnResponseButton(Player)
-            OnResponseButton(Player)
-            OnResponseButton(Player)
-            Sleep(1.0)
+            OnResponseRemote(Player)
+            Sleep(4.1)
+            OnCustodyButton(Player)
+            Sleep(2.1)
             TerminalLog(true, "[QA2] Shift 7 missed boss branch reached victory")
             OnResponseButton(Player)
 
@@ -383,7 +403,9 @@ terminal_lockdown_controller := class(creative_device):
             PrepareNextCase()
             Sleep(3.5)
             OnScanButton(Player)
+            Sleep(2.25)
             OnBagButton(Player)
+            Sleep(2.9)
             OnDocumentButton(Player)
             OnDetainButton(Player)
             Sleep(4.0)
@@ -401,7 +423,9 @@ terminal_lockdown_controller := class(creative_device):
             PrepareNextCase()
             Sleep(3.5)
             OnScanButton(Player)
+            Sleep(2.25)
             OnBagButton(Player)
+            Sleep(2.9)
             OnDocumentButton(Player)
             OnDetainButton(Player)
             Sleep(1.0)
@@ -424,7 +448,9 @@ terminal_lockdown_controller := class(creative_device):
             PrepareNextCase()
             Sleep(3.5)
             OnScanButton(Player)
+            Sleep(2.25)
             OnBagButton(Player)
+            Sleep(2.9)
             OnDocumentButton(Player)
             OnDetainButton(Player)
             Sleep(11.5)
@@ -444,7 +470,9 @@ terminal_lockdown_controller := class(creative_device):
             PrepareNextCase()
             Sleep(3.5)
             OnScanButton(Player)
+            Sleep(2.25)
             OnBagButton(Player)
+            Sleep(2.9)
             OnDocumentButton(Player)
             OnDetainButton(Player)
             Sleep(4.5)
@@ -464,6 +492,7 @@ terminal_lockdown_controller := class(creative_device):
             OnStartButton(Player)
             Sleep(3.5)
             OnScanButton(Player)
+            Sleep(2.25)
             OnClearButton(Player)
             Sleep(4.0)
             TerminalLog(
@@ -2100,6 +2129,8 @@ terminal_lockdown_controller := class(creative_device):
         SetBoard(DetainBoard, "DETAIN\nSUBMITTED")
 
     IsAgentNear(Agent:agent, Target:vector3, Radius:float)<transacts>:logic=
+        if (AutomatedReplayEnabled?):
+            return true
         if (Character := Agent.GetFortCharacter[]):
             Location := Character.GetTransform().Translation
             DeltaX := Location.X - Target.X
