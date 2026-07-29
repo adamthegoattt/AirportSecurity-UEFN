@@ -1,6 +1,6 @@
-# Final build report — failure branch replay QA checkpoint
+# Final build report — complete reference-match production checkpoint
 
-Date: 2026-07-28 PDT
+Date: 2026-07-29 PDT
 
 ## Outcome
 
@@ -72,3 +72,29 @@ approved merely because its path loads.
 
 Prove case-claim contention and owner-loss recovery with two real clients, then
 run and tune the complete normal-speed 21-case seven-shift path.
+
+## Complete reference-match production addendum - 2026-07-29 PDT
+
+The visual graybox limitation above is superseded by an idempotent 104-actor
+managed art pass. The saved terminal now has a readable high-bay airport shell,
+runway glazing and aircraft silhouette, waiting seating, paired screening
+lanes, baggage processing, document/decision counters, detention, power, and
+security-office spaces while retaining the original connected gameplay actors.
+
+| Final metric | Result |
+|---|---|
+| Level actors | 282 |
+| Unique `TL_` labels | 270 |
+| Managed `TL_ART_*` actors | 104 unique |
+| Superseded legacy visual groups hidden | 24 |
+| Builder repeatability | `stale_removed=0`; no duplicate labels |
+| Verse compile | PASS |
+| Map validation | PASS: 1/1 valid, 0 invalid, 0 warnings |
+| Production QA flags | `DebugEnabled=false`; `AutomatedReplayEnabled=false` |
+
+The eleven supplied reference roles are represented in the final composition.
+Exact Roblox geometry, UI, branding, and copyrighted asset copying were not
+used; the pass matches spatial function, sightlines, proportions, and airport
+readability with Fortnite/UEFN-native families. Runtime traversal and final
+camera-angle capture remain manual QA because current automation cannot hold
+movement or reliably capture the Fortnite mouse.

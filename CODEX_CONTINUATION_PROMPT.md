@@ -1,9 +1,10 @@
 # AIRPORTSECURITY / TERMINAL LOCKDOWN — ROLLING AUTONOMOUS CONTINUATION PROMPT
 
-Prompt version: **2.0**
-Generated: **2026-07-28 PDT**
-Canonical checkpoint: **Terminal Lockdown - Extended Replay QA**
-Git checkpoint: **9b477895a49bbae6d299779ea181060acfb8d10e** on `main`
+Prompt version: **3.0**
+Generated: **2026-07-29 PDT**
+Canonical checkpoint: **Terminal Lockdown - Complete Reference-Match Production Pass**
+Pre-pass Git checkpoint: **352a040** on `main`; use the commit containing this
+prompt as the authoritative post-pass checkpoint.
 Target project: **AirportSecurity**
 Target experience: **Terminal Lockdown**
 
@@ -18,7 +19,7 @@ detached prototype.
 Before performing any project mutation, read this file from the first line to
 the final line and confirm that the exact marker below is present at the end:
 
-`END_OF_AIRPORTSECURITY_CONTINUATION_PROMPT_V2`
+`END_OF_AIRPORTSECURITY_CONTINUATION_PROMPT_V3`
 
 If the marker is missing, do not execute this prompt. Finish regenerating the
 prompt from the current project, verify it, and only then begin implementation.
@@ -804,33 +805,35 @@ Do not close the game or editor when a cycle finishes.
 
 ---
 
-# 11. FIRST EXECUTION FROM VERSION 2
+# 11. FIRST EXECUTION FROM VERSION 3
 
 After confirming this prompt’s final marker, perform this exact next cycle:
 
 1. Inspect `git status`, current UEFN/Fortnite processes, active map, current
    editor/session status, and latest logs.
-2. Confirm the live project still matches checkpoint `9b47789` plus any newer
-   intentional user changes.
+2. Confirm the live project still has 282 actors, 270 unique `TL_` labels,
+   104 unique `TL_ART_*` actors, no duplicate/residue labels, and production
+   replay/debug flags false.
 3. If a genuine second Fortnite client is available, perform the real
    two-player contention/owner-loss test and record it separately from the
    deterministic replay. If one client remains the limit, do not rerun the
    completed QA2 claim harness merely to relabel it.
-4. Extend the development-only replay through the remaining false-detention,
-   runner capture/escape, and resistant-response branches using production
-   handlers and generation guards. Keep all shortcuts isolated behind
-   `AutomatedReplayEnabled`.
-5. Build Verse. Do not enable the replay flag unless compilation succeeds.
-6. Enable the replay only for intentional QA, push/refresh, capture exact branch
-   markers and errors, then set the flag false, save, and activate normal mode.
-7. Prove one clean case or waiting-state activation after the QA branches.
-8. Fix demonstrated state bugs before adding art.
-9. Update all required documents and `CODEX_HANDOFF.md` with exact evidence.
-10. Create a local checkpoint commit only after compile, runtime, cleanup, and
-    log checks are green.
-11. Regenerate this prompt completely as version 3 from that new state.
-12. Verify the version 3 end marker, then continue with the next highest-value
-    unfinished milestone.
+4. Start a fresh play session and manually prove spawn-to-checkpoint traversal,
+   both pad choices when practical, and the eleven reference-role camera views.
+   Do not treat a stale long-lived editor respawn camera as transform evidence.
+5. Run all three cases in Shifts 1-7 at normal speed without debug skips and
+   record accuracy, cash, integrity, risk, emergency timings, and total length.
+6. Capture representative 4/8/16-player performance and network measurements.
+7. Fix demonstrated gameplay or navigation defects before adding more art.
+8. Keep `build_reference_match_pass.py` idempotent; every rerun must preserve
+   unique `TL_ART_*` ownership and produce no stale actors or duplicates.
+9. Build Verse, validate the map, and leave production flags false after every
+   intentional QA cycle.
+10. Update all required documents and `CODEX_HANDOFF.md` with exact evidence.
+11. Create a checkpoint commit only after compile, validation, runtime cleanup,
+    and residue checks are green.
+12. Regenerate this prompt as version 4 with a new end marker before the next
+    autonomous continuation cycle.
 
 If the current editor/session state contradicts the handoff, trust fresh
 evidence, document the discrepancy, and repair the smallest safe regression.
@@ -841,4 +844,4 @@ from the case loop.
 
 ---
 
-END_OF_AIRPORTSECURITY_CONTINUATION_PROMPT_V2
+END_OF_AIRPORTSECURITY_CONTINUATION_PROMPT_V3

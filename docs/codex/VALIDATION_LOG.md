@@ -91,24 +91,23 @@
 - Fresh editor validation: result code 0; 1 requested, 1 checked, 1 valid,
   0 invalid, 0 warnings. Actor audit: 234 actors, exactly three `TL_BAG_`
   actors, and no proof/debug/replay label residue.
-- Current live activation remains blocked outside project code: two clean
-  attempts failed the Epic session handshake with
-  `errors.com.epicgames.common.processing`. No final in-session reference proof
-  is claimed from editor-only screenshots.
+- Current live activation remained blocked outside project code at this dated
+  milestone by `errors.com.epicgames.common.processing`; later checkpoints
+  supersede that connection status.
 
 ## Document inspection interface - 2026-07-28 PDT
 
-- Replaced the long world-board-only inspection path with a centered, per-player
-  Verse UI. It presents fictional identity fields, a portrait placeholder,
-  expiry, destination, flight/gate, access tier, and separate portrait, expiry,
-  seal, route, and access consistency checks.
-- Added duplicate-open protection, a keyboard/controller return button, explicit
-  claim release on close, and cleanup on decision, case change, player removal,
-  shift break, and reset. The world Billboard remains the fallback summary.
+- Replaced the long world-board-only inspection path with a centered,
+  per-player Verse UI. It presents fictional identity fields, a portrait
+  placeholder, expiry, destination, flight/gate, access tier, and separate
+  portrait, expiry, seal, route, and access consistency checks.
+- Added duplicate-open protection, a keyboard/controller return button,
+  explicit claim release on close, and cleanup on decision, case change,
+  player removal, shift break, and reset. The world Billboard remains the
+  fallback summary.
 - Focused Verse build reported `Built successfully`. Fresh map validation again
-  returned 1/1 valid with 0 invalid and 0 warnings; residue audit remained empty.
-- Live UI interaction and screenshot proof remain pending behind the recorded
-  Epic session-handshake blocker.
+  returned 1/1 valid with 0 invalid and 0 warnings; residue audit remained
+  empty. Live UI interaction was pending at this dated milestone.
 
 ## Physical decision controls - 2026-07-28 PDT
 
@@ -121,11 +120,59 @@
   displays the committed decision.
 - Focused Verse build reported `Built successfully`. Fresh map validation
   returned result code 0: 1 requested, 1 checked, 1 valid, 0 invalid, and
-  0 warnings. Actor audit reports 240 actors, exactly three `TL_DECISION_`
+  0 warnings. Actor audit reported 240 actors, exactly three `TL_DECISION_`
   pads, three dedicated control boards, and no proof/debug/replay residue.
 - The disposable cube proof was removed through supported editor actor
-  destruction. Live press/light/audio confirmation remains pending behind the
-  existing external Epic session-handshake blocker.
+  destruction before the production controls were saved.
+
+## Physical custody and jail state — 2026-07-28 PDT
+
+- Added and wired `TL_NPC_JailOccupant` and `TL_BOARD_CellStatus`; both are
+  single reusable devices, so repeated cases do not spawn unbounded actors.
+- Added code-level player-distance gates for intake custody, runner intercept,
+  and resistant response. Rejected remote actions occur before claim or reward
+  state changes.
+- Verse compile: PASS; UEFN reported `Built successfully`.
+- Map validation: PASS; `num_requested=1`, `num_checked=1`, `num_valid=1`,
+  `num_invalid=0`, `num_warnings=0`.
+- Actor audit: 242 level actors, exactly one `TL_NPC_JailOccupant`, exactly one
+  `TL_BOARD_CellStatus`, and no proof/debug/replay actor labels.
+- Live behavior retest is pending because two clean Launch Session attempts
+  failed at Epic's handshake with `errors.com.epicgames.common.processing`.
+  `DebugEnabled=false` and `AutomatedReplayEnabled=false` remain the production
+  defaults.
+
+## Physical response event - 2026-07-28 PDT
+
+- Added and wired seven production actors in
+  `TerminalLockdown/Gameplay/ResponseEvent`: Item Granter, Item Remover, Signal
+  Remote Manager, Audio Player, two Point Light devices, and one Billboard.
+- The initial legacy customizable-light blueprint candidates were rejected at
+  wiring time because they were not compatible with Verse
+  `customizable_light_device`. They were replaced through the editor API with
+  `/CRD_PointLight/Device_PointLight_V2.Device_PointLight_V2_C`; both final
+  lights are red and controller-wired.
+- Audio is `Timer Siren Cue` with restart and loop enabled. Response issue and
+  cleanup use registered Signal Remote A items, with all-player recall on every
+  terminal branch.
+- Final Verse compile: PASS; UEFN tooltip reported `Built successfully`.
+- Final map validation: PASS; `num_requested=1`, `num_checked=1`,
+  `num_valid=1`, `num_invalid=0`, `num_warnings=0`.
+- Actor audit: 249 level actors. Exact response packages:
+  - granter `E/2Q/DLQ3FIK63E3RJNM277FZ9L`;
+  - remover `4/PL/O6AFUI3KG7PSIHHK7WJJAI`;
+  - remote manager `2/JF/QX60TNVYDUZY0449D9TVFW`;
+  - alarm `6/7N/D6UEG0JPPW96GBEU9S2OH4`;
+  - light A `7/XS/QQEYTUQU9O0D740HMMWT43`;
+  - light B `4/Z3/MWBIDVDRJH660ANESYIWPO`;
+  - board `9/M2/41AYRYTM0Z216J0APHNKNI`.
+- The ResponseEvent ActorFolder external object is
+  `6/DK/VBSOL9IHO7SITNB7MK63OU`; two older untracked ReferenceProof and
+  ReferenceMatch folder objects remain intentionally excluded from staging.
+- A live runtime state-capture chain is still blocked by Epic's
+  `errors.com.epicgames.common.processing` handshake error. The controlled
+  Character patrol is therefore documented as the safe fallback, and no true
+  combat-AI or live-state claim is made.
 
 ## Airport feedback and alert states - 2026-07-28 PDT
 
@@ -146,3 +193,27 @@
 - Live feedback/alert testing and eleven final reference-angle captures remain
   blocked by Epic's `errors.com.epicgames.common.processing` handshake. No
   screenshot-proof commit was created.
+
+## Complete reference-match production pass - 2026-07-29 PDT
+
+- Canonical idempotent builder:
+  `Content/Python/build_reference_match_pass.py`.
+- Final repeated execution: `created=104`, `stale_removed=0`,
+  `hidden_legacy_visuals=24`, `spawn_pads_normalized=2`,
+  `player_starts_repositioned=2`, `saved=true`, `actor_count=282`.
+- Actor/label audit: 282 actors, 270 unique `TL_` labels, 104 unique
+  `TL_ART_*` labels, zero duplicate labels, and no proof/debug/replay residue.
+- Final Verse compilation: PASS; UEFN reported `Built successfully`.
+- Final map validation: PASS; `num_requested=1`, `num_checked=1`,
+  `num_valid=1`, `num_invalid=0`, `num_warnings=0`.
+- Spawn audit: both Player Spawn Pads at `(500,-1250,64)` and
+  `(500,1250,64)`, yaw 0; matching player starts at Z 180; each has at least
+  465 cm measured static clearance. Island Settings select Spawn Pads; both
+  devices are enabled Always and are valid island starts.
+- Connected-session boot and controller HUD/case state were observed. A final
+  manual respawn in the long-lived edit session did not provide conclusive
+  camera-location evidence after the move. Fresh-session traversal and eleven
+  runtime camera captures remain honest manual QA because automated input
+  cannot reliably hold movement or capture the Fortnite mouse.
+- Final application state: UEFN open, `All Saved`, `Session Connected`, game
+  stopped; Fortnite open. Publishing was not performed.

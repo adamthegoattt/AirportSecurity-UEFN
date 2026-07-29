@@ -11,6 +11,7 @@ import unreal
 ACTORS = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
 PREFIX = "TL_ART_"
 FOLDER = unreal.Name("TerminalLockdown/ReferenceMatch")
+EXISTING_BY_LABEL = {}
 
 CLASSES = {
     "primitive": "/Game/Creative/Sets/PropSets/Primitives/Rounds/Props/CP_Primitive_Cube.CP_Primitive_Cube_C",
@@ -50,6 +51,13 @@ ARCHITECTURE = [
     ("RoofCrossNorth", "primitive", (2500, 2600, 1370), (7800, 100, 100), 0),
     ("RoofCrossCenter", "primitive", (2500, 0, 1370), (7800, 100, 100), 0),
     ("RoofCrossSouth", "primitive", (2500, -2600, 1370), (7800, 100, 100), 0),
+    # Thin ceiling strips break up the gray roof mass like the reference fixtures.
+    ("CeilingStripNorthA", "primitive", (600, 2100, 1300), (1450, 42, 32), 0),
+    ("CeilingStripNorthB", "primitive", (2600, 2100, 1300), (1450, 42, 32), 0),
+    ("CeilingStripNorthC", "primitive", (4600, 2100, 1300), (1450, 42, 32), 0),
+    ("CeilingStripSouthA", "primitive", (600, -2100, 1300), (1450, 42, 32), 0),
+    ("CeilingStripSouthB", "primitive", (2600, -2100, 1300), (1450, 42, 32), 0),
+    ("CeilingStripSouthC", "primitive", (4600, -2100, 1300), (1450, 42, 32), 0),
     # Blue runway glazing and dark metal framing.
     ("WindowA", "glass", (-800, 3775, 810), (1200, 36, 1000), 0),
     ("WindowB", "glass", (600, 3775, 810), (1200, 36, 1000), 0),
@@ -72,10 +80,16 @@ ARCHITECTURE = [
     ("ScannerNorthLeft", "beam", (1050, 840, 470), (140, 180, 940), 0),
     ("ScannerNorthRight", "beam", (1050, 1760, 470), (140, 180, 940), 0),
     ("ScannerNorthTop", "beam", (1050, 1300, 920), (140, 1100, 120), 0),
+    ("ScannerHeader", "beam", (1050, 0, 1080), (160, 3400, 110), 0),
     ("BagBeltSouth", "primitive", (2200, -1300, 165), (1500, 650, 300), 0),
     ("BagBeltNorth", "primitive", (2200, 1300, 165), (1500, 650, 300), 0),
+    ("BagRailSouthA", "beam", (2200, -1590, 360), (1500, 50, 150), 0),
+    ("BagRailSouthB", "beam", (2200, -1010, 360), (1500, 50, 150), 0),
+    ("BagRailNorthA", "beam", (2200, 1010, 360), (1500, 50, 150), 0),
+    ("BagRailNorthB", "beam", (2200, 1590, 360), (1500, 50, 150), 0),
     ("DocumentCounter", "primitive", (3250, 0, 185), (850, 1700, 340), 0),
     ("DecisionCounter", "primitive", (4350, 0, 185), (900, 2500, 340), 0),
+    ("DecisionHeader", "beam", (4350, 0, 1020), (140, 2600, 100), 0),
     # Restricted corridor surfaces and airport-like support-room enclosures.
     ("CorridorFloor", "primitive", (2450, -3320, 102), (3100, 720, 24), 0),
     ("CorridorCeiling", "primitive", (2450, -3320, 1160), (3100, 720, 80), 0),
@@ -92,6 +106,9 @@ ARCHITECTURE = [
     ("CellWallEast", "smooth_wall", (6280, 1450, 580), (70, 1250, 1120), 90),
     ("CellWallNorth", "smooth_wall", (5550, 2030, 580), (1500, 70, 1120), 0),
     ("CellWallSouth", "smooth_wall", (5550, 870, 580), (1500, 70, 1120), 0),
+    ("CellBarTop", "beam", (4890, 1450, 1030), (90, 1160, 90), 0),
+    ("CellBarNorth", "beam", (4890, 1980, 560), (90, 90, 980), 0),
+    ("CellBarSouth", "beam", (4890, 920, 560), (90, 90, 980), 0),
     # Original, non-branded aircraft silhouette outside the runway glass.
     ("AircraftBody", "primitive", (2800, 4750, 450), (3000, 360, 420), 0),
     ("AircraftNose", "primitive", (4450, 4750, 450), (500, 300, 360), 0),
@@ -101,15 +118,29 @@ ARCHITECTURE = [
 ]
 
 PROPS = [
-    ("WaitingSeatA", "seat", (900, 3050, 90), 720, 0),
-    ("WaitingSeatB", "seat", (2200, 3050, 90), 720, 0),
-    ("WaitingSeatC", "seat", (3500, 3050, 90), 720, 0),
+    # Two orderly banks establish the waiting lounge seen in the wide references.
+    ("WaitingSeatA", "seat", (250, 3050, 90), 720, 0),
+    ("WaitingSeatB", "seat", (1150, 3050, 90), 720, 0),
+    ("WaitingSeatC", "seat", (2050, 3050, 90), 720, 0),
+    ("WaitingSeatD", "seat", (2950, 3050, 90), 720, 0),
+    ("WaitingSeatE", "seat", (3850, 3050, 90), 720, 0),
+    ("WaitingSeatF", "seat", (700, 2450, 90), 720, 180),
+    ("WaitingSeatG", "seat", (1600, 2450, 90), 720, 180),
+    ("WaitingSeatH", "seat", (2500, 2450, 90), 720, 180),
+    ("WaitingSeatI", "seat", (3400, 2450, 90), 720, 180),
+    # Native monitor props give each processing counter a readable workstation.
+    ("DocumentMonitorA", "monitor", (3250, -520, 355), 220, 180),
+    ("DocumentMonitorB", "monitor", (3250, 520, 355), 220, 180),
+    ("DecisionMonitorA", "monitor", (4350, -820, 355), 220, 180),
+    ("DecisionMonitorB", "monitor", (4350, 0, 355), 220, 180),
+    ("DecisionMonitorC", "monitor", (4350, 820, 355), 220, 180),
     ("OfficeDesk", "desk", (5550, -3230, 115), 900, 0),
     ("OfficeMonitorA", "monitor", (5250, -3400, 420), 240, 0),
     ("OfficeMonitorB", "monitor", (5550, -3400, 420), 240, 0),
     ("OfficeMonitorC", "monitor", (5850, -3400, 420), 240, 0),
-    ("PowerTransformerA", "power", (3600, -3430, 110), 500, 0),
-    ("PowerTransformerB", "power", (4300, -3430, 110), 500, 0),
+    ("PowerTransformerA", "power", (3600, -3430, 110), 430, 0),
+    ("PowerTransformerB", "power", (3950, -3430, 110), 430, 0),
+    ("PowerTransformerC", "power", (4300, -3430, 110), 430, 0),
     ("DetentionDoor", "cell", (4890, 1450, 100), 1050, 90),
 ]
 
@@ -152,18 +183,25 @@ def center_actor(actor, center):
 
 
 def spawn_box(classes, suffix, class_key, center, size, yaw):
+    label = PREFIX + suffix
     rotation = (
         unreal.Rotator(pitch=0, yaw=yaw, roll=90)
         if class_key == "smooth_wall"
         else unreal.Rotator(0, yaw, 0)
     )
-    actor = ACTORS.spawn_actor_from_class(
-        classes[class_key], unreal.Vector(*center), rotation
-    )
+    actor = EXISTING_BY_LABEL.pop(label, None)
+    if actor is not None and actor.get_class() != classes[class_key]:
+        ACTORS.destroy_actor(actor)
+        actor = None
+    if actor is None:
+        actor = ACTORS.spawn_actor_from_class(
+            classes[class_key], unreal.Vector(*center), rotation
+        )
     if actor is None:
         raise RuntimeError(f"Spawn failed: {suffix}")
-    actor.set_actor_label(PREFIX + suffix)
+    actor.set_actor_label(label)
     actor.set_folder_path(FOLDER)
+    actor.set_actor_rotation(rotation, False)
     actor.set_actor_scale3d(unreal.Vector(1, 1, 1))
     _, extent = actor.get_actor_bounds(False)
     base = (
@@ -190,13 +228,21 @@ def spawn_box(classes, suffix, class_key, center, size, yaw):
 
 
 def spawn_prop(classes, suffix, class_key, ground, target_span, yaw):
-    actor = ACTORS.spawn_actor_from_class(
-        classes[class_key], unreal.Vector(*ground), unreal.Rotator(0, yaw, 0)
-    )
+    label = PREFIX + suffix
+    rotation = unreal.Rotator(0, yaw, 0)
+    actor = EXISTING_BY_LABEL.pop(label, None)
+    if actor is not None and actor.get_class() != classes[class_key]:
+        ACTORS.destroy_actor(actor)
+        actor = None
+    if actor is None:
+        actor = ACTORS.spawn_actor_from_class(
+            classes[class_key], unreal.Vector(*ground), rotation
+        )
     if actor is None:
         raise RuntimeError(f"Spawn failed: {suffix}")
-    actor.set_actor_label(PREFIX + suffix)
+    actor.set_actor_label(label)
     actor.set_folder_path(FOLDER)
+    actor.set_actor_rotation(rotation, False)
     _, extent = actor.get_actor_bounds(False)
     span = max(extent.x * 2.0, extent.y * 2.0, 1.0)
     scale = target_span / span
@@ -219,9 +265,13 @@ world = unreal.EditorLevelLibrary.get_editor_world()
 if world is None or "AirportSecurity" not in world.get_path_name():
     raise RuntimeError("Reference pass refused outside AirportSecurity")
 
-for candidate in all_actors():
-    if candidate.get_actor_label().startswith(PREFIX):
-        ACTORS.destroy_actor(candidate)
+EXISTING_BY_LABEL.update(
+    {
+        candidate.get_actor_label(): candidate
+        for candidate in all_actors()
+        if candidate.get_actor_label().startswith(PREFIX)
+    }
+)
 
 classes = load_classes()
 created = []
@@ -229,6 +279,11 @@ for spec in ARCHITECTURE:
     created.append(spawn_box(classes, *spec).get_actor_label())
 for spec in PROPS:
     created.append(spawn_prop(classes, *spec).get_actor_label())
+
+stale = sorted(EXISTING_BY_LABEL)
+for stale_label in stale:
+    ACTORS.destroy_actor(EXISTING_BY_LABEL[stale_label])
+EXISTING_BY_LABEL.clear()
 
 hidden = []
 for actor in all_actors():
@@ -241,30 +296,29 @@ for actor in all_actors():
             pass
         hidden.append(label)
 
-# Place the Creative pads and their generated starts together in the open south
-# concourse. The original pad transforms were directly behind the legacy
-# briefing backwall, so Fortnite's third-person camera opened against graybox
-# geometry even though the generated starts were clear.
+# Put both spawn pairs in the scanner approach lanes. Measured actor bounds
+# leave at least 465 cm of horizontal clearance and the east-facing yaw presents
+# the checkpoint, bag belts, and processing counters on spawn.
 spawn_pads = sorted(
     [a for a in all_actors() if "Player_Spawner" in a.get_class().get_name()],
     key=lambda a: a.get_actor_location().y,
 )
-pad_locations = ((-950, -3300, 64), (-950, -3050, 64))
+pad_locations = ((500, -1250, 64), (500, 1250, 64))
 for pad, location in zip(spawn_pads, pad_locations):
     pad.set_actor_location(unreal.Vector(*location), False, False)
     pad.set_actor_rotation(
-        unreal.Rotator(pitch=0.0, yaw=180.0, roll=0.0), False
+        unreal.Rotator(pitch=0.0, yaw=0.0, roll=0.0), False
     )
 
 player_starts = sorted(
     [a for a in all_actors() if "FortPlayerStartCreative" in a.get_class().get_name()],
     key=lambda a: a.get_actor_location().y,
 )
-start_locations = ((-950, -3300, 180), (-950, -3050, 180))
+start_locations = ((500, -1250, 180), (500, 1250, 180))
 for start, location in zip(player_starts, start_locations):
     start.set_actor_location(unreal.Vector(*location), False, False)
     start.set_actor_rotation(
-        unreal.Rotator(pitch=0.0, yaw=180.0, roll=0.0), False
+        unreal.Rotator(pitch=0.0, yaw=0.0, roll=0.0), False
     )
 
 saved = unreal.EditorLevelLibrary.save_current_level()
@@ -275,6 +329,7 @@ unreal.EditorLevelLibrary.set_level_viewport_camera_info(
 result = {
     "world": world.get_path_name(),
     "created": len(created),
+    "stale_removed": len(stale),
     "hidden_legacy_visuals": len(hidden),
     "spawn_pads_normalized": min(len(spawn_pads), len(pad_locations)),
     "player_starts_repositioned": min(len(player_starts), len(start_locations)),

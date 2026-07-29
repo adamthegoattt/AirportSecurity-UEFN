@@ -20,8 +20,8 @@ Last reconciled: 2026-07-28 PDT
 | C-08 | Runner escape | PASS | Ten-second no-intercept path; 1 resolved, integrity 90, risk 16 |
 | C-09 | Resistant response | PASS (FALLBACK) | Response -> physical intake -> custody; 1 correct/resolved, cash 175; no combat AI claim |
 | C-10 | Linked luggage motion / X-ray result | PASS (COMPILE + EDITOR) | Three class-backed props wired to controller; guarded inbound, tunnel, and exit `MoveTo` paths compile; live-session proof pending |
-| C-11 | Player document interface | PASS (COMPILE + EDITOR) | Per-player 720x760 UI compiles with fictional identity, portrait placeholder, number, expiry, route, access, five consistency checks, evidence status, duplicate-open guard, return control, claim release, and case/reset/removal cleanup; live UI proof pending |
-| C-12 | Physical Clear / Secondary / Detain station | PASS (COMPILE + EDITOR) | Three large green/yellow/red pads, enlarged underlying Button devices, dedicated dynamic labels, evidence-gated enablement, submit lockout, and committed-outcome feedback are saved; Verse build succeeded; live input/audio proof pending |
+| C-11 | Player document interface | PASS (COMPILE + EDITOR) | Per-player UI compiles with fictional identity, portrait placeholder, route/access checks, evidence status, duplicate-open guard, return control, claim release, and cleanup |
+| C-12 | Physical Clear / Secondary / Detain station | PASS (COMPILE + EDITOR) | Three large green/yellow/red pads, enlarged underlying Button devices, dynamic labels, evidence-gated enablement, submit lockout, and committed-outcome feedback are saved |
 | M-00 | Deterministic claim regression | PASS | One-client production-handler harness released/reclaimed CaseId 7 and rejected duplicate decision; not multiplayer QA |
 | M-01 | Two-player contention | NOT RUN | One connected client only |
 | M-02 | Claim owner disconnect/rejoin | NOT RUN | Handler and deterministic owner-loss regression pass; genuine disconnect/rejoin still required |
@@ -35,9 +35,35 @@ Last reconciled: 2026-07-28 PDT
 | R-03 | Failure-branch replay | PASS | QA3 covered C-06 through C-09 and a clean post-branch case; flag restored false before normal activation |
 | P-01 | Full 21-case pacing | NOT RUN | Requires normal no-skip run and balance record |
 | P-02 | Representative performance | NOT RUN | 4/8/16-player measurements pending |
-| P-03 | Current post-reference live activation | BLOCKED EXTERNAL | Two clean launches stopped at Epic `errors.com.epicgames.common.processing`; editor validation and Verse compile pass |
+| P-03 | Current post-reference live activation | PASS (CONNECTED BOOT) | Fortnite connected and controller HUD/case state was observed; fresh-session traversal remains manual QA |
 
 Never classify one-client automation as real multiplayer testing.
+
+## Custody milestone delta — 2026-07-28 PDT
+
+| ID | Test | Status | Evidence / remaining requirement |
+|---|---|---|---|
+| C-13 | Remote custody rejection | IMPLEMENTED / LIVE RETEST BLOCKED | `IsAgentNear` checks intake before claim/commit; live session startup was blocked at this dated milestone |
+| C-14 | Remote runner capture rejection | IMPLEMENTED / LIVE RETEST BLOCKED | Decision-lane proximity required before intercept; stale/duplicate guards retained |
+| C-15 | Remote resistant response rejection | IMPLEMENTED / LIVE RETEST BLOCKED | Response-zone proximity required before response begins |
+| C-16 | Visible pooled jail state and reset | PASS (STATIC/VALIDATION) | One reusable occupant plus cell board wired; 242-actor audit found exactly both actors and no residue; live visual retest pending |
+| C-17 | Verse build after custody changes | PASS | UEFN `Built successfully` |
+| C-18 | Map validation after custody changes | PASS | 1 requested, 1 checked, 1 valid, 0 invalid, 0 warnings |
+
+## Response-event milestone delta - 2026-07-28 PDT
+
+| ID | Test | Status | Evidence / remaining requirement |
+|---|---|---|---|
+| RE-01 | Response station visible, signed, and wired | PASS (STATIC/VALIDATION) | Granter, remover, remote manager, siren, two red point lights, and board audited in `TerminalLockdown/Gameplay/ResponseEvent` |
+| RE-02 | Event equipment is temporary and non-duplicating | PASS (CODE/VALIDATION) | Shared cleanup removes Signal Remote A from all players and disables issue/input on success, timeout, reset, result, emergency, boss, and case transitions |
+| RE-03 | Response requires physical participation | PASS (CODE/VALIDATION) | Primary Signal Remote event is rejected outside an 850-unit response-room radius; replacement issue also requires station proximity |
+| RE-04 | Hostile behavior is bounded and non-gory | PASS (CODE/VALIDATION) | Existing active Character follows four response-room waypoints with case/run/generation guards; no gore or unbounded spawns |
+| RE-05 | Success cleanup and custody handoff | IMPLEMENTED / LIVE RETEST BLOCKED | Success stops siren/lights, recalls equipment, disables response devices, and moves suspect to physical intake; Epic handshake blocks current live capture |
+| RE-06 | Timeout cleanup and consequence | IMPLEMENTED / LIVE RETEST BLOCKED | 30-second timeout performs identical cleanup, hides suspect, applies +10 risk/-8 integrity once, and finishes case |
+| RE-07 | Join-in-progress equipment safety | IMPLEMENTED / LIVE RETEST BLOCKED | Players joining `HostileResponse` receive one registered loadout; shared all-player removal handles completion/reset |
+| RE-08 | Final Verse build | PASS | UEFN reported `Built successfully` after final device wiring and QA-harness adjustment |
+| RE-09 | Final map validation and residue audit | PASS | 1/1 valid, 0 invalid, 0 warnings; 249 actors; seven response actors; no proof/debug/replay labels |
+| RE-10 | Runtime normal/alert/threat/cleanup captures | BLOCKED (EXTERNAL) | Two clean Launch Session attempts fail at Epic handshake with `errors.com.epicgames.common.processing`; no editor state claimed as runtime proof |
 
 ## Feedback-and-alert milestone delta - 2026-07-28 PDT
 
@@ -47,3 +73,18 @@ Never classify one-client automation as real multiplayer testing.
 | FA-02 | Scanner, bag, decision, custody, power, alert, and results triggers compile | PASS (CODE/VALIDATION) | Final UEFN Verse build reported `Built successfully`; selected cues are serialized in the six actor packages |
 | FA-03 | Final map validation and residue audit | PASS | 1/1 valid, zero invalid, zero warnings; 255 actors; no proof/debug/replay labels |
 | FA-04 | Live sound, normal/alert comparison, and reference-angle proof | BLOCKED (EXTERNAL) | Epic launch handshake returns `errors.com.epicgames.common.processing`; no editor-only image is promoted as runtime proof |
+
+## Complete reference-match delta - 2026-07-29 PDT
+
+| ID | Test | Status | Evidence / remaining requirement |
+|---|---|---|---|
+| ART-01 | Managed visual pass creates the complete expected set | PASS | Final builder run reported 104 managed actors and `saved=true` |
+| ART-02 | Builder idempotence / stale cleanup | PASS | Repeat run reported `stale_removed=0`; actor audit found no duplicate labels |
+| ART-03 | Eleven supplied reference roles represented | PASS (STATIC/EDITOR) | Terminal, waiting, checkpoint, scanner, bag, decision, detention, corridor, power, office/ammo, and runway/aircraft zones are present |
+| ART-04 | Legacy visual overlap removed | PASS | 24 superseded legacy visual groups hidden without deleting gameplay devices |
+| ART-05 | Final Verse build | PASS | UEFN reported `Built successfully` after the reference pass |
+| ART-06 | Final map validation / residue audit | PASS | 1/1 valid, 0 invalid, 0 warnings; 282 actors; 270 unique `TL_`; no residue |
+| SPAWN-01 | Spawn transforms and clearance | PASS (STATIC) | Pads `(500,+/-1250,64)`, starts Z 180, yaw 0; >=465 cm nearest static clearance |
+| SPAWN-02 | Island/device spawn configuration | PASS (EDITOR) | Spawn Location=Spawn Pads; random selection; both pads Always and island-start enabled |
+| SPAWN-03 | Fresh-session spawn-to-checkpoint traversal | MANUAL QA | Long-lived edit-session respawn camera was inconclusive; current automation cannot hold movement/capture mouse reliably |
+| ART-07 | Eleven final runtime reference-angle captures | MANUAL QA | Requires a newly started play session and human camera positioning; no editor-only frame is labeled runtime proof |
