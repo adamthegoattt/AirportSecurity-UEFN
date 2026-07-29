@@ -1,9 +1,9 @@
 # AIRPORTSECURITY / TERMINAL LOCKDOWN — ROLLING AUTONOMOUS CONTINUATION PROMPT
 
-Prompt version: **1.0**
+Prompt version: **2.0**
 Generated: **2026-07-28 PDT**
-Canonical checkpoint: **Terminal Lockdown - Validated Reference Pass**
-Git checkpoint: **5ece9583b1b352f12ff5534bbba70ffa327c45e1** on `main`
+Canonical checkpoint: **Terminal Lockdown - Extended Replay QA**
+Git checkpoint: **9b477895a49bbae6d299779ea181060acfb8d10e** on `main`
 Target project: **AirportSecurity**
 Target experience: **Terminal Lockdown**
 
@@ -18,7 +18,7 @@ detached prototype.
 Before performing any project mutation, read this file from the first line to
 the final line and confirm that the exact marker below is present at the end:
 
-`END_OF_AIRPORTSECURITY_CONTINUATION_PROMPT_V1`
+`END_OF_AIRPORTSECURITY_CONTINUATION_PROMPT_V2`
 
 If the marker is missing, do not execute this prompt. Finish regenerating the
 prompt from the current project, verify it, and only then begin implementation.
@@ -98,10 +98,10 @@ Truth precedence for this continuation:
 5. Updated validation/test/asset documentation that cites concrete evidence.
 6. Older planning documents and historical notes.
 
-Several `docs/codex` files at checkpoint `5ece958` still contain pre-build
-“pending” tables. They are historical and contradict the later validated
-handoff. Do not regress the project to match those stale tables. Reconcile them
-to the current state while preserving useful historical facts.
+The `docs/codex` status documents were reconciled at checkpoint `9b47789`.
+Historical baseline notes remain intentionally dated. Treat current pass/pending
+claims in the handoff, test matrix, validation log, final report, and this prompt
+as authoritative only when they agree with fresh runtime and source evidence.
 
 Never edit Unreal binary assets directly outside UEFN-supported operations.
 Never delete external actors to hide an error. Never rebuild from scratch.
@@ -189,14 +189,14 @@ or dozens of enemy archetypes ahead of the core airport loop.
 
 # 3. VALIDATED CHECKPOINT TO PRESERVE
 
-Checkpoint name: **Terminal Lockdown - Validated Reference Pass**
+Checkpoint name: **Terminal Lockdown - Extended Replay QA**
 Checkpoint date: **2026-07-28 PDT**
 
 At this checkpoint:
 
 - The active map is `/AirportSecurity/AirportSecurity`.
 - UEFN compatibility is `41.20`.
-- The project has a safe local Git checkpoint at commit `5ece9583...`.
+- The project has a safe local Git checkpoint at commit `9b477895...`.
 - UEFN and a connected Fortnite client were left running and responsive.
 - The last observed editor state was `Game in Progress`, `All Saved`, and
   `0 Edits - 0 Pending Push`, with `TL_Controller` selected.
@@ -231,11 +231,28 @@ The automated runtime replay exercised production handlers for:
 - Shift 5 scanner-offline power outage and utility restore.
 - Shift 7 detected-boss victory.
 - Results-to-waiting clean reset.
+- Deterministic owner-loss release and reclaim for CaseId 7.
+- Duplicate-decision rejection after one completed resolution.
+- Shift 7 missed-boss victory through all response stages.
+- Emergency-timeout penalty, cleanup, and safe case recovery using a
+  replay-only one-second wait while the production editable remains 45 seconds.
+
+The extended `[QA2]` sequence completed twice in the connected live session.
+The first sequence ran from 00:54:38 through 00:54:47 UTC; the second ran from
+00:55:21 through 00:55:29 UTC. Both ended with:
+
+`[QA2] Extended replay complete; returned to waiting`
+
+After QA, Automated Replay was restored to false and saved. A clean normal-mode
+session activated at 00:57:39 UTC with no later `[QA2]` marker.
 
 Preserve this evidence and do not claim broader runtime coverage than it proves.
-The replay used one connected Fortnite client. It did not prove simultaneous
-two-player contention, real disconnect/rejoin recovery, a real-time full
-21-case pacing run, representative performance, or final-art quality.
+The replay used one connected Fortnite client. Its deterministic owner-loss
+coverage is not multiplayer validation. It did not prove simultaneous two-player
+contention, real disconnect/rejoin recovery, a real-time full 21-case pacing run,
+representative performance, or final-art quality. Dedicated false-detention,
+runner capture/escape, and resistant-response runtime evidence also remains
+pending.
 
 ---
 
@@ -244,7 +261,9 @@ two-player contention, real disconnect/rejoin recovery, a real-time full
 ## 4.1 Authoritative Verse controller
 
 `Content/terminal_lockdown_controller.verse` is the authoritative high-level
-orchestrator. It is approximately 1,262 physical lines at this checkpoint. Do
+orchestrator. It is 1,313 physical lines at this checkpoint. Its verified
+SHA-256 is
+`A1727B49AA6FA4DBFA093EAB2012C168204C253D0269D661E3F4F0E81C7F6989`. Do
 not rewrite it wholesale for style. Extend or refactor only when doing so
 directly enables a validated feature, removes a demonstrated state bug, or
 creates a materially stronger test seam.
@@ -294,8 +313,14 @@ Important entry points and contracts:
 - `BeginBoss`, `FinishVictory`, `FinishDefeat`, `ResetToWaiting`: final threat,
   results, defeat, and clean replay.
 - `RunAutomatedReplay`: development-only production-handler regression path.
-  Keep the editable flag false except during an intentional local QA run, and
-  return it to false before a checkpoint.
+  It now covers the original clear/secondary/detention/power/detected-boss path
+  plus deterministic claim release/reclaim, duplicate-resolution rejection,
+  missed-boss victory, and emergency timeout/recovery. Keep the editable flag
+  false except during an intentional local QA run, and return it to false before
+  a checkpoint.
+- `EmergencyTimeout(ExpectedGeneration, WaitSeconds)`: generation-guarded
+  timeout implementation. Production still passes `EmergencyTimeoutSeconds`
+  (45 seconds); only the automated QA path passes 1 second.
 
 ## 4.2 Current phases and decisions
 
@@ -443,10 +468,11 @@ All new project-owned actors require unique AirportSecurity/TerminalLockdown
 names. Builders must remain idempotent. Scale placements in small batches and
 validate after each meaningful batch.
 
-The asset ledger is currently stale and must be reconciled carefully. Do not
-blindly promote old CANDIDATE entries. Use the exact builder output, saved actor
-inventory, compile/validation evidence, and live-session result to update each
-category. Preserve an honest distinction between session-proven fallback
+The asset ledger was reconciled at checkpoint `9b47789`, but it remains an
+evidence record rather than blanket approval for future substitutions. Do not
+blindly promote CANDIDATE entries. Use exact builder output, saved actor
+inventory, compile/validation evidence, and live-session results for every new
+category. Preserve the distinction between session-proven fallback
 geometry/devices and unproven proposed art replacements.
 
 ---
@@ -505,25 +531,26 @@ milestones. Do not push automatically unless the user explicitly requests it.
 The validated checkpoint is a strong production graybox, not a finished island.
 Work in this order unless live evidence reveals a more urgent regression.
 
-## Priority 0 — restore documentary truth and re-prove baseline
+## Priority 0 — preserve the green checkpoint before every new batch
 
-Before adding risky features:
+Document reconciliation, fresh Verse build, connected-session activation, and
+the extended replay are complete at `9b47789`. Before each new risky batch:
 
 1. Check Git status and preserve unrelated work.
 2. Confirm the live UEFN project and map.
 3. Verify all 12 Button, 7 Billboard, 4 Character, 1 HUD, and controller
    references remain assigned on `TL_Controller`.
 4. Confirm Debug and Automated Replay are false.
-5. Build Verse without source changes.
-6. Run project validation.
-7. Launch/resume a session and reach the first case.
+5. Build Verse after the smallest source change.
+6. Push/refresh only when the build is green.
+7. Run the intended branch and then a normal-mode activation.
 8. Search current UEFN/Fortnite logs for relevant Verse/build/validation errors.
-9. Reconcile stale `docs/codex` current-status sections with
-   `CODEX_HANDOFF.md`, source, builder evidence, and runtime results. Preserve
-   old facts as dated history rather than pretending they are current.
+9. Update current-status documents from exact evidence and preserve old facts as
+   dated history.
 
-Exit only when the baseline remains green and documentation no longer reports
-the validated production build as “pending.”
+Exit each batch only when the production flags are false, the baseline remains
+green, and the documentation distinguishes proven runtime behavior from pending
+coverage.
 
 ## Priority 1 — real two-player claim and recovery QA
 
@@ -544,19 +571,22 @@ harness that invokes production claim/decision paths, but continue marking real
 two-client coverage as incomplete. Do not call one-client replay multiplayer
 validation.
 
-## Priority 2 — untested failure branches and replay robustness
+## Priority 2 — remaining failure-branch runtime coverage
 
-Session-test and record:
+The missed final-threat path, emergency timeout/recovery, and two consecutive
+results-to-waiting resets are now proven. Do not repeat them merely to create
+activity. Session-test and record the remaining distinct branches:
 
-- Missed final-threat branch: final disguise incorrectly cleared, boss begins
-  with additional risk/integrity consequence, all response stages resolve,
-  results appears, replay resets cleanly.
-- Emergency timeout: allow a later-shift emergency to time out, confirm one
-  failure penalty, normal power/stations restore, and the run resumes safely.
-- Runner escape after no intercept.
-- False detention.
-- Reset/results replay twice without stale passenger, claim, boards, power,
-  timers, or duplicate progress.
+- False detention: detain a legitimate traveler, record one penalty and the
+  complete custody/finish/reset behavior.
+- Runner capture: detain runner CaseId 8, intercept once, resolve custody once,
+  and complete the case.
+- Runner escape: allow the intercept window to expire, record one failure
+  consequence, cleanup, and safe next-case progression.
+- Resistant response: detain CaseId 9, complete the response interaction once,
+  route to custody, and reject duplicate response/custody input.
+- Re-run a normal clear case after these branches to prove there is no stale
+  passenger, claim, board, power, timer, response, or custody state.
 
 ## Priority 3 — full seven-shift pacing and balance
 
@@ -617,6 +647,10 @@ Only after the core game is stable:
 - Accessibility and controller/mobile interaction review.
 - More case variety through data rather than duplicated branch code.
 - Release/publish preparation when explicitly requested by the user.
+- Repository privacy correction: the configured GitHub remote was observed as
+  public even though the requested repository was private. Do not expose new
+  secrets or push automatically; correct visibility only through an authorized
+  signed-in GitHub action and verify the resulting repository setting.
 
 Never persist transient actor references, current passenger, open UI, active
 emergency, or live claim ownership.
@@ -770,29 +804,32 @@ Do not close the game or editor when a cycle finishes.
 
 ---
 
-# 11. FIRST EXECUTION FROM THIS VERSION
+# 11. FIRST EXECUTION FROM VERSION 2
 
-After confirming this prompt’s final marker, perform this exact first cycle:
+After confirming this prompt’s final marker, perform this exact next cycle:
 
 1. Inspect `git status`, current UEFN/Fortnite processes, active map, current
    editor/session status, and latest logs.
-2. Confirm the live project still matches checkpoint `5ece958` plus any newer
+2. Confirm the live project still matches checkpoint `9b47789` plus any newer
    intentional user changes.
-3. Rebuild Verse and run project validation without changing gameplay.
-4. Launch/resume and prove the first clean case still works.
-5. Reconcile the stale `docs/codex` current-state tables with the validated
-   checkpoint, source, builder inventory, and runtime evidence.
-6. Select Priority 1 if a second client is available. If not, implement or run
-   the narrowest deterministic claim/owner-loss regression harness, then keep
-   real two-client validation marked pending.
-7. Runtime-test the missed-boss and emergency-timeout branches if they can be
-   reached safely in the same cycle.
+3. If a genuine second Fortnite client is available, perform the real
+   two-player contention/owner-loss test and record it separately from the
+   deterministic replay. If one client remains the limit, do not rerun the
+   completed QA2 claim harness merely to relabel it.
+4. Extend the development-only replay through the remaining false-detention,
+   runner capture/escape, and resistant-response branches using production
+   handlers and generation guards. Keep all shortcuts isolated behind
+   `AutomatedReplayEnabled`.
+5. Build Verse. Do not enable the replay flag unless compilation succeeds.
+6. Enable the replay only for intentional QA, push/refresh, capture exact branch
+   markers and errors, then set the flag false, save, and activate normal mode.
+7. Prove one clean case or waiting-state activation after the QA branches.
 8. Fix demonstrated state bugs before adding art.
-9. Update all required documents and `CODEX_HANDOFF.md`.
-10. Create a local checkpoint commit only after compile, validation, runtime,
-    and log checks are green.
-11. Regenerate this prompt completely as version 2 from that new state.
-12. Verify the version 2 end marker, then continue with the next highest-value
+9. Update all required documents and `CODEX_HANDOFF.md` with exact evidence.
+10. Create a local checkpoint commit only after compile, runtime, cleanup, and
+    log checks are green.
+11. Regenerate this prompt completely as version 3 from that new state.
+12. Verify the version 3 end marker, then continue with the next highest-value
     unfinished milestone.
 
 If the current editor/session state contradicts the handoff, trust fresh
@@ -804,4 +841,4 @@ from the case loop.
 
 ---
 
-END_OF_AIRPORTSECURITY_CONTINUATION_PROMPT_V1
+END_OF_AIRPORTSECURITY_CONTINUATION_PROMPT_V2
