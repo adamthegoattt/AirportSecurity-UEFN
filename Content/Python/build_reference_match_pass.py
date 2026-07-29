@@ -1,8 +1,8 @@
 """Idempotent reference-match environment pass for AirportSecurity.
 
-This pass only uses the BlueprintGeneratedClass spawn method proven by
-prove_reference_asset_set.py. Existing TL gameplay devices and Verse wiring are
-left untouched. The validated GridPlane shell remains as the collision fallback.
+The pass preserves the tested gameplay devices and Verse wiring while replacing
+the highest-impact placeholder silhouettes with proved Fortnite-native props.
+The original GridPlane shell remains only where it provides useful collision.
 """
 
 import unreal
@@ -15,27 +15,41 @@ EXISTING_BY_LABEL = {}
 
 # Spawn transforms are named because they are presentation-critical and must
 # survive every idempotent reference-pass rerun. Both lanes sit on the open
-# entry apron and face east into the checkpoint hall. Their follow cameras begin
-# outside the old briefing set and look through the wide central opening.
+# entry apron and face east into the checkpoint hall. They start beside the
+# START SHIFT control so onboarding is immediate while still presenting the
+# checkpoint through the wide central opening.
 SPAWN_PAD_TRANSFORMS = (
-    ((-1900, -300, 64), 0.0),
-    ((-1900, 300, 64), 0.0),
+    ((-1180, -180, 64), 0.0),
+    ((-1180, 180, 64), 0.0),
 )
 PLAYER_START_TRANSFORMS = (
-    ((-1900, -300, 180), 0.0),
-    ((-1900, 300, 180), 0.0),
+    ((-1180, -180, 180), 0.0),
+    ((-1180, 180, 180), 0.0),
 )
 
 CLASSES = {
     "primitive": "/Game/Creative/Sets/PropSets/Primitives/Rounds/Props/CP_Primitive_Cube.CP_Primitive_Cube_C",
     "smooth_wall": "/Game/Creative/Sets/PropSets/Primitives/Rounds/Props/CP_Primitive_Cube.CP_Primitive_Cube_C",
-    "glass": "/Game/Creative/Sets/Glass/BuildingPieces/CP_Glass_Solid_Wall.CP_Glass_Solid_Wall_C",
+    "glass": "/Game/Creative/Sets/Glass/Props/CP_Glass_PropWall.CP_Glass_PropWall_C",
     "beam": "/Game/Creative/Items/Building_Parts/MetalBeams/CP_Metal_I_Bar.CP_Metal_I_Bar_C",
     "seat": "/Game/Creative/Sets/ArtDeco_Bank/Props/CP_ArtDeco_Triple_Couch_B.CP_ArtDeco_Triple_Couch_B_C",
     "desk": "/Game/Athena/Apollo/Environments/BuildingActors/Office/Props/Apollo_Office_Desk_02.Apollo_Office_Desk_02_C",
     "monitor": "/Game/Environments/Asteria/Props/Office/Office_Monitors_A/Blueprints/Asteria_Office_Monitor_A.Asteria_Office_Monitor_A_C",
     "power": "/Game/Building/ActorBlueprints/Prop/PowerTransformer01.PowerTransformer01_C",
     "cell": "/Game/Creative/BuildingActors/Props/Prop_CellDoor.Prop_CellDoor_C",
+    "scanner": "/Game/Athena/Apollo/Environments/BuildingActors/Agency/Props/Apollo_Agency_SecurityScanner_02.Apollo_Agency_SecurityScanner_02_C",
+    "stanchion": "/Game/Environments/Helios/Props/Commerce/Commerce_BeltStanchion_A/Blueprints/BP_Commerce_BeltStanchion_A.BP_Commerce_BeltStanchion_A_C",
+    "luggage_a": "/Game/Environments/Asteria/Props/Commerce/Commerce_Luggage_A/Blueprints/BP_Commerce_Luggage_A_A.BP_Commerce_Luggage_A_A_C",
+    "luggage_b": "/Game/Environments/Asteria/Props/Commerce/Commerce_Luggage_A/Blueprints/BP_Commerce_Luggage_B_B.BP_Commerce_Luggage_B_B_C",
+    "ceiling_light": "/Game/Creative/BuildingActors/Props/CP_Yacht_Ceiling_Light.CP_Yacht_Ceiling_Light_C",
+    "emergency_light": "/Game/Creative/BuildingActors/Props/CP_Apollo_TrainTunnelEmergency_Light.CP_Apollo_TrainTunnelEmergency_Light_C",
+    "aircraft_fuselage": "/Game/Athena/Apollo/Environments/BuildingActors/TaskForce/Props/Apollo_Airplane_Broken_Fuselage_01.Apollo_Airplane_Broken_Fuselage_01_C",
+    "aircraft_nose": "/Game/Athena/Apollo/Environments/BuildingActors/TaskForce/Props/Apollo_Airplane_Broken_Nose_01.Apollo_Airplane_Broken_Nose_01_C",
+    "aircraft_wing": "/Game/Athena/Apollo/Environments/BuildingActors/TaskForce/Props/Apollo_Airplane_Broken_Wing_01.Apollo_Airplane_Broken_Wing_01_C",
+    "aircraft_tail": "/Game/Athena/Apollo/Environments/BuildingActors/TaskForce/Props/Apollo_Airplane_Broken_Tail_01.Apollo_Airplane_Broken_Tail_01_C",
+    "aircraft_engine": "/Game/Athena/Apollo/Environments/BuildingActors/TaskForce/Props/Apollo_Airplane_Broken_Engine_01.Apollo_Airplane_Broken_Engine_01_C",
+    "office_chair": "/Game/Athena/Apollo/Environments/BuildingActors/Office/Props/Apollo_Office_Chair_01.Apollo_Office_Chair_01_C",
+    "prison_bed": "/Game/Athena/Apollo/Environments/BuildingActors/SharkPrison/Props/Apollo_SharkPrison_SingleBed_01.Apollo_SharkPrison_SingleBed_01_C",
 }
 
 ARCHITECTURE = [
@@ -71,13 +85,8 @@ ARCHITECTURE = [
     ("CeilingStripSouthA", "primitive", (600, -2100, 1300), (1450, 42, 32), 0),
     ("CeilingStripSouthB", "primitive", (2600, -2100, 1300), (1450, 42, 32), 0),
     ("CeilingStripSouthC", "primitive", (4600, -2100, 1300), (1450, 42, 32), 0),
-    # Blue runway glazing and dark metal framing.
-    ("WindowA", "glass", (-800, 3775, 810), (1200, 36, 1000), 0),
-    ("WindowB", "glass", (600, 3775, 810), (1200, 36, 1000), 0),
-    ("WindowC", "glass", (2000, 3775, 810), (1200, 36, 1000), 0),
-    ("WindowD", "glass", (3400, 3775, 810), (1200, 36, 1000), 0),
-    ("WindowE", "glass", (4800, 3775, 810), (1200, 36, 1000), 0),
-    ("WindowF", "glass", (6100, 3775, 810), (700, 36, 1000), 0),
+    # Open runway glazing line with dark mullions. The opening preserves the
+    # floor-to-ceiling airport-window silhouette without an opaque prop pane.
     ("WindowHead", "beam", (2500, 3750, 1320), (8000, 90, 90), 0),
     ("MullionA", "beam", (-1450, 3750, 810), (70, 70, 1120), 0),
     ("MullionB", "beam", (-100, 3750, 810), (70, 70, 1120), 0),
@@ -86,20 +95,31 @@ ARCHITECTURE = [
     ("MullionE", "beam", (4100, 3750, 810), (70, 70, 1120), 0),
     ("MullionF", "beam", (5500, 3750, 810), (70, 70, 1120), 0),
     ("MullionG", "beam", (6450, 3750, 810), (70, 70, 1120), 0),
-    # Scanner, bag tables, and decision counter retain the tested gameplay layout.
-    ("ScannerSouthLeft", "beam", (1050, -1760, 470), (140, 180, 940), 0),
-    ("ScannerSouthRight", "beam", (1050, -840, 470), (140, 180, 940), 0),
-    ("ScannerSouthTop", "beam", (1050, -1300, 920), (140, 1100, 120), 0),
-    ("ScannerNorthLeft", "beam", (1050, 840, 470), (140, 180, 940), 0),
-    ("ScannerNorthRight", "beam", (1050, 1760, 470), (140, 180, 940), 0),
-    ("ScannerNorthTop", "beam", (1050, 1300, 920), (140, 1100, 120), 0),
-    ("ScannerHeader", "beam", (1050, 0, 1080), (160, 3400, 110), 0),
+    # Checkpoint hierarchy, floor guidance, and X-ray portals.
+    ("CheckpointSignBacking", "primitive", (1080, -1300, 1120), (120, 1500, 300), 0),
+    ("CheckpointSignCap", "beam", (1080, -1300, 1300), (150, 1580, 70), 0),
+    ("ScannerSouthPad", "primitive", (1050, -1300, 96), (720, 900, 12), 0),
+    ("ScannerNorthPad", "primitive", (1050, 1300, 96), (720, 900, 12), 0),
+    ("WalkthroughSouthLeft", "beam", (1050, -1620, 500), (120, 100, 820), 0),
+    ("WalkthroughSouthRight", "beam", (1050, -980, 500), (120, 100, 820), 0),
+    ("WalkthroughSouthTop", "beam", (1050, -1300, 910), (120, 740, 120), 0),
+    ("WalkthroughNorthLeft", "beam", (1050, 980, 500), (120, 100, 820), 0),
+    ("WalkthroughNorthRight", "beam", (1050, 1620, 500), (120, 100, 820), 0),
+    ("WalkthroughNorthTop", "beam", (1050, 1300, 910), (120, 740, 120), 0),
+    ("QueueLaneSouth", "primitive", (-550, -2150, 94), (2300, 620, 10), 0),
+    ("QueueLaneNorth", "primitive", (-550, 2150, 94), (2300, 620, 10), 0),
     ("BagBeltSouth", "primitive", (2200, -1300, 165), (1500, 650, 300), 0),
     ("BagBeltNorth", "primitive", (2200, 1300, 165), (1500, 650, 300), 0),
     ("BagRailSouthA", "beam", (2200, -1590, 360), (1500, 50, 150), 0),
     ("BagRailSouthB", "beam", (2200, -1010, 360), (1500, 50, 150), 0),
     ("BagRailNorthA", "beam", (2200, 1010, 360), (1500, 50, 150), 0),
     ("BagRailNorthB", "beam", (2200, 1590, 360), (1500, 50, 150), 0),
+    ("BagXraySouthLeft", "beam", (2500, -1580, 520), (420, 70, 650), 0),
+    ("BagXraySouthRight", "beam", (2500, -1020, 520), (420, 70, 650), 0),
+    ("BagXraySouthTop", "beam", (2500, -1300, 830), (420, 650, 70), 0),
+    ("BagXrayNorthLeft", "beam", (2500, 1020, 520), (420, 70, 650), 0),
+    ("BagXrayNorthRight", "beam", (2500, 1580, 520), (420, 70, 650), 0),
+    ("BagXrayNorthTop", "beam", (2500, 1300, 830), (420, 650, 70), 0),
     ("DocumentCounter", "primitive", (3250, 0, 185), (850, 1700, 340), 0),
     ("DecisionCounter", "primitive", (4350, 0, 185), (900, 2500, 340), 0),
     ("DecisionHeader", "beam", (4350, 0, 1020), (140, 2600, 100), 0),
@@ -122,15 +142,26 @@ ARCHITECTURE = [
     ("CellBarTop", "beam", (4890, 1450, 1030), (90, 1160, 90), 0),
     ("CellBarNorth", "beam", (4890, 1980, 560), (90, 90, 980), 0),
     ("CellBarSouth", "beam", (4890, 920, 560), (90, 90, 980), 0),
-    # Original, non-branded aircraft silhouette outside the runway glass.
-    ("AircraftBody", "primitive", (2800, 4750, 450), (3000, 360, 420), 0),
-    ("AircraftNose", "primitive", (4450, 4750, 450), (500, 300, 360), 0),
-    ("AircraftTail", "primitive", (1050, 4750, 700), (420, 280, 700), 0),
-    ("AircraftWingNear", "primitive", (2750, 4250, 440), (1300, 900, 90), 0),
-    ("AircraftWingFar", "primitive", (2750, 5250, 440), (1300, 900, 90), 0),
 ]
 
 PROPS = [
+    # Belt stanchions make the active traveler queue read immediately at eye level.
+    ("QueueStanchionSouth01", "stanchion", (-2100, -1850, 90), 130, 0),
+    ("QueueStanchionSouth02", "stanchion", (-1600, -1850, 90), 130, 0),
+    ("QueueStanchionSouth03", "stanchion", (-1100, -1850, 90), 130, 0),
+    ("QueueStanchionSouth04", "stanchion", (-600, -1850, 90), 130, 0),
+    ("QueueStanchionSouth05", "stanchion", (-100, -1850, 90), 130, 0),
+    ("QueueStanchionSouth06", "stanchion", (-2100, -2450, 90), 130, 180),
+    ("QueueStanchionSouth07", "stanchion", (-1600, -2450, 90), 130, 180),
+    ("QueueStanchionSouth08", "stanchion", (-1100, -2450, 90), 130, 180),
+    ("QueueStanchionSouth09", "stanchion", (-600, -2450, 90), 130, 180),
+    ("QueueStanchionSouth10", "stanchion", (-100, -2450, 90), 130, 180),
+    ("QueueStanchionNorth01", "stanchion", (-1850, 1850, 90), 130, 0),
+    ("QueueStanchionNorth02", "stanchion", (-1200, 1850, 90), 130, 0),
+    ("QueueStanchionNorth03", "stanchion", (-550, 1850, 90), 130, 0),
+    ("QueueStanchionNorth04", "stanchion", (-1850, 2450, 90), 130, 180),
+    ("QueueStanchionNorth05", "stanchion", (-1200, 2450, 90), 130, 180),
+    ("QueueStanchionNorth06", "stanchion", (-550, 2450, 90), 130, 180),
     # Two orderly banks establish the waiting lounge seen in the wide references.
     ("WaitingSeatA", "seat", (250, 3050, 90), 720, 0),
     ("WaitingSeatB", "seat", (1150, 3050, 90), 720, 0),
@@ -141,6 +172,13 @@ PROPS = [
     ("WaitingSeatG", "seat", (1600, 2450, 90), 720, 180),
     ("WaitingSeatH", "seat", (2500, 2450, 90), 720, 180),
     ("WaitingSeatI", "seat", (3400, 2450, 90), 720, 180),
+    # Recognizable luggage gives the X-ray lane and waiting zone real ownership cues.
+    ("WaitingBagA", "luggage_a", (200, 2200, 90), 120, 15),
+    ("WaitingBagB", "luggage_b", (820, 2200, 90), 145, -15),
+    ("WaitingBagC", "luggage_a", (1450, 2200, 90), 110, 20),
+    ("NorthBeltBagA", "luggage_a", (1600, 1300, 315), 105, 90),
+    ("NorthBeltBagB", "luggage_b", (2050, 1300, 315), 125, 90),
+    ("NorthBeltBagC", "luggage_a", (2750, 1300, 315), 95, 90),
     # Native monitor props give each processing counter a readable workstation.
     ("DocumentMonitorA", "monitor", (3250, -520, 355), 220, 180),
     ("DocumentMonitorB", "monitor", (3250, 520, 355), 220, 180),
@@ -151,10 +189,34 @@ PROPS = [
     ("OfficeMonitorA", "monitor", (5250, -3400, 420), 240, 0),
     ("OfficeMonitorB", "monitor", (5550, -3400, 420), 240, 0),
     ("OfficeMonitorC", "monitor", (5850, -3400, 420), 240, 0),
+    ("OfficeChairA", "office_chair", (5300, -2980, 110), 150, 180),
+    ("OfficeChairB", "office_chair", (5750, -2980, 110), 150, 180),
     ("PowerTransformerA", "power", (3600, -3430, 110), 430, 0),
     ("PowerTransformerB", "power", (3950, -3430, 110), 430, 0),
     ("PowerTransformerC", "power", (4300, -3430, 110), 430, 0),
     ("DetentionDoor", "cell", (4890, 1450, 100), 1050, 90),
+    ("DetentionBed", "prison_bed", (5920, 1550, 105), 250, 90),
+    # Physical ceiling and corridor fixtures establish normal and emergency layers.
+    ("CeilingLight01", "ceiling_light", (0, -2200, 1170), 210, 0),
+    ("CeilingLight02", "ceiling_light", (0, 2200, 1170), 210, 0),
+    ("CeilingLight03", "ceiling_light", (1500, -2200, 1170), 210, 0),
+    ("CeilingLight04", "ceiling_light", (1500, 2200, 1170), 210, 0),
+    ("CeilingLight05", "ceiling_light", (3000, -2200, 1170), 210, 0),
+    ("CeilingLight06", "ceiling_light", (3000, 2200, 1170), 210, 0),
+    ("CeilingLight07", "ceiling_light", (4500, -2200, 1170), 210, 0),
+    ("CeilingLight08", "ceiling_light", (4500, 2200, 1170), 210, 0),
+    ("CeilingLight09", "ceiling_light", (6000, -2200, 1170), 210, 0),
+    ("CeilingLight10", "ceiling_light", (6000, 2200, 1170), 210, 0),
+    ("CorridorEmergencyLightA", "emergency_light", (1850, -3650, 780), 190, 0),
+    ("CorridorEmergencyLightB", "emergency_light", (2850, -3650, 780), 190, 0),
+    ("PowerEmergencyLight", "emergency_light", (3950, -3650, 780), 190, 0),
+    ("OfficeEmergencyLight", "emergency_light", (5500, -3650, 780), 190, 0),
+    # A composed aircraft set gives the runway window a genuine external focal point.
+    ("AircraftFuselage", "aircraft_fuselage", (2750, 5800, 120), 1200, 90),
+    ("AircraftNose", "aircraft_nose", (3750, 5800, 120), 800, 90),
+    ("AircraftTail", "aircraft_tail", (1650, 5800, 120), 1050, 90),
+    ("AircraftWing", "aircraft_wing", (2750, 5650, 220), 1450, 90),
+    ("AircraftEngine", "aircraft_engine", (3050, 5450, 170), 380, 90),
 ]
 
 HIDE_OLD_PREFIXES = (
@@ -167,6 +229,13 @@ HIDE_OLD_PREFIXES = (
     "TL_GEO_PowerCabinet",
     "TL_GEO_PowerConsole",
     "TL_GEO_Aircraft",
+    "TL_GEO_ScanSouth",
+    "TL_GEO_ScanNorth",
+    "TL_GEO_QueueRail_",
+    "TL_GEO_Bollard_",
+    "TL_GEO_BagBelt",
+    "TL_GEO_WallNorth",
+    "TL_GEO_WindowTopBeam",
 )
 
 
@@ -181,6 +250,14 @@ def load_classes():
         if loaded[key] is None:
             raise RuntimeError(f"Approved class failed to load: {path}")
     return loaded
+
+
+def clear_material_overrides(actor):
+    for component in actor.get_components_by_class(unreal.StaticMeshComponent):
+        try:
+            component.set_editor_property("override_materials", [])
+        except Exception:
+            component.set_material(0, None)
 
 
 def center_actor(actor, center):
@@ -202,7 +279,7 @@ def spawn_box(classes, suffix, class_key, center, size, yaw):
     rotation = (
         unreal.Rotator(pitch=0, yaw=yaw, roll=90)
         if class_key == "smooth_wall"
-        else unreal.Rotator(0, yaw, 0)
+        else unreal.Rotator(pitch=0, yaw=yaw, roll=0)
     )
     actor = EXISTING_BY_LABEL.pop(label, None)
     if actor is not None and actor.get_class() != classes[class_key]:
@@ -238,13 +315,15 @@ def spawn_box(classes, suffix, class_key, center, size, yaw):
         actor.set_actor_scale3d(
             unreal.Vector(size[0] / base[0], size[1] / base[1], size[2] / base[2])
         )
+    if class_key in ("primitive", "smooth_wall"):
+        clear_material_overrides(actor)
     center_actor(actor, center)
     return actor
 
 
 def spawn_prop(classes, suffix, class_key, ground, target_span, yaw):
     label = PREFIX + suffix
-    rotation = unreal.Rotator(0, yaw, 0)
+    rotation = unreal.Rotator(pitch=0, yaw=yaw, roll=0)
     actor = EXISTING_BY_LABEL.pop(label, None)
     if actor is not None and actor.get_class() != classes[class_key]:
         ACTORS.destroy_actor(actor)
@@ -303,14 +382,21 @@ for stale_label in stale:
 EXISTING_BY_LABEL.clear()
 
 deleted_legacy = []
+replacement_suffixes = {
+    label.removeprefix(PREFIX)
+    for label in created
+}
 for actor in all_actors():
     label = actor.get_actor_label()
-    if label.startswith(HIDE_OLD_PREFIXES):
+    replaced_by_native_pass = (
+        label.startswith("TL_GEO_")
+        and label.removeprefix("TL_GEO_") in replacement_suffixes
+    )
+    if label.startswith(HIDE_OLD_PREFIXES) or replaced_by_native_pass:
         ACTORS.destroy_actor(actor)
         deleted_legacy.append(label)
 
-# Put both spawn pairs on the dedicated entry apron. Their third-person cameras
-# begin behind the actors around X=-2200 and look east into the active terminal.
+# Put both spawn pairs on the dedicated entry apron beside the shift control.
 spawn_pads = sorted(
     [a for a in all_actors() if "Player_Spawner" in a.get_class().get_name()],
     key=lambda a: a.get_actor_location().y,
@@ -329,6 +415,16 @@ for start, (location, yaw) in zip(player_starts, PLAYER_START_TRANSFORMS):
     start.set_actor_location(unreal.Vector(*location), False, False)
     start.set_actor_rotation(
         unreal.Rotator(pitch=0.0, yaw=yaw, roll=0.0), False
+    )
+
+# The original button was mounted too high and too far from the player starts to
+# show a reliable interaction prompt. Keep the same wired device, but present it
+# as a waist-height onboarding console centered between both spawn lanes.
+start_buttons = [a for a in all_actors() if a.get_actor_label() == "TL_BTN_Start"]
+for start_button in start_buttons:
+    start_button.set_actor_location(unreal.Vector(-1080.0, 0.0, 150.0), False, False)
+    start_button.set_actor_rotation(
+        unreal.Rotator(pitch=0.0, yaw=180.0, roll=0.0), False
     )
 
 saved = unreal.EditorLevelLibrary.save_current_level()
@@ -353,9 +449,13 @@ result = {
     "updated": len(created) - created_count,
     "deleted_temporary": len(stale),
     "expected_managed": len(ARCHITECTURE) + len(PROPS),
+    "intrinsic_surface_structures": sum(
+        1 for _, class_key, _, _, _ in ARCHITECTURE if class_key in ("primitive", "smooth_wall")
+    ),
     "deleted_legacy_visuals": len(deleted_legacy),
     "spawn_pads_normalized": min(len(spawn_pads), len(SPAWN_PAD_TRANSFORMS)),
     "player_starts_repositioned": min(len(player_starts), len(PLAYER_START_TRANSFORMS)),
+    "start_buttons_repositioned": len(start_buttons),
     "level_saved": bool(saved),
     "dirty_packages_saved": bool(packages_saved),
     "actor_count": len(actors_after),

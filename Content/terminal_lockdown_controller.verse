@@ -685,7 +685,10 @@ terminal_lockdown_controller := class(creative_device):
         SetBoard(CheckpointBoard, "SCANNER RESULT | {ScannerResultText(Template)} | {BodyEvidence(Template)}")
         ShowAll("SCANNER RESULT | {ScannerResultText(Template)} | {BodyEvidence(Template)}", 5.0)
         TerminalLog(DebugEnabled, "[SCAN] Completed|CaseId={CurrentCaseId}|Template={Template}|CheckedOnce=True")
-        spawn{MovePassengerToDecision(ExpectedCaseId, ExpectedRun)}
+        if (Shift >= 2):
+            spawn{MovePassengerToBaggage(ExpectedCaseId, ExpectedRun)}
+        else:
+            spawn{MovePassengerToDecision(ExpectedCaseId, ExpectedRun)}
 
     OnBagButton(Agent:agent):void=
         if (Shift < 2):
@@ -768,6 +771,10 @@ terminal_lockdown_controller := class(creative_device):
         SetBoard(BagBoard, "X-RAY RESULT | CASE {CurrentCaseId} | {BagResultText(Template)} | {BagEvidence(Template)}")
         ShowAll("X-RAY RESULT | {BagResultText(Template)} | {BagEvidence(Template)} | {EvidencePrompt()}", 6.0)
         TerminalLog(DebugEnabled, "[BAG] Completed|CaseId={CurrentCaseId}|Template={Template}|CheckedOnce=True")
+        if (Shift >= 3):
+            spawn{MovePassengerToDocumentDesk(ExpectedCaseId, ExpectedRun)}
+        else:
+            spawn{MovePassengerToDecision(ExpectedCaseId, ExpectedRun)}
 
     OnDocumentButton(Agent:agent):void=
         if (Shift < 3):
@@ -809,6 +816,7 @@ terminal_lockdown_controller := class(creative_device):
             OpenDocumentInterface(Player, CurrentCaseId, CurrentTemplate, DocumentGeneration)
         ShowAgent(Agent, "DOCUMENT READER | Compare portrait, expiry, route, seal, and access fields.", 5.0)
         TerminalLog(DebugEnabled, "[DOC] CaseId={CurrentCaseId}|Template={CurrentTemplate}|CheckedOnce=True")
+        spawn{MovePassengerToDecision(CurrentCaseId, RunGeneration)}
 
     OpenDocumentInterface(Player:player, CaseId:int, Template:int, ExpectedDocumentGeneration:int):void=
         if (CaseId <> CurrentCaseId or ExpectedDocumentGeneration <> DocumentGeneration):
@@ -1411,6 +1419,26 @@ terminal_lockdown_controller := class(creative_device):
         )
         if (ExpectedCaseId = CurrentCaseId and ExpectedRun = RunGeneration and Phase = terminal_game_phase.AwaitingDecision):
             SetBoard(CaseBoard, "CASE {CurrentCaseId} | PASSENGER AT DECISION DESK")
+
+    MovePassengerToBaggage(ExpectedCaseId:int, ExpectedRun:int)<suspends>:void=
+        MoveResult := PassengerActive.MoveTo(
+            vector3{X := 2700.0, Y := -650.0, Z := 70.0},
+            IdentityRotation(),
+            2.0
+        )
+        if (ExpectedCaseId = CurrentCaseId and ExpectedRun = RunGeneration and Phase = terminal_game_phase.AwaitingDecision):
+            SetBoard(CaseBoard, "CASE {CurrentCaseId} | PASSENGER AT BAGGAGE CONTROL")
+            SetBoard(BagBoard, "LINKED BAG {CurrentCaseId} | X-RAY READY")
+
+    MovePassengerToDocumentDesk(ExpectedCaseId:int, ExpectedRun:int)<suspends>:void=
+        MoveResult := PassengerActive.MoveTo(
+            vector3{X := 3250.0, Y := -650.0, Z := 70.0},
+            IdentityRotation(),
+            1.5
+        )
+        if (ExpectedCaseId = CurrentCaseId and ExpectedRun = RunGeneration and Phase = terminal_game_phase.AwaitingDecision):
+            SetBoard(CaseBoard, "CASE {CurrentCaseId} | PASSENGER AT IDENTITY DESK")
+            SetBoard(DocumentBoard, "TRAVEL ID {CurrentCaseId} | READER READY")
 
     ResetPassengerQueue(ExpectedRun:int)<suspends>:void=
         PassengerQueue1.Hide()
