@@ -13,6 +13,19 @@ PREFIX = "TL_ART_"
 FOLDER = unreal.Name("TerminalLockdown/ReferenceMatch")
 EXISTING_BY_LABEL = {}
 
+# Spawn transforms are named because they are presentation-critical and must
+# survive every idempotent reference-pass rerun. Both lanes sit on the open
+# entry apron and face east into the checkpoint hall. Their follow cameras begin
+# outside the old briefing set and look through the wide central opening.
+SPAWN_PAD_TRANSFORMS = (
+    ((-1900, -300, 64), 0.0),
+    ((-1900, 300, 64), 0.0),
+)
+PLAYER_START_TRANSFORMS = (
+    ((-1900, -300, 180), 0.0),
+    ((-1900, 300, 180), 0.0),
+)
+
 CLASSES = {
     "primitive": "/Game/Creative/Sets/PropSets/Primitives/Rounds/Props/CP_Primitive_Cube.CP_Primitive_Cube_C",
     "smooth_wall": "/Game/Creative/Sets/PropSets/Primitives/Rounds/Props/CP_Primitive_Cube.CP_Primitive_Cube_C",
@@ -145,6 +158,8 @@ PROPS = [
 ]
 
 HIDE_OLD_PREFIXES = (
+    "TL_GEO_BriefingBackwall",
+    "TL_GEO_BriefingDesk",
     "TL_GEO_WindowPane",
     "TL_GEO_SeatRow",
     "TL_GEO_OfficeDesk",
@@ -243,6 +258,7 @@ def spawn_prop(classes, suffix, class_key, ground, target_span, yaw):
     actor.set_actor_label(label)
     actor.set_folder_path(FOLDER)
     actor.set_actor_rotation(rotation, False)
+    actor.set_actor_scale3d(unreal.Vector(1, 1, 1))
     _, extent = actor.get_actor_bounds(False)
     span = max(extent.x * 2.0, extent.y * 2.0, 1.0)
     scale = target_span / span
@@ -272,6 +288,7 @@ EXISTING_BY_LABEL.update(
         if candidate.get_actor_label().startswith(PREFIX)
     }
 )
+existing_managed_labels = set(EXISTING_BY_LABEL)
 
 classes = load_classes()
 created = []
@@ -285,54 +302,62 @@ for stale_label in stale:
     ACTORS.destroy_actor(EXISTING_BY_LABEL[stale_label])
 EXISTING_BY_LABEL.clear()
 
-hidden = []
+deleted_legacy = []
 for actor in all_actors():
     label = actor.get_actor_label()
     if label.startswith(HIDE_OLD_PREFIXES):
-        actor.set_actor_hidden_in_game(True)
-        try:
-            actor.set_is_temporarily_hidden_in_editor(True)
-        except Exception:
-            pass
-        hidden.append(label)
+        ACTORS.destroy_actor(actor)
+        deleted_legacy.append(label)
 
-# Put both spawn pairs in the scanner approach lanes. Measured actor bounds
-# leave at least 465 cm of horizontal clearance and the east-facing yaw presents
-# the checkpoint, bag belts, and processing counters on spawn.
+# Put both spawn pairs on the dedicated entry apron. Their third-person cameras
+# begin behind the actors around X=-2200 and look east into the active terminal.
 spawn_pads = sorted(
     [a for a in all_actors() if "Player_Spawner" in a.get_class().get_name()],
     key=lambda a: a.get_actor_location().y,
 )
-pad_locations = ((500, -1250, 64), (500, 1250, 64))
-for pad, location in zip(spawn_pads, pad_locations):
+for pad, (location, yaw) in zip(spawn_pads, SPAWN_PAD_TRANSFORMS):
     pad.set_actor_location(unreal.Vector(*location), False, False)
     pad.set_actor_rotation(
-        unreal.Rotator(pitch=0.0, yaw=0.0, roll=0.0), False
+        unreal.Rotator(pitch=0.0, yaw=yaw, roll=0.0), False
     )
 
 player_starts = sorted(
     [a for a in all_actors() if "FortPlayerStartCreative" in a.get_class().get_name()],
     key=lambda a: a.get_actor_location().y,
 )
-start_locations = ((500, -1250, 180), (500, 1250, 180))
-for start, location in zip(player_starts, start_locations):
+for start, (location, yaw) in zip(player_starts, PLAYER_START_TRANSFORMS):
     start.set_actor_location(unreal.Vector(*location), False, False)
     start.set_actor_rotation(
-        unreal.Rotator(pitch=0.0, yaw=0.0, roll=0.0), False
+        unreal.Rotator(pitch=0.0, yaw=yaw, roll=0.0), False
     )
 
 saved = unreal.EditorLevelLibrary.save_current_level()
+packages_saved = unreal.EditorLoadingAndSavingUtils.save_dirty_packages(True, True)
 unreal.EditorLevelLibrary.set_level_viewport_camera_info(
     unreal.Vector(-1050, 3000, 700),
     unreal.Rotator(pitch=-7.0, yaw=0.0, roll=0.0),
 )
+actors_after = all_actors()
+label_counts = {}
+for actor in actors_after:
+    label = actor.get_actor_label()
+    if label.startswith("TL_"):
+        label_counts[label] = label_counts.get(label, 0) + 1
+duplicate_labels = sorted(
+    label for label, count in label_counts.items() if count > 1
+)
+created_count = sum(1 for label in created if label not in existing_managed_labels)
 result = {
     "world": world.get_path_name(),
-    "created": len(created),
-    "stale_removed": len(stale),
-    "hidden_legacy_visuals": len(hidden),
-    "spawn_pads_normalized": min(len(spawn_pads), len(pad_locations)),
-    "player_starts_repositioned": min(len(player_starts), len(start_locations)),
-    "saved": bool(saved),
-    "actor_count": len(all_actors()),
+    "created": created_count,
+    "updated": len(created) - created_count,
+    "deleted_temporary": len(stale),
+    "expected_managed": len(ARCHITECTURE) + len(PROPS),
+    "deleted_legacy_visuals": len(deleted_legacy),
+    "spawn_pads_normalized": min(len(spawn_pads), len(SPAWN_PAD_TRANSFORMS)),
+    "player_starts_repositioned": min(len(player_starts), len(PLAYER_START_TRANSFORMS)),
+    "level_saved": bool(saved),
+    "dirty_packages_saved": bool(packages_saved),
+    "actor_count": len(actors_after),
+    "duplicate_tl_labels": duplicate_labels,
 }

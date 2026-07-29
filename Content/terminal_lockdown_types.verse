@@ -9,6 +9,7 @@ terminal_game_phase := enum:
     CaseReady
     Inspecting
     AwaitingDecision
+    SecondaryScreening
     Resolving
     Runner
     HostileResponse

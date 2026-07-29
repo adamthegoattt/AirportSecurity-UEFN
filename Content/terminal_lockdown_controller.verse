@@ -190,6 +190,10 @@ terminal_lockdown_controller := class(creative_device):
     var BagChecked:logic = false
     var DocumentsChecked:logic = false
     var SecondaryChecked:logic = false
+    var PassengerReadyForScan:logic = false
+    var ScanInProgress:logic = false
+    var BagScanInProgress:logic = false
+    var SecondaryPassengerReady:logic = false
     var ResolutionCommitted:logic = false
     var CustodyCommitted:logic = false
     var RunUpgradePurchased:logic = false
@@ -608,6 +612,10 @@ terminal_lockdown_controller := class(creative_device):
         set PowerOnline = true
         set CurrentCustodyMode = 0
         set CustodyCommitted = false
+        set PassengerReadyForScan = false
+        set ScanInProgress = false
+        set BagScanInProgress = false
+        set SecondaryPassengerReady = false
         set QueueFrontIndex = 0
         set QueueGeneration += 1
         set BagGeneration += 1
@@ -628,6 +636,12 @@ terminal_lockdown_controller := class(creative_device):
             ShowAgent(Agent, "BODY SCANNER OFFLINE | Restore power in the staff utility room.", 5.0)
             SetBoard(CheckpointBoard, "CHECKPOINT CLOSED | POWER OFFLINE")
             return
+        if (ScanInProgress?):
+            ShowAgent(Agent, "BODY SCAN IN PROGRESS | Hold the lane.", 3.0)
+            return
+        if (not PassengerReadyForScan?):
+            ShowAgent(Agent, "WAIT FOR PASSENGER | Scanner unlocks when the traveler reaches the marked position.", 4.0)
+            return
         Claimed := TryClaim(Agent)
         if (not Claimed?):
             return
@@ -638,30 +652,50 @@ terminal_lockdown_controller := class(creative_device):
             ShowAgent(Agent, "BODY already checked | {BodyEvidence(CurrentTemplate)}", 4.0)
             return
         set Phase = terminal_game_phase.Inspecting
-        set BodyChecked = true
-        set Phase = terminal_game_phase.AwaitingDecision
-        RefreshDecisionControls()
+        set ScanInProgress = true
         set ScannerGeneration += 1
-        SetBoard(CheckpointBoard, "SCANNER ACTIVE | AMBER SWEEP | BEEP")
-        ShowAgent(Agent, "BODY SCANNER ACTIVE | Hold for the physical result.", 3.0)
+        SetDecisionControlsAvailable(false)
+        SetBoard(CheckpointBoard, "SCANNER ACTIVE | AMBER SWEEP | 0%")
+        ShowAgent(Agent, "BODY SCANNER ACTIVE | Remain at the lane until the sweep completes.", 3.0)
         ScannerStartAudio.Play()
         spawn{RunScannerSequence(CurrentCaseId, RunGeneration, ScannerGeneration, CurrentTemplate)}
-        TerminalLog(DebugEnabled, "[SCAN] CaseId={CurrentCaseId}|Template={CurrentTemplate}|CheckedOnce=True")
+        TerminalLog(DebugEnabled, "[SCAN] Started|CaseId={CurrentCaseId}|Template={CurrentTemplate}|Generation={ScannerGeneration}")
 
     RunScannerSequence(ExpectedCaseId:int, ExpectedRun:int, ExpectedScannerGeneration:int, Template:int)<suspends>:void=
-        Sleep(1.0)
+        Sleep(0.75)
         if (ExpectedCaseId <> CurrentCaseId or ExpectedRun <> RunGeneration or ExpectedScannerGeneration <> ScannerGeneration):
             return
         if (not PowerOnline?):
+            set ScanInProgress = false
             SetBoard(CheckpointBoard, "SCANNER OFFLINE | RESTORE POWER")
             return
+        SetBoard(CheckpointBoard, "SCANNER ACTIVE | AMBER SWEEP | 50%")
+        Sleep(1.25)
+        if (ExpectedCaseId <> CurrentCaseId or ExpectedRun <> RunGeneration or ExpectedScannerGeneration <> ScannerGeneration):
+            return
+        if (not PowerOnline?):
+            set ScanInProgress = false
+            SetBoard(CheckpointBoard, "SCANNER OFFLINE | RESTORE POWER")
+            return
+        set BodyChecked = true
+        set ScanInProgress = false
+        set Phase = terminal_game_phase.AwaitingDecision
+        RefreshDecisionControls()
         ScannerResultAudio.Play()
         SetBoard(CheckpointBoard, "SCANNER RESULT | {ScannerResultText(Template)} | {BodyEvidence(Template)}")
         ShowAll("SCANNER RESULT | {ScannerResultText(Template)} | {BodyEvidence(Template)}", 5.0)
+        TerminalLog(DebugEnabled, "[SCAN] Completed|CaseId={CurrentCaseId}|Template={Template}|CheckedOnce=True")
+        spawn{MovePassengerToDecision(ExpectedCaseId, ExpectedRun)}
 
     OnBagButton(Agent:agent):void=
         if (Shift < 2):
             ShowAgent(Agent, "Baggage Control unlocks in Shift 2.", 4.0)
+            return
+        if (not BodyChecked?):
+            ShowAgent(Agent, "BODY SCAN REQUIRED | Complete the passenger scan before opening the linked bag.", 4.0)
+            return
+        if (BagScanInProgress?):
+            ShowAgent(Agent, "BAG X-RAY IN PROGRESS | Wait for the conveyor result.", 3.0)
             return
         Claimed := TryClaim(Agent)
         if (not Claimed?):
@@ -673,15 +707,14 @@ terminal_lockdown_controller := class(creative_device):
             ShowAgent(Agent, "BAG already checked | {BagEvidence(CurrentTemplate)}", 4.0)
             return
         set Phase = terminal_game_phase.Inspecting
-        set BagChecked = true
-        set Phase = terminal_game_phase.AwaitingDecision
-        RefreshDecisionControls()
+        set BagScanInProgress = true
+        SetDecisionControlsAvailable(false)
         set BagGeneration += 1
         SetBoard(BagBoard, "X-RAY ACTIVE | CASE {CurrentCaseId} | LINKED BAG MOVING")
         ShowAgent(Agent, "X-RAY ACTIVE | Linked bag moving through the inspection tunnel.", 4.0)
         BagScanAudio.Play()
         spawn{RunBagInspection(CurrentCaseId, RunGeneration, BagGeneration, CurrentTemplate, ActiveBagIndex)}
-        TerminalLog(DebugEnabled, "[BAG] CaseId={CurrentCaseId}|Template={CurrentTemplate}|CheckedOnce=True")
+        TerminalLog(DebugEnabled, "[BAG] Started|CaseId={CurrentCaseId}|Template={CurrentTemplate}|Generation={BagGeneration}")
 
     RunBagInspection(ExpectedCaseId:int, ExpectedRun:int, ExpectedBagGeneration:int, Template:int, BagIndex:int)<suspends>:void=
         if (BagIndex = 0):
@@ -728,12 +761,26 @@ terminal_lockdown_controller := class(creative_device):
             )
         if (ExpectedCaseId <> CurrentCaseId or ExpectedRun <> RunGeneration or ExpectedBagGeneration <> BagGeneration):
             return
+        set BagChecked = true
+        set BagScanInProgress = false
+        set Phase = terminal_game_phase.AwaitingDecision
+        RefreshDecisionControls()
         SetBoard(BagBoard, "X-RAY RESULT | CASE {CurrentCaseId} | {BagResultText(Template)} | {BagEvidence(Template)}")
         ShowAll("X-RAY RESULT | {BagResultText(Template)} | {BagEvidence(Template)} | {EvidencePrompt()}", 6.0)
+        TerminalLog(DebugEnabled, "[BAG] Completed|CaseId={CurrentCaseId}|Template={Template}|CheckedOnce=True")
 
     OnDocumentButton(Agent:agent):void=
         if (Shift < 3):
             ShowAgent(Agent, "Identity Desk unlocks in Shift 3.", 4.0)
+            return
+        if (not BodyChecked?):
+            ShowAgent(Agent, "BODY SCAN REQUIRED | Complete the passenger scan before reviewing documents.", 4.0)
+            return
+        if (Shift >= 2, not BagChecked?):
+            ShowAgent(Agent, "BAG X-RAY REQUIRED | Resolve the linked luggage before reviewing documents.", 4.0)
+            return
+        if (ScanInProgress? or BagScanInProgress?):
+            ShowAgent(Agent, "INSPECTION STATION BUSY | Finish the active scan first.", 4.0)
             return
         Claimed := TryClaim(Agent)
         if (not Claimed?):
@@ -875,27 +922,29 @@ terminal_lockdown_controller := class(creative_device):
         if (not Ready?):
             ShowAgent(Agent, "Complete the required checks before Secondary.", 4.0)
             return
-
-        Required := RequiredDecision(CurrentTemplate)
-        if (Required = terminal_decision.Secondary):
-            set SecondaryChecked = true
-            ResolveDecision(Agent, terminal_decision.Secondary)
+        if (SecondaryChecked? or Phase = terminal_game_phase.SecondaryScreening):
+            ShowAgent(Agent, "SECONDARY already completed for Case {CurrentCaseId}.", 4.0)
             return
 
-        set SecondaryChecked = true
-        set BodyChecked = true
-        if (Shift >= 2):
-            set BagChecked = true
-        if (Shift >= 3):
-            set DocumentsChecked = true
-        if (TeamCash >= 25):
-            set TeamCash -= 25
-        ShowAgent(Agent, "SECONDARY CONFIRMED | {FullEvidence(CurrentTemplate)} | Choose CLEAR or DETAIN.", 8.0)
-        TerminalLog(DebugEnabled, "[CASE] Secondary completed for CaseId={CurrentCaseId}")
+        set Phase = terminal_game_phase.SecondaryScreening
+        CloseAllDocumentInterfaces()
+        set SecondaryPassengerReady = false
+        set CurrentCustodyMode = 4
+        SetDecisionControlsAvailable(false)
+        CustodyButton.SetInteractionText(TerminalMessage("PERFORM SECONDARY CHECK"))
+        CustodyButton.Enable()
+        SetBoard(CaseBoard, "CASE {CurrentCaseId} | ROUTING TO SECONDARY")
+        SetBoard(SecondaryBoard, "SECONDARY\nPASSENGER IN TRANSIT")
+        ShowAll("SECONDARY SELECTED | Follow the passenger to the controlled room, then perform the additional check at intake.", 8.0)
+        TerminalLog(DebugEnabled, "[SECONDARY] Routed|CaseId={CurrentCaseId}|Template={CurrentTemplate}")
+        spawn{MovePassengerToSecondary(CurrentCaseId, RunGeneration)}
 
     OnDetainButton(Agent:agent):void=
         if (Phase = terminal_game_phase.Runner):
             CaptureRunner(Agent)
+            return
+        if (Phase = terminal_game_phase.Custody and CurrentCustodyMode = 1):
+            SecureCompliantSuspect(Agent)
             return
         ResolveDecision(Agent, terminal_decision.Detain)
 
@@ -919,7 +968,7 @@ terminal_lockdown_controller := class(creative_device):
         set Phase = terminal_game_phase.Resolving
         ShowDecisionSubmitted(Decision)
         DecisionPressAudio.Play()
-        Expected := RequiredDecision(CurrentTemplate)
+        Expected := CurrentExpectedDecision()
         if (Decision = Expected):
             PositiveAudio.Play()
         else:
@@ -975,8 +1024,12 @@ terminal_lockdown_controller := class(creative_device):
             set CurrentCustodyMode = 2
             set Phase = terminal_game_phase.Runner
             SetBoard(CaseBoard, "CASE {CurrentCaseId} | RUNNER | INTERCEPT AT DECISION LANE")
-            SetBoard(CustodyBoard, "RUNNER ACTIVE | DETAIN AGAIN TO INTERCEPT")
-            ShowAll("RUNNER | Intercept at the decision lane and press DETAIN again before departure.", 8.0)
+            SetBoard(CustodyBoard, "RUNNER ACTIVE | CLOSE-RANGE REMOTE CAPTURE")
+            ResponseGranter.Enable()
+            ResponseRemote.Enable()
+            for (Player : GetPlayspace().GetPlayers()):
+                ResponseGranter.GrantItem(Player)
+            ShowAll("RUNNER | Signal Remote A issued. Chase the suspect and use PRIMARY FIRE only at close range.", 8.0)
             spawn{RunnerEscape(CurrentCaseId, RunGeneration)}
             return
         if (CurrentTemplate = 9):
@@ -985,31 +1038,58 @@ terminal_lockdown_controller := class(creative_device):
             return
         set CurrentCustodyMode = 1
         set Phase = terminal_game_phase.Custody
-        CustodyButton.Enable()
-        SetBoard(CaseBoard, "CASE {CurrentCaseId} | DETAINED | TRANSFER TO INTAKE")
-        SetBoard(CustodyBoard, "CUSTODY READY | SECURE / JAIL INTAKE")
-        ShowAll("CORRECT DETAIN | Suspect compliant. Meet them at DETENTION INTAKE and secure.", 7.0)
+        CustodyButton.Disable()
+        DetainButton.SetInteractionText(TerminalMessage("SECURE SUSPECT"))
+        DetainButton.Enable()
+        SetBoard(CaseBoard, "CASE {CurrentCaseId} | DETAINED | SECURE AT CLOSE RANGE")
+        SetBoard(CustodyBoard, "CUSTODY PENDING | SECURE SUSPECT AT RED PAD")
+        ShowAll("CORRECT DETAIN | Approach the suspect at the red pad and use SECURE SUSPECT before escort begins.", 7.0)
+        spawn{MovePassengerToSecurePad(CurrentCaseId, RunGeneration)}
+
+    SecureCompliantSuspect(Agent:agent):void=
+        if (Phase <> terminal_game_phase.Custody or CurrentCustodyMode <> 1):
+            return
+        if (not IsAgentNearActivePassenger(Agent, 500.0)?):
+            ShowAgent(Agent, "TOO FAR TO SECURE | Move beside the suspect at the red pad.", 4.0)
+            TerminalLog(DebugEnabled, "[CUSTODY] Remote secure rejected for CaseId={CurrentCaseId}")
+            return
+        Claimed := TryClaim(Agent)
+        if (not Claimed?):
+            return
+        set CurrentCustodyMode = 5
+        DetainButton.Disable()
+        DetainButton.SetInteractionText(TerminalMessage("RED | DETAIN SUSPECT"))
+        SetBoard(CustodyBoard, "SUSPECT SECURED | ESCORTING TO INTAKE")
+        ShowAll("SUSPECT SECURED | Stay with the escort to detention intake.", 5.0)
+        TerminalLog(DebugEnabled, "[CUSTODY] Close-range secure complete|CaseId={CurrentCaseId}")
         spawn{MovePassengerToIntake(CurrentCaseId, RunGeneration)}
 
     CaptureRunner(Agent:agent):void=
         if (Phase <> terminal_game_phase.Runner):
             return
-        if (not IsAgentNear(Agent, vector3{X := 4350.0, Y := 720.0, Z := 70.0}, RunnerCaptureRadius)?):
-            ShowAgent(Agent, "RUNNER TOO FAR | Intercept at the red decision lane before detaining.", 5.0)
+        if (not IsAgentNearActivePassenger(Agent, RunnerCaptureRadius)?):
+            ShowAgent(Agent, "RUNNER TOO FAR | Chase until the suspect is inside capture range.", 5.0)
             TerminalLog(DebugEnabled, "[CUSTODY] Remote runner capture rejected for CaseId={CurrentCaseId}")
             return
         Claimed := TryClaim(Agent)
         if (not Claimed?):
             return
-        set CurrentCustodyMode = 1
+        CleanupResponseEquipment()
+        set CurrentCustodyMode = 5
         set Phase = terminal_game_phase.Custody
-        CustodyButton.Enable()
+        CustodyButton.Disable()
         SetBoard(CaseBoard, "CASE {CurrentCaseId} | RUNNER INTERCEPTED")
-        SetBoard(CustodyBoard, "RUNNER SECURED | COMPLETE JAIL INTAKE")
-        ShowAll("RUNNER INTERCEPTED | Complete SECURE / JAIL INTAKE.", 6.0)
+        SetBoard(CustodyBoard, "RUNNER SECURED | ESCORTING TO INTAKE")
+        ShowAll("RUNNER INTERCEPTED AT CLOSE RANGE | Escort moving to detention intake.", 6.0)
         spawn{MovePassengerToIntake(CurrentCaseId, RunGeneration)}
 
     OnCustodyButton(Agent:agent):void=
+        if (Phase = terminal_game_phase.SecondaryScreening):
+            CompleteSecondaryCheck(Agent)
+            return
+        if (Phase = terminal_game_phase.BossSecure):
+            CompleteBossCustody(Agent)
+            return
         if (Phase <> terminal_game_phase.Custody):
             ShowAgent(Agent, "No suspect is ready for detention intake.", 4.0)
             return
@@ -1035,14 +1115,65 @@ terminal_lockdown_controller := class(creative_device):
         PositiveAudio.Play()
         spawn{MovePassengerIntoCellAndFinish(CurrentCaseId, RunGeneration)}
 
+    CompleteSecondaryCheck(Agent:agent):void=
+        if (Phase <> terminal_game_phase.SecondaryScreening or CurrentCustodyMode <> 4):
+            return
+        if (not SecondaryPassengerReady?):
+            ShowAgent(Agent, "SECONDARY PASSENGER IN TRANSIT | Wait for the room status to turn ready.", 4.0)
+            return
+        if (not IsAgentNear(Agent, vector3{X := 5000.0, Y := 1450.0, Z := 70.0}, 750.0)?):
+            ShowAgent(Agent, "SECONDARY CHECK OUT OF RANGE | Enter the controlled screening room.", 5.0)
+            return
+        Claimed := TryClaim(Agent)
+        if (not Claimed?):
+            return
+        if (SecondaryChecked?):
+            TerminalLog(DebugEnabled, "[SECONDARY] Duplicate check rejected for CaseId={CurrentCaseId}")
+            return
+        set SecondaryChecked = true
+        set SecondaryPassengerReady = false
+        set CurrentCustodyMode = 0
+        if (TeamCash >= 25):
+            set TeamCash -= 25
+        set Phase = terminal_game_phase.AwaitingDecision
+        CustodyButton.Disable()
+        CustodyButton.SetInteractionText(TerminalMessage("SECURE / JAIL INTAKE"))
+        SetSecondaryFinalControls()
+        SetBoard(CaseBoard, "CASE {CurrentCaseId} | SECONDARY RESULT | {SecondaryResultText(CurrentTemplate)}")
+        SetBoard(SecondaryBoard, "SECONDARY COMPLETE\nRETURN TO DECISION DESK")
+        ShowAll("SECONDARY CHECK COMPLETE | {SecondaryResultText(CurrentTemplate)} | Return to the decision desk and RELEASE or DETAIN.", 8.0)
+        TerminalLog(DebugEnabled, "[SECONDARY] Completed|CaseId={CurrentCaseId}|Template={CurrentTemplate}")
+
     RunnerEscape(ExpectedCaseId:int, ExpectedRun:int)<suspends>:void=
-        MoveResult := PassengerActive.MoveTo(
-            vector3{X := 7000.0, Y := 1100.0, Z := 70.0},
-            IdentityRotation(),
-            10.0
-        )
+        if (Shift = 4):
+            RouteA := PassengerActive.MoveTo(
+                vector3{X := 5200.0, Y := 900.0, Z := 70.0},
+                IdentityRotation(),
+                4.0
+            )
+            if (ExpectedCaseId <> CurrentCaseId or ExpectedRun <> RunGeneration or Phase <> terminal_game_phase.Runner):
+                return
+            ExitA := PassengerActive.MoveTo(
+                vector3{X := 7000.0, Y := 1600.0, Z := 70.0},
+                IdentityRotation(),
+                6.0
+            )
+        else:
+            RouteB := PassengerActive.MoveTo(
+                vector3{X := 5150.0, Y := -850.0, Z := 70.0},
+                IdentityRotation(),
+                4.0
+            )
+            if (ExpectedCaseId <> CurrentCaseId or ExpectedRun <> RunGeneration or Phase <> terminal_game_phase.Runner):
+                return
+            ExitB := PassengerActive.MoveTo(
+                vector3{X := 7000.0, Y := -1800.0, Z := 70.0},
+                IdentityRotation(),
+                6.0
+            )
         if (ExpectedCaseId = CurrentCaseId and ExpectedRun = RunGeneration and Phase = terminal_game_phase.Runner):
             set Phase = terminal_game_phase.Resolving
+            CleanupResponseEquipment()
             PassengerActive.Hide()
             RaiseRisk(16)
             DamageIntegrity(10, "Runner escaped")
@@ -1070,7 +1201,33 @@ terminal_lockdown_controller := class(creative_device):
             4.0
         )
         if (ExpectedCaseId = CurrentCaseId and ExpectedRun = RunGeneration and Phase = terminal_game_phase.Custody):
+            CustodyButton.SetInteractionText(TerminalMessage("SECURE / JAIL INTAKE"))
+            CustodyButton.Enable()
             SetBoard(CustodyBoard, "CASE {CurrentCaseId} AT INTAKE | SECURE NOW")
+        else if (ExpectedCaseId = CurrentCaseId and ExpectedRun = RunGeneration and Phase = terminal_game_phase.BossSecure):
+            CustodyButton.SetInteractionText(TerminalMessage("FINAL CUSTODY INTAKE"))
+            CustodyButton.Enable()
+            SetBoard(CustodyBoard, "FINAL THREAT AT INTAKE | SECURE NOW")
+
+    MovePassengerToSecurePad(ExpectedCaseId:int, ExpectedRun:int)<suspends>:void=
+        MoveResult := PassengerActive.MoveTo(
+            vector3{X := 4200.0, Y := 720.0, Z := 70.0},
+            IdentityRotation(),
+            1.5
+        )
+        if (ExpectedCaseId = CurrentCaseId and ExpectedRun = RunGeneration and Phase = terminal_game_phase.Custody and CurrentCustodyMode = 1):
+            SetBoard(CustodyBoard, "SUSPECT AT RED PAD | SECURE AT CLOSE RANGE")
+
+    MovePassengerToSecondary(ExpectedCaseId:int, ExpectedRun:int)<suspends>:void=
+        MoveResult := PassengerActive.MoveTo(
+            vector3{X := 5400.0, Y := 2600.0, Z := 70.0},
+            IdentityRotation(),
+            4.0
+        )
+        if (ExpectedCaseId = CurrentCaseId and ExpectedRun = RunGeneration and Phase = terminal_game_phase.SecondaryScreening and CurrentCustodyMode = 4):
+            set SecondaryPassengerReady = true
+            SetBoard(SecondaryBoard, "SECONDARY READY\nPERFORM ADDITIONAL CHECK")
+            SetBoard(CaseBoard, "CASE {CurrentCaseId} | PASSENGER IN SECONDARY ROOM")
 
     MovePassengerToResponse(ExpectedCaseId:int, ExpectedRun:int)<suspends>:void=
         MoveResult := PassengerActive.MoveTo(
@@ -1080,6 +1237,8 @@ terminal_lockdown_controller := class(creative_device):
         )
         if (ExpectedCaseId = CurrentCaseId and ExpectedRun = RunGeneration and Phase = terminal_game_phase.HostileResponse):
             SetBoard(EmergencyBoard, "THREAT IN RESPONSE ZONE | RESPOND TO INCAPACITATE")
+        else if (ExpectedCaseId = CurrentCaseId and ExpectedRun = RunGeneration and (Phase = terminal_game_phase.BossJammer or Phase = terminal_game_phase.BossBreach or Phase = terminal_game_phase.BossVulnerable)):
+            SetBoard(EmergencyBoard, "FINAL THREAT IN RESPONSE ZONE | COMPLETE CURRENT STAGE")
 
     MovePassengerIntoCellAndFinish(ExpectedCaseId:int, ExpectedRun:int)<suspends>:void=
         MoveResult := PassengerActive.MoveTo(
@@ -1118,17 +1277,23 @@ terminal_lockdown_controller := class(creative_device):
         set CurrentCaseId += 1
         set CurrentTemplate = SelectTemplate(Shift, CasesInShift)
         set BodyChecked = false
+        set PassengerReadyForScan = false
+        set ScanInProgress = false
         set ScannerGeneration += 1
         set BagGeneration += 1
         set BagChecked = false
+        set BagScanInProgress = false
         set DocumentsChecked = false
         set SecondaryChecked = false
+        set SecondaryPassengerReady = false
         set ResolutionCommitted = false
         set CustodyCommitted = false
         set CurrentCustodyMode = 0
         set ClaimOwner = false
         set Phase = terminal_game_phase.CaseReady
         SetDecisionControlsAvailable(false)
+        DetainButton.SetInteractionText(TerminalMessage("RED | DETAIN SUSPECT"))
+        CustodyButton.SetInteractionText(TerminalMessage("SECURE / JAIL INTAKE"))
         CustodyButton.Disable()
         SetBoard(CheckpointBoard, "SECURITY CHECKPOINT | CASE {CurrentCaseId} READY")
         SetBoard(CaseBoard, "SHIFT {Shift} | CASE {CurrentCaseId} | {TemplateName(CurrentTemplate)}")
@@ -1205,6 +1370,7 @@ terminal_lockdown_controller := class(creative_device):
         2
 
     StagePassenger(ExpectedCaseId:int, ExpectedRun:int)<suspends>:void=
+        set PassengerReadyForScan = false
         PassengerActive.Hide()
         MoveResult0 := PassengerActive.MoveTo(
             vector3{X := -650.0, Y := -2150.0, Z := 70.0},
@@ -1234,7 +1400,17 @@ terminal_lockdown_controller := class(creative_device):
             1.0
         )
         if (ExpectedCaseId = CurrentCaseId and ExpectedRun = RunGeneration):
+            set PassengerReadyForScan = true
             SetBoard(CheckpointBoard, "ACTIVE PASSENGER | CASE {CurrentCaseId} | BODY SCAN")
+
+    MovePassengerToDecision(ExpectedCaseId:int, ExpectedRun:int)<suspends>:void=
+        MoveResult := PassengerActive.MoveTo(
+            vector3{X := 3900.0, Y := 0.0, Z := 70.0},
+            IdentityRotation(),
+            3.0
+        )
+        if (ExpectedCaseId = CurrentCaseId and ExpectedRun = RunGeneration and Phase = terminal_game_phase.AwaitingDecision):
+            SetBoard(CaseBoard, "CASE {CurrentCaseId} | PASSENGER AT DECISION DESK")
 
     ResetPassengerQueue(ExpectedRun:int)<suspends>:void=
         PassengerQueue1.Hide()
@@ -1355,8 +1531,14 @@ terminal_lockdown_controller := class(creative_device):
         SetDecisionControlsAvailable(false)
         set ClaimOwner = false
         set PowerOnline = true
+        set PassengerReadyForScan = false
+        set ScanInProgress = false
+        set BagScanInProgress = false
+        set SecondaryPassengerReady = false
         ScanButton.Enable()
         CustodyButton.Disable()
+        CustodyButton.SetInteractionText(TerminalMessage("SECURE / JAIL INTAKE"))
+        DetainButton.SetInteractionText(TerminalMessage("RED | DETAIN SUSPECT"))
         PowerButton.Disable()
         PassengerActive.Hide()
         set BagGeneration += 1
@@ -1394,6 +1576,9 @@ terminal_lockdown_controller := class(creative_device):
         set Phase = terminal_game_phase.Emergency
         SetDecisionControlsAvailable(false)
         set ClaimOwner = false
+        set ScanInProgress = false
+        set BagScanInProgress = false
+        set SecondaryPassengerReady = false
         PassengerActive.Hide()
         CustodyButton.Disable()
         set EmergencyGeneration += 1
@@ -1427,6 +1612,19 @@ terminal_lockdown_controller := class(creative_device):
             BeginUpgradeBreak()
 
     OnPowerButton(Agent:agent):void=
+        if (Phase = terminal_game_phase.BossJammer):
+            if (not IsAgentNear(Agent, vector3{X := 3950.0, Y := -3200.0, Z := 70.0}, 750.0)?):
+                ShowAgent(Agent, "JAMMER CONSOLE OUT OF RANGE | Enter the power room.", 5.0)
+                return
+            set Phase = terminal_game_phase.BossBreach
+            PowerButton.Disable()
+            PowerButton.SetInteractionText(TerminalMessage("RESTORE TERMINAL POWER"))
+            ResponseButton.Enable()
+            SetBoard(PowerBoard, "JAMMER OFFLINE | POWER ROUTING SECURED")
+            SetBoard(EmergencyBoard, "FINAL THREAT | JAMMER OFFLINE | BREACH ACTIVE")
+            ShowAll("JAMMER DISABLED | Move to the response station and interrupt the restricted-door breach.", 7.0)
+            TerminalLog(DebugEnabled, "[BOSS] Jammer disabled|CaseId={CurrentCaseId}")
+            return
         if (Phase <> terminal_game_phase.Emergency or Shift <> 5 or PowerOnline?):
             ShowAgent(Agent, "Power console is online. No repair is required.", 4.0)
             return
@@ -1444,6 +1642,7 @@ terminal_lockdown_controller := class(creative_device):
         set PowerOnline = true
         ScanButton.Enable()
         PowerButton.Disable()
+        PowerButton.SetInteractionText(TerminalMessage("RESTORE TERMINAL POWER"))
         SetBoard(PowerBoard, "POWER ONLINE")
 
     StartResponseEvent():void=
@@ -1524,6 +1723,24 @@ terminal_lockdown_controller := class(creative_device):
         FinishCase()
 
     OnResponseRemote(Agent:agent):void=
+        if (Phase = terminal_game_phase.Runner):
+            CaptureRunner(Agent)
+            return
+        if (Phase = terminal_game_phase.BossVulnerable):
+            if (not IsAgentNearActivePassenger(Agent, ResponseProximityRadius)?):
+                ShowAgent(Agent, "FINAL THREAT OUT OF RANGE | Enter the response room before firing.", 5.0)
+                return
+            set Phase = terminal_game_phase.BossSecure
+            CleanupResponseEquipment()
+            ResponseButton.Disable()
+            set CurrentCustodyMode = 6
+            CustodyButton.Disable()
+            SetBoard(EmergencyBoard, "FINAL THREAT | INCAPACITATED | MOVE TO CUSTODY")
+            SetBoard(ResponseLoadoutBoard, "FINAL RESPONSE\nTHREAT INCAPACITATED\nEQUIPMENT RECALLED")
+            ShowAll("THE BREACHER INCAPACITATED | Follow the suspect to detention intake and complete final custody.", 8.0)
+            TerminalLog(DebugEnabled, "[BOSS] Threat incapacitated|CaseId={CurrentCaseId}")
+            spawn{MovePassengerToIntake(CurrentCaseId, RunGeneration)}
+            return
         if (Phase <> terminal_game_phase.HostileResponse):
             return
         if (not IsAgentNear(Agent, vector3{X := 5525.0, Y := -2200.0, Z := 70.0}, ResponseProximityRadius)?):
@@ -1539,8 +1756,8 @@ terminal_lockdown_controller := class(creative_device):
         set ResponseGeneration += 1
         CleanupResponseEquipment()
         ResponseButton.Disable()
-        set CurrentCustodyMode = 1
-        CustodyButton.Enable()
+        set CurrentCustodyMode = 5
+        CustodyButton.Disable()
         SetBoard(CheckpointBoard, "SECURITY CHECKPOINT | RESPONSE SECURED")
         SetBoard(EmergencyBoard, "SUSPECT INCAPACITATED | ALL CLEAR")
         SetBoard(CustodyBoard, "SUSPECT SECURED | COMPLETE JAIL INTAKE")
@@ -1566,6 +1783,29 @@ terminal_lockdown_controller := class(creative_device):
         false
 
     OnResponseButton(Agent:agent):void=
+        if (Phase = terminal_game_phase.BossJammer):
+            ShowAgent(Agent, "FINAL THREAT | Disable the jammer at the power-room console first.", 5.0)
+            return
+        if (Phase = terminal_game_phase.BossBreach):
+            if (not IsAgentNear(Agent, vector3{X := 5570.0, Y := -2290.0, Z := 70.0}, ResponseProximityRadius)?):
+                ShowAgent(Agent, "BREACH CONTROL OUT OF RANGE | Reach the secured response station.", 5.0)
+                return
+            set Phase = terminal_game_phase.BossVulnerable
+            ResponseGranter.Enable()
+            ResponseRemote.Enable()
+            ResponseGranter.GrantItem(Agent)
+            SetBoard(EmergencyBoard, "FINAL THREAT | BREACH INTERRUPTED | TARGET VULNERABLE")
+            SetBoard(ResponseLoadoutBoard, "FINAL RESPONSE\nSIGNAL REMOTE A ISSUED\nENGAGE INSIDE RESPONSE ROOM")
+            ShowAll("BREACH INTERRUPTED | Signal Remote A issued. Enter the response room and use PRIMARY FIRE at close range.", 8.0)
+            TerminalLog(DebugEnabled, "[BOSS] Breach interrupted|CaseId={CurrentCaseId}")
+            return
+        if (Phase = terminal_game_phase.BossVulnerable):
+            ResponseGranter.GrantItem(Agent)
+            ShowAgent(Agent, "SIGNAL REMOTE A REISSUED | Engage the threat inside the response room.", 5.0)
+            return
+        if (Phase = terminal_game_phase.BossSecure):
+            ShowAgent(Agent, "FINAL THREAT SECURED | Complete custody at detention intake.", 5.0)
+            return
         if (Phase = terminal_game_phase.HostileResponse):
             if (not IsAgentNear(Agent, vector3{X := 5570.0, Y := -2290.0, Z := 70.0}, ResponseProximityRadius)?):
                 ShowAgent(Agent, "TOO FAR FROM RESPONSE ZONE | Reach the secured supply station.", 5.0)
@@ -1589,24 +1829,6 @@ terminal_lockdown_controller := class(creative_device):
             TerminalLog(DebugEnabled, "[EMERGENCY] Success|Shift={Shift}")
             BeginUpgradeBreak()
             return
-        if (Phase = terminal_game_phase.BossJammer):
-            set Phase = terminal_game_phase.BossBreach
-            SetBoard(EmergencyBoard, "FINAL THREAT | JAMMER OFFLINE | BREACH ACTIVE")
-            ShowAll("THE BREACHER | JAMMER OFFLINE | Defend the departure control and RESPOND.", 7.0)
-            return
-        if (Phase = terminal_game_phase.BossBreach):
-            set Phase = terminal_game_phase.BossVulnerable
-            SetBoard(EmergencyBoard, "FINAL THREAT | SHIELD VULNERABLE")
-            ShowAll("THE BREACHER | BREACH INTERRUPTED | Shield vulnerable. RESPOND to incapacitate.", 7.0)
-            return
-        if (Phase = terminal_game_phase.BossVulnerable):
-            set Phase = terminal_game_phase.BossSecure
-            SetBoard(EmergencyBoard, "FINAL THREAT | INCAPACITATED | SECURE")
-            ShowAll("THE BREACHER INCAPACITATED | Complete the final secure interaction.", 7.0)
-            return
-        if (Phase = terminal_game_phase.BossSecure):
-            FinishVictory()
-            return
         if (Phase = terminal_game_phase.Results):
             ResetToWaiting()
             return
@@ -1615,15 +1837,28 @@ terminal_lockdown_controller := class(creative_device):
     BeginBoss(Detected:logic):void=
         set ResponseGeneration += 1
         CleanupResponseEquipment()
-        ResponseButton.Enable()
+        CurrentBossGeneration := ResponseGeneration
+        ResponseButton.Disable()
+        PowerButton.SetInteractionText(TerminalMessage("DISABLE BREACH JAMMER"))
+        PowerButton.Enable()
+        CustodyButton.Disable()
+        set CustodyCommitted = false
+        set CurrentCustodyMode = 6
         set ClaimOwner = false
+        ResponseAlarm.Enable()
+        ResponseAlarm.Play()
+        ResponseLightA.Enable()
+        ResponseLightA.TurnOn()
+        ResponseLightB.Enable()
+        ResponseLightB.TurnOn()
         if (Detected?):
             set BossBranch = terminal_boss_branch.Detected
             set TeamCash += 300
             set Phase = terminal_game_phase.BossJammer
             SetBoard(CaseBoard, "FINAL CASE | BREACHER DETECTED")
             SetBoard(EmergencyBoard, "FINAL THREAT | DISABLE JAMMER")
-            ShowAll("EARLY INTERCEPTION | The Breacher starts weakened. Disable the jammer with RESPOND.", 8.0)
+            ShowAll("EARLY INTERCEPTION | Enter the power room and disable the breach jammer at its console.", 8.0)
+            spawn{BossTimeout(CurrentBossGeneration, 75.0)}
         else:
             set BossBranch = terminal_boss_branch.Missed
             RaiseRisk(15)
@@ -1633,14 +1868,53 @@ terminal_lockdown_controller := class(creative_device):
             set Phase = terminal_game_phase.BossJammer
             SetBoard(CaseBoard, "FINAL CASE | BREACHER MISSED")
             SetBoard(EmergencyBoard, "FINAL THREAT | EXTRA ROUTES OPEN")
-            ShowAll("BREACHER MISSED | Extra routes opened. Disable the jammer with RESPOND.", 8.0)
+            ShowAll("BREACHER MISSED | Extra routes opened. Reach the power room and disable the jammer now.", 8.0)
+            spawn{BossTimeout(CurrentBossGeneration, 55.0)}
         spawn{MovePassengerToResponse(CurrentCaseId, RunGeneration)}
         TerminalLog(DebugEnabled, "[BOSS] Branch={BossBranchLabel()}|Integrity={TeamIntegrity}|Risk={TeamRisk}")
+
+    BossTimeout(ExpectedResponseGeneration:int, WaitSeconds:float)<suspends>:void=
+        Sleep(WaitSeconds)
+        if (ExpectedResponseGeneration <> ResponseGeneration):
+            return
+        if (Phase = terminal_game_phase.BossJammer or Phase = terminal_game_phase.BossBreach or Phase = terminal_game_phase.BossVulnerable or Phase = terminal_game_phase.BossSecure):
+            FinishDefeat("Final threat breached the terminal")
+
+    CompleteBossCustody(Agent:agent):void=
+        if (Phase <> terminal_game_phase.BossSecure or CurrentCustodyMode <> 6):
+            return
+        if (not IsAgentNear(Agent, vector3{X := 5000.0, Y := 1450.0, Z := 70.0}, CustodyProximityRadius)?):
+            ShowAgent(Agent, "FINAL CUSTODY OUT OF RANGE | Meet the suspect at detention intake.", 5.0)
+            return
+        if (CustodyCommitted?):
+            TerminalLog(DebugEnabled, "[BOSS] Duplicate final custody rejected")
+            return
+        set CustodyCommitted = true
+        CustodyButton.Disable()
+        CustodyButton.SetInteractionText(TerminalMessage("SECURE / JAIL INTAKE"))
+        SetBoard(CustodyBoard, "FINAL CUSTODY ACCEPTED | CELL GATE CLOSING")
+        spawn{MoveBossIntoCell(CurrentCaseId, RunGeneration)}
+
+    MoveBossIntoCell(ExpectedCaseId:int, ExpectedRun:int)<suspends>:void=
+        MoveResult := PassengerActive.MoveTo(
+            vector3{X := 5550.0, Y := 1450.0, Z := 70.0},
+            IdentityRotation(),
+            2.0
+        )
+        if (ExpectedCaseId = CurrentCaseId and ExpectedRun = RunGeneration and Phase = terminal_game_phase.BossSecure):
+            PassengerActive.Hide()
+            JailOccupant.Show()
+            SetBoard(CellBoard, "CELL SECURED | FINAL THREAT IN CUSTODY")
+            FinishVictory()
 
     FinishVictory():void=
         set ResponseGeneration += 1
         CleanupResponseEquipment()
         ResponseButton.Enable()
+        PowerButton.Disable()
+        PowerButton.SetInteractionText(TerminalMessage("RESTORE TERMINAL POWER"))
+        CustodyButton.Disable()
+        CustodyButton.SetInteractionText(TerminalMessage("SECURE / JAIL INTAKE"))
         set Phase = terminal_game_phase.Results
         set TeamCash += 500
         PassengerActive.Hide()
@@ -1656,6 +1930,10 @@ terminal_lockdown_controller := class(creative_device):
         set ResponseGeneration += 1
         CleanupResponseEquipment()
         ResponseButton.Enable()
+        PowerButton.Disable()
+        PowerButton.SetInteractionText(TerminalMessage("RESTORE TERMINAL POWER"))
+        CustodyButton.Disable()
+        CustodyButton.SetInteractionText(TerminalMessage("SECURE / JAIL INTAKE"))
         set Phase = terminal_game_phase.Results
         set ClaimOwner = false
         set EmergencyGeneration += 1
@@ -1685,6 +1963,10 @@ terminal_lockdown_controller := class(creative_device):
         set ResolutionCommitted = false
         set CustodyCommitted = false
         set CurrentCustodyMode = 0
+        set PassengerReadyForScan = false
+        set ScanInProgress = false
+        set BagScanInProgress = false
+        set SecondaryPassengerReady = false
         set QueueFrontIndex = 0
         set QueueGeneration += 1
         set ScannerGeneration += 1
@@ -1692,6 +1974,8 @@ terminal_lockdown_controller := class(creative_device):
         JailOccupant.Hide()
         spawn{ResetPassengerQueue(RunGeneration)}
         CustodyButton.Disable()
+        CustodyButton.SetInteractionText(TerminalMessage("SECURE / JAIL INTAKE"))
+        DetainButton.SetInteractionText(TerminalMessage("RED | DETAIN SUSPECT"))
         RestoreNormalPower()
         SetBoard(CheckpointBoard, "SECURITY CHECKPOINT | OPEN")
         SetBoard(CaseBoard, "CURRENT PASSENGER | WAITING FOR SHIFT")
@@ -1730,6 +2014,14 @@ terminal_lockdown_controller := class(creative_device):
             return false
         true
 
+    CurrentExpectedDecision():terminal_decision=
+        Required := RequiredDecision(CurrentTemplate)
+        if (SecondaryChecked? and Required = terminal_decision.Secondary):
+            if (CurrentTemplate = 7):
+                return terminal_decision.Detain
+            return terminal_decision.Clear
+        Required
+
     RefreshDecisionControls():void=
         if (Phase = terminal_game_phase.CaseReady or Phase = terminal_game_phase.AwaitingDecision):
             Ready := ReadyForDecision()
@@ -1752,6 +2044,14 @@ terminal_lockdown_controller := class(creative_device):
         SetBoard(ClearBoard, "CLEAR\nLOCKED - COMPLETE CHECKS")
         SetBoard(SecondaryBoard, "SECONDARY\nLOCKED - COMPLETE CHECKS")
         SetBoard(DetainBoard, "DETAIN\nLOCKED - COMPLETE CHECKS")
+
+    SetSecondaryFinalControls():void=
+        ClearButton.Enable()
+        SecondaryButton.Disable()
+        DetainButton.Enable()
+        SetBoard(ClearBoard, "GREEN | RELEASE\nAUTHORIZED")
+        SetBoard(SecondaryBoard, "SECONDARY\nCHECK COMPLETE")
+        SetBoard(DetainBoard, "RED | DETAIN\nAUTHORIZED")
 
     ShowDecisionSubmitted(Decision:terminal_decision):void=
         ClearButton.Disable()
@@ -1781,6 +2081,10 @@ terminal_lockdown_controller := class(creative_device):
             if (RangeDistanceSquared <= Radius * Radius):
                 return true
         false
+
+    IsAgentNearActivePassenger(Agent:agent, Radius:float)<transacts>:logic=
+        PassengerLocation := PassengerActive.GetTransform().Translation
+        IsAgentNear(Agent, PassengerLocation, Radius)
 
     IsHumanAgent(Agent:agent)<transacts>:logic=
         if (player[Agent]):
@@ -1827,6 +2131,8 @@ terminal_lockdown_controller := class(creative_device):
             return "RUNNER | Intercept Case {CurrentCaseId} before departure."
         if (Phase = terminal_game_phase.HostileResponse):
             return "RESISTANT SUSPECT | Take Signal Remote A; use PRIMARY FIRE inside response room."
+        if (Phase = terminal_game_phase.SecondaryScreening):
+            return "SECONDARY | Follow Case {CurrentCaseId} to the controlled room and perform the additional check."
         if (Phase = terminal_game_phase.Custody):
             return "CUSTODY | Deliver Case {CurrentCaseId} to detention intake."
         "SHIFT {Shift} {ShiftLabel(Shift)} | CASE {CurrentCaseId} {TemplateName(CurrentTemplate)} | {EvidencePrompt()}"
@@ -1842,6 +2148,15 @@ terminal_lockdown_controller := class(creative_device):
 
     FullEvidence(Template:int):string=
         "Body {BodyEvidence(Template)} | Bag {BagEvidence(Template)} | Docs {DocumentEvidence(Template)}"
+
+    SecondaryResultText(Template:int)<computes>:string=
+        if (Template = 7):
+            return "RESTRICTED BATTERY CONCEALMENT CONFIRMED - DETAIN"
+        if (Template = 3):
+            return "EXPIRED CREDENTIAL VERIFIED - SUPERVISOR RELEASE"
+        if (Template = 10):
+            return "CLOSED GATE VERIFIED - REROUTE AND RELEASE"
+        "NO NEW THREAT FOUND - USE ORIGINAL EVIDENCE"
 
     IdentityName(Template:int)<computes>:string=
         if (Template = 1):
@@ -2136,6 +2451,8 @@ terminal_lockdown_controller := class(creative_device):
             return "INSPECTING"
         if (Phase = terminal_game_phase.AwaitingDecision):
             return "AWAITING DECISION"
+        if (Phase = terminal_game_phase.SecondaryScreening):
+            return "SECONDARY SCREENING"
         if (Phase = terminal_game_phase.Resolving):
             return "RESOLVING"
         if (Phase = terminal_game_phase.Runner):
