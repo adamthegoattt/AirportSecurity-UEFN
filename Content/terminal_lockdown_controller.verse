@@ -971,10 +971,12 @@ terminal_lockdown_controller := class(creative_device):
             set ScanInProgress = false
             set Phase = terminal_game_phase.CaseReady
             SetBoard(CheckpointBoard, "SCANNER ROUTE RESET | RETRY BODY SCAN")
+            ReleaseStationClaim("BODY SCANNER", "ROUTE RESET")
             return
         if (not PowerOnline?):
             set ScanInProgress = false
             SetBoard(CheckpointBoard, "SCANNER OFFLINE | RESTORE POWER")
+            ReleaseStationClaim("BODY SCANNER", "POWER INTERRUPTED")
             return
         SetBoard(CheckpointBoard, "SCANNER ACTIVE | AMBER SWEEP | 25%")
         Sleep(0.35)
@@ -987,6 +989,7 @@ terminal_lockdown_controller := class(creative_device):
         if (not PowerOnline?):
             set ScanInProgress = false
             SetBoard(CheckpointBoard, "SCANNER OFFLINE | RESTORE POWER")
+            ReleaseStationClaim("BODY SCANNER", "POWER INTERRUPTED")
             return
         ExitedScanner := MoveActivePassengerChecked(
             ScannerExitPosition(),
@@ -1002,6 +1005,7 @@ terminal_lockdown_controller := class(creative_device):
             set ScanInProgress = false
             set Phase = terminal_game_phase.CaseReady
             SetBoard(CheckpointBoard, "SCANNER EXIT RESET | RETRY BODY SCAN")
+            ReleaseStationClaim("BODY SCANNER", "EXIT RESET")
             return
         set BodyChecked = true
         set ScanInProgress = false
@@ -1010,6 +1014,7 @@ terminal_lockdown_controller := class(creative_device):
         RefreshDecisionControls()
         ScannerResultAudio.Play()
         SetBoard(CheckpointBoard, "SCANNER RESULT | {ScannerResultText(Template)} | {BodyEvidence(Template)}")
+        ReleaseStationClaim("BODY SCANNER", "EVIDENCE COMPLETE")
         ShowAll("SCANNER RESULT | {ScannerResultText(Template)} | {BodyEvidence(Template)}", 5.0)
         TerminalLog(DebugEnabled, "[SCAN] Completed|CaseId={CurrentCaseId}|Template={Template}|CheckedOnce=True")
         if (Shift >= 2):
@@ -1094,6 +1099,7 @@ terminal_lockdown_controller := class(creative_device):
             set Phase = terminal_game_phase.AwaitingDecision
             SyncActiveCase()
             SetBoard(BagBoard, "X-RAY ROUTE FAULT | RETRY BAG INSPECTION")
+            ReleaseStationClaim("BAG X-RAY", "ROUTE RESET")
             ShowAll("BAG ROUTE RESET | The linked bag was safely removed. Retry the X-ray station.", 6.0)
             return
         SetBoard(BagBoard, "X-RAY ANALYZING | CASE {CurrentCaseId} | AMBER SWEEP")
@@ -1141,6 +1147,7 @@ terminal_lockdown_controller := class(creative_device):
             set Phase = terminal_game_phase.AwaitingDecision
             SyncActiveCase()
             SetBoard(BagBoard, "X-RAY EXIT FAULT | RETRY BAG INSPECTION")
+            ReleaseStationClaim("BAG X-RAY", "EXIT RESET")
             ShowAll("BAG EXIT RESET | The linked bag was safely removed. Retry the X-ray station.", 6.0)
             return
         set BagChecked = true
@@ -1149,6 +1156,7 @@ terminal_lockdown_controller := class(creative_device):
         SyncActiveCase()
         RefreshDecisionControls()
         SetBoard(BagBoard, "X-RAY RESULT | CASE {CurrentCaseId} | {BagResultText(Template)} | {BagEvidence(Template)}")
+        ReleaseStationClaim("BAG X-RAY", "EVIDENCE COMPLETE")
         ShowAll("X-RAY RESULT | {BagResultText(Template)} | {BagEvidence(Template)} | {EvidencePrompt()}", 6.0)
         TerminalLog(DebugEnabled, "[BAG] Completed|CaseId={CurrentCaseId}|Template={Template}|CheckedOnce=True")
         if (Shift >= 3):
@@ -3410,6 +3418,14 @@ terminal_lockdown_controller := class(creative_device):
             TerminalLog(DebugEnabled, "[CASE] Claimed|CaseId={CurrentCaseId}")
             return true
         false
+
+    ReleaseStationClaim(Station:string, Outcome:string):void=
+        if (Owner := ClaimOwner?):
+            set ClaimOwner = false
+            set ClaimGeneration += 1
+            SyncActiveCase()
+            ShowAll("{Station} | {Outcome} | Case {CurrentCaseId} available for officer handoff.", 3.0)
+            TerminalLog(DebugEnabled, "[CASE] Station claim released|CaseId={CurrentCaseId}|Station={Station}|Outcome={Outcome}")
 
     IsCaseInteractionLegal(Agent:agent):logic=
         if (CurrentCaseId <= 0 or CurrentTemplate <= 0):
