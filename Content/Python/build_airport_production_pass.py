@@ -150,8 +150,10 @@ def spawn_prop(classes, suffix, class_key, ground, target_span, yaw=0.0):
 # Solid Creative colors replace the stretched world-grid materials visible in
 # the previous player build. This affects presentation only, never transforms.
 ART_COLORS = {
-    "TerminalFloor": "SILVER",
-    "ExitFloor": "SILVER",
+    # A mid-value floor preserves the bright terminal read without clipping to
+    # featureless white under Fortnite's daylight exposure.
+    "TerminalFloor": "CHROME",
+    "ExitFloor": "CHROME",
     "EntryFloor": "GRAY",
     "WaitingCarpet": "MIDNIGHT_BLUE",
     "DecisionZoneCarpet": "GRAY",
@@ -164,12 +166,40 @@ ART_COLORS = {
     "QueueLaneNorth": "PACIFIC_BLUE",
     "BagBeltSouth": "BLACK",
     "BagBeltNorth": "BLACK",
+    "BagRailNorthA": "GRAY",
+    "BagRailNorthB": "GRAY",
+    "BagRailSouthA": "GRAY",
+    "BagRailSouthB": "GRAY",
+    "BagXrayNorthLeft": "GRAY",
+    "BagXrayNorthRight": "GRAY",
+    "BagXrayNorthTop": "MIDNIGHT_BLUE",
+    "BagXraySouthLeft": "GRAY",
+    "BagXraySouthRight": "GRAY",
+    "BagXraySouthTop": "MIDNIGHT_BLUE",
+    "WalkthroughNorthLeft": "MIDNIGHT_BLUE",
+    "WalkthroughNorthRight": "MIDNIGHT_BLUE",
+    "WalkthroughNorthTop": "MIDNIGHT_BLUE",
+    "WalkthroughSouthLeft": "MIDNIGHT_BLUE",
+    "WalkthroughSouthRight": "MIDNIGHT_BLUE",
+    "WalkthroughSouthTop": "MIDNIGHT_BLUE",
     "DocumentCounter": "GRAY",
     "DecisionCounter": "BLACK",
+    "DecisionHeader": "MIDNIGHT_BLUE",
+    "DecisionMonitorA": "APPLE_GREEN",
+    "DecisionMonitorB": "GOLD",
+    "DecisionMonitorC": "RED_ORANGE",
+    "DocumentMonitorA": "AQUA",
+    "DocumentMonitorB": "PACIFIC_BLUE",
     "CheckpointSignBacking": "GREEN",
     "PowerConsole": "GRAY",
     "DetentionIntake": "GRAY",
     "CellBench": "GRAY",
+    "CellBarNorth": "MIDNIGHT_BLUE",
+    "CellBarSouth": "MIDNIGHT_BLUE",
+    "CellBarTop": "MIDNIGHT_BLUE",
+    "CellWallEast": "GRAY",
+    "CellWallNorth": "GRAY",
+    "CellWallSouth": "GRAY",
     "RunwayApron": "MIDNIGHT_BLUE",
     "RunwayStripeNear": "WHITE",
     "RunwayStripeFar": "GOLD",
@@ -177,6 +207,29 @@ ART_COLORS = {
     "PowerHeader": "MIDNIGHT_BLUE",
     "OfficeHeader": "MIDNIGHT_BLUE",
     "DetentionHeader": "MIDNIGHT_BLUE",
+    "CorridorWallNorth": "GRAY",
+    "CorridorWallSouth": "GRAY",
+    "CorridorCeiling": "SILVER",
+    "PowerWallEast": "GRAY",
+    "PowerWallNorth": "GRAY",
+    "PowerWallWest": "GRAY",
+    "SouthWallLiner": "SILVER",
+    "MullionA": "MIDNIGHT_BLUE",
+    "MullionB": "MIDNIGHT_BLUE",
+    "MullionC": "MIDNIGHT_BLUE",
+    "MullionD": "MIDNIGHT_BLUE",
+    "MullionE": "MIDNIGHT_BLUE",
+    "MullionF": "MIDNIGHT_BLUE",
+    "MullionG": "MIDNIGHT_BLUE",
+    "WindowHead": "MIDNIGHT_BLUE",
+    "NorthSill": "MIDNIGHT_BLUE",
+    "RoofRibA": "SILVER",
+    "RoofRibB": "SILVER",
+    "RoofRibC": "SILVER",
+    "RoofRibD": "SILVER",
+    "RoofCrossCenter": "SILVER",
+    "RoofCrossNorth": "SILVER",
+    "RoofCrossSouth": "SILVER",
     "AircraftBody": "WHITE",
     "AircraftWing": "WHITE",
     "AircraftTailWing": "WHITE",
@@ -196,23 +249,54 @@ ART_COLORS = {
 }
 
 
+# Keep the saved editor and pre-game presentation production-ready. Verse
+# replaces these messages dynamically once a session begins, but without
+# authored defaults every physical board visibly reads "Sample Text" while
+# editing, validating, capturing proof, or waiting for device initialization.
+BILLBOARD_DEFAULTS = {
+    "TL_BOARD_Checkpoint": "SECURITY CHECKPOINT | OPEN",
+    "TL_BOARD_CaseStatus": "CURRENT PASSENGER | WAITING FOR SHIFT",
+    "TL_BOARD_BagEvidence": "BAG INSPECTION | NO ACTIVE BAG",
+    "TL_BOARD_DocumentEvidence": "TRAVEL DOCUMENTS | NO ACTIVE CASE",
+    "TL_BOARD_PowerStatus": "POWER ONLINE",
+    "TL_BOARD_CustodyStatus": "DETENTION INTAKE | READY",
+    "TL_BOARD_CellStatus": "DETENTION CELL | VACANT",
+    "TL_BOARD_EmergencyStatus": "RESPONSE SUPPLY | STANDBY",
+    "TL_BOARD_ResponseLoadout": "SECURITY RESPONSE KIT\nSIGNAL REMOTE A\nSTANDBY",
+    "TL_BOARD_ClearControl": "CLEAR\nLOCKED - COMPLETE CHECKS",
+    "TL_BOARD_SecondaryControl": "SECONDARY\nLOCKED - COMPLETE CHECKS",
+    "TL_BOARD_DetainControl": "DETAIN\nLOCKED - COMPLETE CHECKS",
+}
+
+
+# Keep both players on the unobstructed entry plaza. The previous second pad at
+# X=250 overlapped TL_GEO_LaneDivider, leaving the spawned officer pressed
+# against a waist-high barrier before they could reach the briefing desk. The
+# art-floor slab tops out at Z=68, so the pads must sit at that elevation rather
+# than embedding the spawned character capsule in the slab.
+SPAWN_PLACEMENTS = {
+    "Player 1 Spawn Pad": (-2200.0, -400.0, 68.0, 0.0),
+    "Player 2 Spawn Pad": (-2200.0, 400.0, 68.0, 0.0),
+}
+
+
 BOXES = [
     # White ceiling coffers and cool structural rhythm: the terminal now reads
     # as an interior rather than an open blue box from the spawn camera.
-    ("CeilingPanel01", (-500, -2550, 1325), (850, 1500, 45), "WHITE"),
-    ("CeilingPanel02", (500, -2550, 1325), (850, 1500, 45), "WHITE"),
-    ("CeilingPanel03", (1500, -2550, 1325), (850, 1500, 45), "WHITE"),
-    ("CeilingPanel04", (2500, -2550, 1325), (850, 1500, 45), "WHITE"),
-    ("CeilingPanel05", (3500, -2550, 1325), (850, 1500, 45), "WHITE"),
-    ("CeilingPanel06", (4500, -2550, 1325), (850, 1500, 45), "WHITE"),
-    ("CeilingPanel07", (5500, -2550, 1325), (850, 1500, 45), "WHITE"),
-    ("CeilingPanel08", (-500, 200, 1325), (850, 3600, 45), "WHITE"),
-    ("CeilingPanel09", (500, 200, 1325), (850, 3600, 45), "WHITE"),
-    ("CeilingPanel10", (1500, 200, 1325), (850, 3600, 45), "WHITE"),
-    ("CeilingPanel11", (2500, 200, 1325), (850, 3600, 45), "WHITE"),
-    ("CeilingPanel12", (3500, 200, 1325), (850, 3600, 45), "WHITE"),
-    ("CeilingPanel13", (4500, 200, 1325), (850, 3600, 45), "WHITE"),
-    ("CeilingPanel14", (5500, 200, 1325), (850, 3600, 45), "WHITE"),
+    ("CeilingPanel01", (-500, -2550, 1325), (850, 1500, 45), "SILVER"),
+    ("CeilingPanel02", (500, -2550, 1325), (850, 1500, 45), "SILVER"),
+    ("CeilingPanel03", (1500, -2550, 1325), (850, 1500, 45), "SILVER"),
+    ("CeilingPanel04", (2500, -2550, 1325), (850, 1500, 45), "SILVER"),
+    ("CeilingPanel05", (3500, -2550, 1325), (850, 1500, 45), "SILVER"),
+    ("CeilingPanel06", (4500, -2550, 1325), (850, 1500, 45), "SILVER"),
+    ("CeilingPanel07", (5500, -2550, 1325), (850, 1500, 45), "SILVER"),
+    ("CeilingPanel08", (-500, 200, 1325), (850, 3600, 45), "SILVER"),
+    ("CeilingPanel09", (500, 200, 1325), (850, 3600, 45), "SILVER"),
+    ("CeilingPanel10", (1500, 200, 1325), (850, 3600, 45), "SILVER"),
+    ("CeilingPanel11", (2500, 200, 1325), (850, 3600, 45), "SILVER"),
+    ("CeilingPanel12", (3500, 200, 1325), (850, 3600, 45), "SILVER"),
+    ("CeilingPanel13", (4500, 200, 1325), (850, 3600, 45), "SILVER"),
+    ("CeilingPanel14", (5500, 200, 1325), (850, 3600, 45), "SILVER"),
     # Public concourse color bands and deliberate floor flow.
     ("SouthWallBlueBand", (2500, -3735, 410), (7900, 55, 220), "PACIFIC_BLUE"),
     ("WestPortalBlueBand", (-1430, 0, 410), (55, 1850, 220), "PACIFIC_BLUE"),
@@ -341,18 +425,8 @@ PROPS = [
     ("DetentionEmergencyLight", "emergency_light", (5580, 1980, 810), 180.0, 180.0),
     # A second native panel completes the walk-through scanner silhouette.
     ("NativeScannerRight", "security_scanner", (1120, -900, 110), 600.0, -90.0),
-    # Airport queue hardware frames four visible positions without occupying
-    # the active route centerline.
-    ("QueuePostSouth01", "stanchion", (-2200, -2520, 105), 145.0, 0.0),
-    ("QueuePostSouth02", "stanchion", (-1600, -2520, 105), 145.0, 0.0),
-    ("QueuePostSouth03", "stanchion", (-1000, -2520, 105), 145.0, 0.0),
-    ("QueuePostSouth04", "stanchion", (-400, -2520, 105), 145.0, 0.0),
-    ("QueuePostSouth05", "stanchion", (200, -2520, 105), 145.0, 0.0),
-    ("QueuePostNorth01", "stanchion", (-2200, -1780, 105), 145.0, 180.0),
-    ("QueuePostNorth02", "stanchion", (-1600, -1780, 105), 145.0, 180.0),
-    ("QueuePostNorth03", "stanchion", (-1000, -1780, 105), 145.0, 180.0),
-    ("QueuePostNorth04", "stanchion", (-400, -1780, 105), 145.0, 180.0),
-    ("QueuePostNorth05", "stanchion", (200, -1780, 105), 145.0, 180.0),
+    # The reference pass already owns the validated belt-stanchion lanes.
+    # Reusing that set avoids an overlapping second row of posts in the queue.
     # Modern grouped seating adds the denser waiting-area rhythm in the target.
     ("WaitingTripleSeatA", "triple_seat", (900, 2850, 105), 470.0, 0.0),
     ("WaitingTripleSeatB", "triple_seat", (1900, 2850, 105), 470.0, 0.0),
@@ -383,6 +457,15 @@ NONBLOCKING_BOX_TOKENS = (
     "Status", "Apron", "Stripe", "RedLine", "Threshold",
 )
 
+# The original reference-pass scanner mesh is a solid imaging panel. It was
+# moved into the walk-through aperture during the flush-floor pass and became
+# a full-width collision/visual blocker. The production scanner already uses
+# two copies of that native panel as side housings around an open constructed
+# arch, so retire the redundant center panel on every idempotent rerun.
+RETIRED_BLOCKING_ART_LABELS = {
+    "TL_ART_ScannerSouth",
+}
+
 
 world = unreal.EditorLevelLibrary.get_editor_world()
 if world is None or "AirportSecurity" not in world.get_path_name():
@@ -391,6 +474,25 @@ if world is None or "AirportSecurity" not in world.get_path_name():
 actors_before = all_actors()
 EXISTING.update({a.get_actor_label(): a for a in actors_before if a.get_actor_label().startswith(PREFIX)})
 existing_labels = set(EXISTING)
+
+billboard_defaults_updated = []
+for actor in actors_before:
+    label = actor.get_actor_label()
+    default_text = BILLBOARD_DEFAULTS.get(label)
+    if default_text is None:
+        continue
+    try:
+        actor.set_editor_property("text", default_text)
+        billboard_defaults_updated.append(label)
+    except Exception as exc:
+        raise RuntimeError(f"Failed to author default billboard text for {label}: {exc}") from exc
+
+missing_billboard_defaults = sorted(set(BILLBOARD_DEFAULTS) - set(billboard_defaults_updated))
+if missing_billboard_defaults:
+    raise RuntimeError(
+        "Production pass could not find required billboard actors: "
+        + ", ".join(missing_billboard_defaults)
+    )
 
 classes = {}
 for key, path in CLASSES.items():
@@ -452,9 +554,35 @@ for actor in all_actors():
         scan_button_relocated = True
         break
 
+spawn_pads_relocated = []
+for actor in all_actors():
+    placement = SPAWN_PLACEMENTS.get(actor.get_actor_label())
+    if placement is None:
+        continue
+    actor.set_actor_location(unreal.Vector(*placement[:3]), False, False)
+    actor.set_actor_rotation(
+        unreal.Rotator(pitch=0.0, yaw=placement[3], roll=0.0),
+        False,
+    )
+    spawn_pads_relocated.append(actor.get_actor_label())
+
+missing_spawn_pads = sorted(set(SPAWN_PLACEMENTS) - set(spawn_pads_relocated))
+if missing_spawn_pads:
+    raise RuntimeError(
+        "Production pass could not find required player spawn pads: "
+        + ", ".join(missing_spawn_pads)
+    )
+
 stale = sorted(EXISTING)
 for label in stale:
     ACTORS.destroy_actor(EXISTING[label])
+
+removed_blocking_art = []
+for actor in all_actors():
+    label = actor.get_actor_label()
+    if label in RETIRED_BLOCKING_ART_LABELS:
+        removed_blocking_art.append(label)
+        ACTORS.destroy_actor(actor)
 
 # Retire the older couch bank so the validated agency benches become the single
 # finished-looking waiting-area silhouette. No gameplay actor uses these props.
@@ -482,11 +610,14 @@ result = {
     "recolored_art_actors": len(recolored),
     "scanner_pad_adjustments": scanner_pad_adjustments,
     "scan_button_relocated": scan_button_relocated,
+    "spawn_pads_relocated": sorted(spawn_pads_relocated),
+    "removed_blocking_art": sorted(removed_blocking_art),
     "removed_old_seats": len(removed_old_seats),
     "production_actor_count": len(created),
     "actor_count_before": len(actors_before),
     "actor_count_after": len(actors_after),
     "duplicate_tl_labels": duplicates,
+    "billboard_defaults_updated": sorted(billboard_defaults_updated),
     "level_saved": bool(saved_level),
     "dirty_packages_saved": bool(saved_packages),
 }
