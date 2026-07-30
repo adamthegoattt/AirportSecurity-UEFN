@@ -152,11 +152,11 @@ def spawn_prop(classes, suffix, class_key, ground, target_span, yaw=0.0):
 ART_COLORS = {
     # A mid-value floor preserves the bright terminal read without clipping to
     # featureless white under Fortnite's daylight exposure.
-    "TerminalFloor": "CHROME",
-    "ExitFloor": "CHROME",
+    "TerminalFloor": "GRAY",
+    "ExitFloor": "SILVER",
     "EntryFloor": "GRAY",
     "WaitingCarpet": "MIDNIGHT_BLUE",
-    "DecisionZoneCarpet": "GRAY",
+    "DecisionZoneCarpet": "MIDNIGHT_BLUE",
     "CorridorFloor": "MIDNIGHT_BLUE",
     "OfficeFloor": "MIDNIGHT_BLUE",
     "CellFloor": "GRAY",
@@ -306,6 +306,13 @@ BOXES = [
     ("PassengerFlow03", (1550, -1300, 108), (1000, 36, 8), "WHITE"),
     ("DepartureFlow", (4800, 1150, 108), (2800, 46, 8), "APPLE_GREEN"),
     ("DetentionFlow", (4550, 1450, 108), (1200, 46, 8), "RED_ORANGE"),
+    # Thin, nonblocking color fields make the passenger route and staff work
+    # zones readable from eye level without recreating a collision lip.
+    ("CheckpointApproachRug", (760, -1300, 105), (2700, 1500, 10), "GRAY"),
+    ("ScannerThresholdStripeA", (1010, -1640, 108), (420, 45, 10), "GOLD"),
+    ("ScannerThresholdStripeB", (1010, -960, 108), (420, 45, 10), "GOLD"),
+    ("BagEntryHazardStripe", (2020, -1300, 108), (180, 620, 10), "GOLD"),
+    ("BagExitHazardStripe", (3180, -1300, 108), (180, 620, 10), "AQUA"),
     # Strong checkpoint silhouette and officer-side separation.
     ("CheckpointHeader", (1120, -1300, 1110), (180, 1580, 250), "APPLE_GREEN"),
     ("ScannerSideLeft", (1120, -1670, 500), (180, 150, 840), "GRAY"),
@@ -320,6 +327,15 @@ BOXES = [
     ("SecondaryConsole", (4380, 0, 190), (760, 500, 300), "GOLD"),
     ("DetainConsole", (4380, 760, 190), (760, 500, 300), "RED_ORANGE"),
     ("DecisionDeskFront", (4800, 0, 320), (120, 2480, 520), "MIDNIGHT_BLUE"),
+    ("DecisionClearPad", (4380, -760, 108), (760, 520, 12), "APPLE_GREEN"),
+    ("DecisionSecondaryPad", (4380, 0, 108), (760, 520, 12), "GOLD"),
+    ("DecisionDetainPad", (4380, 760, 108), (760, 520, 12), "RED_ORANGE"),
+    ("DecisionClearBackplate", (4260, -760, 700), (45, 640, 600), "APPLE_GREEN"),
+    ("DecisionSecondaryBackplate", (4260, 0, 700), (45, 640, 600), "GOLD"),
+    ("DecisionDetainBackplate", (4260, 760, 700), (45, 640, 600), "RED_ORANGE"),
+    ("DecisionClearGuide", (3920, -760, 106), (780, 42, 8), "APPLE_GREEN"),
+    ("DecisionSecondaryGuide", (3920, 0, 106), (780, 42, 8), "GOLD"),
+    ("DecisionDetainGuide", (3920, 760, 106), (780, 42, 8), "RED_ORANGE"),
     # Runway-facing lounge islands and a low media wall.
     ("WaitingRugA", (1550, 3000, 108), (2600, 1050, 10), "MIDNIGHT_BLUE"),
     ("WaitingRugB", (3650, 3000, 108), (1400, 1050, 10), "MIDNIGHT_BLUE"),
@@ -333,6 +349,11 @@ BOXES = [
     ("PowerHazardA", (3750, -3040, 350), (500, 26, 90), "GOLD", 45.0),
     ("PowerHazardB", (4150, -3040, 350), (500, 26, 90), "GOLD", -45.0),
     ("PowerCabinetPlinth", (3950, -3490, 150), (1050, 250, 160), "BLACK"),
+    ("PowerRoomWarningPad", (3950, -3180, 106), (1500, 920, 10), "MIDNIGHT_BLUE"),
+    ("PowerHazardStripe01", (3400, -3180, 108), (90, 880, 10), "GOLD"),
+    ("PowerHazardStripe02", (3950, -3180, 108), (90, 880, 10), "GOLD"),
+    ("PowerHazardStripe03", (4500, -3180, 108), (90, 880, 10), "GOLD"),
+    ("PowerStatusBackplate", (4005, -3550, 760), (40, 980, 360), "GOLD"),
     ("OfficeTechWall", (6120, -3100, 630), (120, 900, 820), "MIDNIGHT_BLUE"),
     ("OfficeDeskRiser", (5550, -3300, 160), (1150, 520, 120), "GRAY"),
     # Detention intake and visible secure threshold.
@@ -340,6 +361,8 @@ BOXES = [
     ("DetentionOuterFrameNorth", (4890, 2020, 610), (160, 140, 1020), "MIDNIGHT_BLUE"),
     ("DetentionOuterFrameSouth", (4890, 880, 610), (160, 140, 1020), "MIDNIGHT_BLUE"),
     ("DetentionRedLine", (4820, 1450, 125), (180, 1100, 20), "RED_ORANGE"),
+    ("SecondaryInspectionPad", (4620, 1760, 106), (1250, 900, 10), "GOLD"),
+    ("DetentionIntakePad", (5150, 1450, 106), (900, 1100, 10), "RED_ORANGE"),
     ("CellRearBand", (6200, 1450, 420), (70, 1050, 300), "MIDNIGHT_BLUE"),
     # Full-height glazing now has dark airport mullions and a grounded sill,
     # preserving the aircraft view while eliminating the open-void read.
@@ -454,7 +477,8 @@ PROPS = [
 
 NONBLOCKING_BOX_TOKENS = (
     "Flow", "Rug", "InfoScreen", "Hazard", "Accent", "Light",
-    "Status", "Apron", "Stripe", "RedLine", "Threshold",
+    "Status", "Apron", "Stripe", "RedLine", "Threshold", "Pad",
+    "Guide", "Backplate",
 )
 
 # The original reference-pass scanner mesh is a solid imaging panel. It was
