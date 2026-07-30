@@ -61,6 +61,17 @@ def color_actor(actor, color_name):
         return False
 
 
+def make_decorative_nonblocking(actor):
+    """Keep a thin visible surface without adding a player collision lip."""
+    for component in actor.get_components_by_class(unreal.StaticMeshComponent):
+        component.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
+    for property_name in ("no_collision", "no_pawn_collision", "no_physics_collision"):
+        try:
+            actor.set_editor_property(property_name, True)
+        except Exception:
+            pass
+
+
 def center_actor(actor, center):
     origin, _ = actor.get_actor_bounds(False)
     location = actor.get_actor_location()
@@ -313,6 +324,12 @@ for key, path in CLASSES.items():
     classes[key] = loaded
 
 recolored = []
+scanner_pad_adjustments = []
+terminal_floor = next((actor for actor in actors_before if actor.get_actor_label() == "TL_ART_TerminalFloor"), None)
+terminal_floor_top = None
+if terminal_floor is not None:
+    floor_origin, floor_extent = terminal_floor.get_actor_bounds(False)
+    terminal_floor_top = floor_origin.z + floor_extent.z
 for actor in actors_before:
     label = actor.get_actor_label()
     if not label.startswith("TL_ART_"):
@@ -321,12 +338,40 @@ for actor in actors_before:
     color = ART_COLORS.get(suffix)
     if color and color_actor(actor, color):
         recolored.append(label)
+    if suffix in ("ScannerSouthPad", "ScannerNorthPad") and terminal_floor_top is not None:
+        pad_origin, pad_extent = actor.get_actor_bounds(False)
+        location = actor.get_actor_location()
+        desired_origin_z = terminal_floor_top - pad_extent.z
+        actor.set_actor_location(
+            unreal.Vector(location.x, location.y, location.z + desired_origin_z - pad_origin.z),
+            False,
+            False,
+        )
+        make_decorative_nonblocking(actor)
+        adjusted_origin, adjusted_extent = actor.get_actor_bounds(False)
+        scanner_pad_adjustments.append(
+            {
+                "label": label,
+                "top": round(adjusted_origin.z + adjusted_extent.z, 3),
+                "floor_top": round(terminal_floor_top, 3),
+            }
+        )
 
 created = []
 for spec in BOXES:
     created.append(spawn_box(classes, *spec).get_actor_label())
 for spec in PROPS:
     created.append(spawn_prop(classes, *spec).get_actor_label())
+
+# The wired scan button was previously centered in the walk-through opening.
+# Keep it as the reliable interaction fallback, but mount it beside the arch so
+# the full scanner aperture is clear in both directions.
+scan_button_relocated = False
+for actor in all_actors():
+    if actor.get_actor_label() == "TL_BTN_Scan":
+        actor.set_actor_location(unreal.Vector(1120.0, -1850.0, 180.0), False, False)
+        scan_button_relocated = True
+        break
 
 stale = sorted(EXISTING)
 for label in stale:
@@ -356,6 +401,8 @@ result = {
     "updated": sum(1 for label in created if label in existing_labels),
     "deleted_stale": len(stale),
     "recolored_art_actors": len(recolored),
+    "scanner_pad_adjustments": scanner_pad_adjustments,
+    "scan_button_relocated": scan_button_relocated,
     "removed_old_seats": len(removed_old_seats),
     "production_actor_count": len(created),
     "actor_count_before": len(actors_before),

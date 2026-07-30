@@ -173,6 +173,11 @@ terminal_lockdown_controller := class(creative_device):
     @editable
     DebugEnabled:logic = false
 
+    # Production runs wait for an officer to use the physical START SHIFT
+    # control. This remains an opt-in convenience for isolated local testing.
+    @editable
+    AutoStartEnabled:logic = false
+
     # Development-only end-to-end replay. Keep false in production. When
     # enabled, it invokes the same public interaction handlers used by players
     # and writes [QA] markers to the live Verse log.
@@ -203,6 +208,7 @@ terminal_lockdown_controller := class(creative_device):
     var ScanInProgress:logic = false
     var BagScanInProgress:logic = false
     var SecondaryPassengerReady:logic = false
+    var SecondaryBagReady:logic = false
     var PassengerAtIntake:logic = false
     var ActivePassengerMoveGeneration:int = 0
     var ResolutionCommitted:logic = false
@@ -234,6 +240,11 @@ terminal_lockdown_controller := class(creative_device):
     var PersistentHUDText:[player]text_block = map{}
     var UpgradeRootUI:[player]canvas = map{}
     var UpgradeOpenShift:[player]int = map{}
+    var QueueFrontMarker:vector3 = vector3{}
+    var QueueMiddleMarker:vector3 = vector3{}
+    var QueueRearMarker:vector3 = vector3{}
+    var PowerHomePosition:vector3 = vector3{}
+    var PowerHomeRotation:rotation = IdentityRotation()
 
     OnBegin<override>()<suspends>:void=
         StartButton.InteractedWithEvent.Subscribe(OnStartButton)
@@ -251,22 +262,25 @@ terminal_lockdown_controller := class(creative_device):
         GetPlayspace().PlayerAddedEvent().Subscribe(OnPlayerAdded)
         GetPlayspace().PlayerRemovedEvent().Subscribe(OnPlayerRemoved)
 
+        CaptureRouteMarkers()
         ConfigureButtons()
         ConfigurePhysicalPresentation()
         spawn{PersistentHUDLoop()}
-        spawn{AutoStartWaitingRun()}
+        if (AutoStartEnabled?):
+            spawn{AutoStartWaitingRun()}
         if (AutomatedReplayEnabled?):
             spawn{RunAutomatedReplay()}
         ShowAll("TERMINAL LOCKDOWN | Press START SHIFT at the briefing desk.", 8.0)
         TerminalLog(DebugEnabled, "[BOOT] Controller ready; waiting for players")
 
     RunAutomatedReplay()<suspends>:void=
-        # The physical passenger needs just over three seconds to reach the
-        # scanner after AutoStartWaitingRun opens Shift 1. Keep the harness
-        # behind the real movement and asynchronous scan/bag timings so every
-        # logged milestone represents a committed production handler result.
-        Sleep(6.5)
+        # The disabled harness intentionally starts the same physical run that
+        # an officer starts at the briefing desk; production no longer begins
+        # a shift automatically when a player joins.
+        Sleep(1.0)
         for (Player : GetPlayspace().GetPlayers()):
+            OnStartButton(Player)
+            Sleep(5.5)
             TerminalLog(true, "[QA] Automated replay begin")
 
             # Shift 1: physical passenger, body evidence, and clear decision.
@@ -882,6 +896,7 @@ terminal_lockdown_controller := class(creative_device):
         set ScanInProgress = false
         set BagScanInProgress = false
         set SecondaryPassengerReady = false
+        set SecondaryBagReady = false
         set PassengerAtIntake = false
         set FinalCaseAccountingCommitted = false
         set QueueFrontIndex = 0
@@ -932,20 +947,52 @@ terminal_lockdown_controller := class(creative_device):
         TerminalLog(DebugEnabled, "[SCAN] Started|CaseId={CurrentCaseId}|Template={CurrentTemplate}|Generation={ScannerGeneration}")
 
     RunScannerSequence(ExpectedCaseId:int, ExpectedRun:int, ExpectedScannerGeneration:int, Template:int)<suspends>:void=
-        Sleep(0.5)
+        SetBoard(CheckpointBoard, "SCANNER ACTIVE | AMBER SWEEP | ENTERING")
+        EnteredScanner := MoveActivePassengerChecked(
+            ScannerCenterPosition(),
+            ScannerEntryPosition(),
+            0.8,
+            ExpectedCaseId,
+            ExpectedRun,
+            "scanner-enter"
+        )
         if (ExpectedCaseId <> CurrentCaseId or ExpectedRun <> RunGeneration or ExpectedScannerGeneration <> ScannerGeneration):
+            return
+        if (not EnteredScanner?):
+            set ScanInProgress = false
+            set Phase = terminal_game_phase.CaseReady
+            SetBoard(CheckpointBoard, "SCANNER ROUTE RESET | RETRY BODY SCAN")
             return
         if (not PowerOnline?):
             set ScanInProgress = false
             SetBoard(CheckpointBoard, "SCANNER OFFLINE | RESTORE POWER")
             return
-        SetBoard(CheckpointBoard, "SCANNER ACTIVE | AMBER SWEEP | 50%")
+        SetBoard(CheckpointBoard, "SCANNER ACTIVE | AMBER SWEEP | 25%")
+        Sleep(0.35)
+        if (ExpectedCaseId <> CurrentCaseId or ExpectedRun <> RunGeneration or ExpectedScannerGeneration <> ScannerGeneration):
+            return
+        SetBoard(CheckpointBoard, "SCANNER ACTIVE | AMBER SWEEP | 75%")
         Sleep(ScannerSweepStageSeconds())
         if (ExpectedCaseId <> CurrentCaseId or ExpectedRun <> RunGeneration or ExpectedScannerGeneration <> ScannerGeneration):
             return
         if (not PowerOnline?):
             set ScanInProgress = false
             SetBoard(CheckpointBoard, "SCANNER OFFLINE | RESTORE POWER")
+            return
+        ExitedScanner := MoveActivePassengerChecked(
+            ScannerExitPosition(),
+            ScannerCenterPosition(),
+            0.8,
+            ExpectedCaseId,
+            ExpectedRun,
+            "scanner-exit"
+        )
+        if (ExpectedCaseId <> CurrentCaseId or ExpectedRun <> RunGeneration or ExpectedScannerGeneration <> ScannerGeneration):
+            return
+        if (not ExitedScanner?):
+            set ScanInProgress = false
+            set Phase = terminal_game_phase.CaseReady
+            SetBoard(CheckpointBoard, "SCANNER EXIT RESET | RETRY BODY SCAN")
             return
         set BodyChecked = true
         set ScanInProgress = false
@@ -997,8 +1044,8 @@ terminal_lockdown_controller := class(creative_device):
         if (BagIndex = 0):
             set TunnelReached = MovePropChecked(
                 BagPropSmall,
-                vector3{X := 2525.0, Y := -1325.0, Z := 175.0},
-                vector3{X := 2050.0, Y := -1325.0, Z := 175.0},
+                BagXRayPosition(),
+                BagEntryPosition(),
                 1.0,
                 ExpectedCaseId,
                 ExpectedRun,
@@ -1008,8 +1055,8 @@ terminal_lockdown_controller := class(creative_device):
         else if (BagIndex = 1):
             set TunnelReached = MovePropChecked(
                 BagPropMedium,
-                vector3{X := 2525.0, Y := -1325.0, Z := 175.0},
-                vector3{X := 2050.0, Y := -1325.0, Z := 175.0},
+                BagXRayPosition(),
+                BagEntryPosition(),
                 1.0,
                 ExpectedCaseId,
                 ExpectedRun,
@@ -1019,8 +1066,8 @@ terminal_lockdown_controller := class(creative_device):
         else:
             set TunnelReached = MovePropChecked(
                 BagPropHardShell,
-                vector3{X := 2525.0, Y := -1325.0, Z := 175.0},
-                vector3{X := 2050.0, Y := -1325.0, Z := 175.0},
+                BagXRayPosition(),
+                BagEntryPosition(),
                 1.0,
                 ExpectedCaseId,
                 ExpectedRun,
@@ -1044,8 +1091,8 @@ terminal_lockdown_controller := class(creative_device):
         if (BagIndex = 0):
             set ExitReached = MovePropChecked(
                 BagPropSmall,
-                vector3{X := 3050.0, Y := -1325.0, Z := 175.0},
-                vector3{X := 2525.0, Y := -1325.0, Z := 175.0},
+                BagExitPosition(),
+                BagXRayPosition(),
                 1.0,
                 ExpectedCaseId,
                 ExpectedRun,
@@ -1055,8 +1102,8 @@ terminal_lockdown_controller := class(creative_device):
         else if (BagIndex = 1):
             set ExitReached = MovePropChecked(
                 BagPropMedium,
-                vector3{X := 3050.0, Y := -1325.0, Z := 175.0},
-                vector3{X := 2525.0, Y := -1325.0, Z := 175.0},
+                BagExitPosition(),
+                BagXRayPosition(),
                 1.0,
                 ExpectedCaseId,
                 ExpectedRun,
@@ -1066,8 +1113,8 @@ terminal_lockdown_controller := class(creative_device):
         else:
             set ExitReached = MovePropChecked(
                 BagPropHardShell,
-                vector3{X := 3050.0, Y := -1325.0, Z := 175.0},
-                vector3{X := 2525.0, Y := -1325.0, Z := 175.0},
+                BagExitPosition(),
+                BagXRayPosition(),
                 1.0,
                 ExpectedCaseId,
                 ExpectedRun,
@@ -1264,16 +1311,22 @@ terminal_lockdown_controller := class(creative_device):
         set CurrentDestination = terminal_case_destination.Secondary
         CloseAllDocumentInterfaces()
         set SecondaryPassengerReady = false
+        set SecondaryBagReady = false
         set CurrentCustodyMode = 4
         SetDecisionControlsAvailable(false)
         CustodyButton.SetInteractionText(TerminalMessage("PERFORM SECONDARY CHECK"))
         CustodyButton.Enable()
         SyncActiveCase()
         SetBoard(CaseBoard, "CASE {CurrentCaseId} | ROUTING TO SECONDARY")
-        SetBoard(SecondaryBoard, "SECONDARY\nPASSENGER IN TRANSIT")
-        ShowAll("SECONDARY SELECTED | Follow the passenger to the controlled room, then perform the additional check at intake.", 8.0)
+        SetBoard(SecondaryBoard, "SECONDARY\nPASSENGER + BAG IN TRANSIT")
+        ShowAll("SECONDARY SELECTED | Follow the passenger and linked bag to the controlled room, then perform the additional check at intake.", 8.0)
         TerminalLog(DebugEnabled, "[SECONDARY] Routed|CaseId={CurrentCaseId}|Template={CurrentTemplate}")
         spawn{MovePassengerToSecondary(CurrentCaseId, RunGeneration)}
+        if (Shift >= 2):
+            set BagGeneration += 1
+            spawn{MoveActiveBagToSecondary(CurrentCaseId, RunGeneration, BagGeneration, ActiveBagIndex)}
+        else:
+            set SecondaryBagReady = true
 
     OnDetainButton(Agent:agent):void=
         if (Phase = terminal_game_phase.Runner):
@@ -1438,7 +1491,7 @@ terminal_lockdown_controller := class(creative_device):
             ShowAgent(Agent, "SUSPECT IN TRANSIT | Wait for detention intake to report ready.", 4.0)
             TerminalLog(DebugEnabled, "[CUSTODY] Premature intake rejected for CaseId={CurrentCaseId}")
             return
-        if (not IsAgentNear(Agent, vector3{X := 5000.0, Y := 1450.0, Z := 70.0}, CustodyProximityRadius)?):
+        if (not IsAgentNear(Agent, CustodyButton.GetTransform().Translation, CustodyProximityRadius)?):
             ShowAgent(Agent, "TOO FAR FROM INTAKE | Escort the secured suspect to the jail gate.", 5.0)
             TerminalLog(DebugEnabled, "[CUSTODY] Remote intake rejected for CaseId={CurrentCaseId}")
             return
@@ -1470,7 +1523,10 @@ terminal_lockdown_controller := class(creative_device):
         if (not SecondaryPassengerReady?):
             ShowAgent(Agent, "SECONDARY PASSENGER IN TRANSIT | Wait for the room status to turn ready.", 4.0)
             return
-        if (not IsAgentNear(Agent, vector3{X := 5000.0, Y := 1450.0, Z := 70.0}, 750.0)?):
+        if (Shift >= 2, not SecondaryBagReady?):
+            ShowAgent(Agent, "SECONDARY BAG IN TRANSIT | Wait for the linked bag at the inspection table.", 4.0)
+            return
+        if (not IsAgentNear(Agent, CustodyButton.GetTransform().Translation, 750.0)?):
             ShowAgent(Agent, "SECONDARY CHECK OUT OF RANGE | Enter the controlled screening room.", 5.0)
             return
         if (SecondaryChecked?):
@@ -1481,6 +1537,7 @@ terminal_lockdown_controller := class(creative_device):
             return
         set SecondaryChecked = true
         set SecondaryPassengerReady = false
+        set SecondaryBagReady = false
         set CurrentCustodyMode = 0
         if (TeamCash >= 25):
             set TeamCash -= 25
@@ -1501,8 +1558,8 @@ terminal_lockdown_controller := class(creative_device):
         var EscapeReached:logic = false
         if (Shift = 4):
             RouteA := MoveActivePassengerChecked(
-                vector3{X := 5200.0, Y := 900.0, Z := 70.0},
-                vector3{X := 4200.0, Y := 720.0, Z := 70.0},
+                RunnerRouteAPosition(),
+                SecurePadPosition(),
                 4.0,
                 ExpectedCaseId,
                 ExpectedRun,
@@ -1511,8 +1568,8 @@ terminal_lockdown_controller := class(creative_device):
             if (ExpectedCaseId <> CurrentCaseId or ExpectedRun <> RunGeneration or Phase <> terminal_game_phase.Runner):
                 return
             ExitA := MoveActivePassengerChecked(
-                vector3{X := 7000.0, Y := 1600.0, Z := 70.0},
-                vector3{X := 5200.0, Y := 900.0, Z := 70.0},
+                RunnerExitAPosition(),
+                RunnerRouteAPosition(),
                 6.0,
                 ExpectedCaseId,
                 ExpectedRun,
@@ -1522,8 +1579,8 @@ terminal_lockdown_controller := class(creative_device):
                 set EscapeReached = true
         else:
             RouteB := MoveActivePassengerChecked(
-                vector3{X := 5150.0, Y := -850.0, Z := 70.0},
-                vector3{X := 4200.0, Y := -350.0, Z := 70.0},
+                RunnerRouteBPosition(),
+                OffsetPosition(DecisionPassengerPosition(), 300.0, -350.0, 0.0),
                 4.0,
                 ExpectedCaseId,
                 ExpectedRun,
@@ -1532,8 +1589,8 @@ terminal_lockdown_controller := class(creative_device):
             if (ExpectedCaseId <> CurrentCaseId or ExpectedRun <> RunGeneration or Phase <> terminal_game_phase.Runner):
                 return
             ExitB := MoveActivePassengerChecked(
-                vector3{X := 7000.0, Y := -1800.0, Z := 70.0},
-                vector3{X := 5150.0, Y := -850.0, Z := 70.0},
+                RunnerExitBPosition(),
+                RunnerRouteBPosition(),
                 6.0,
                 ExpectedCaseId,
                 ExpectedRun,
@@ -1561,8 +1618,8 @@ terminal_lockdown_controller := class(creative_device):
         set CurrentDestination = terminal_case_destination.Departure
         SyncActiveCase()
         MoveReached := MoveActivePassengerChecked(
-            vector3{X := 7000.0, Y := 1100.0, Z := 70.0},
-            vector3{X := 5200.0, Y := 900.0, Z := 70.0},
+            DeparturePosition(),
+            DepartureRetryPosition(),
             3.0,
             ExpectedCaseId,
             ExpectedRun,
@@ -1578,8 +1635,8 @@ terminal_lockdown_controller := class(creative_device):
         set CurrentDestination = terminal_case_destination.Detention
         SyncActiveCase()
         MoveReached := MoveActivePassengerChecked(
-            vector3{X := 5000.0, Y := 1450.0, Z := 70.0},
-            vector3{X := 4200.0, Y := 720.0, Z := 70.0},
+            IntakePosition(),
+            SecurePadPosition(),
             4.0,
             ExpectedCaseId,
             ExpectedRun,
@@ -1605,8 +1662,8 @@ terminal_lockdown_controller := class(creative_device):
         set CurrentDestination = terminal_case_destination.Detention
         SyncActiveCase()
         MoveReached := MoveActivePassengerChecked(
-            vector3{X := 4200.0, Y := 720.0, Z := 70.0},
-            vector3{X := 3900.0, Y := 0.0, Z := 70.0},
+            SecurePadPosition(),
+            DecisionPassengerPosition(),
             1.5,
             ExpectedCaseId,
             ExpectedRun,
@@ -1625,8 +1682,8 @@ terminal_lockdown_controller := class(creative_device):
         set CurrentDestination = terminal_case_destination.Secondary
         SyncActiveCase()
         MoveReached := MoveActivePassengerChecked(
-            vector3{X := 5400.0, Y := 2600.0, Z := 70.0},
-            vector3{X := 5000.0, Y := 1450.0, Z := 70.0},
+            SecondaryPassengerPosition(),
+            IntakePosition(),
             4.0,
             ExpectedCaseId,
             ExpectedRun,
@@ -1635,7 +1692,10 @@ terminal_lockdown_controller := class(creative_device):
         if (ExpectedCaseId = CurrentCaseId and ExpectedRun = RunGeneration and Phase = terminal_game_phase.SecondaryScreening and CurrentCustodyMode = 4):
             if (MoveReached?):
                 set SecondaryPassengerReady = true
-                SetBoard(SecondaryBoard, "SECONDARY READY\nPERFORM ADDITIONAL CHECK")
+                if (Shift < 2 or SecondaryBagReady?):
+                    SetBoard(SecondaryBoard, "SECONDARY READY\nPASSENGER + BAG PRESENT")
+                else:
+                    SetBoard(SecondaryBoard, "SECONDARY\nPASSENGER READY | BAG IN TRANSIT")
                 SetBoard(CaseBoard, "CASE {CurrentCaseId} | PASSENGER IN SECONDARY ROOM")
             else:
                 set CurrentCustodyMode = 0
@@ -1646,12 +1706,58 @@ terminal_lockdown_controller := class(creative_device):
                 ShowAll("SECONDARY ROUTE RESET | Return to the decision desk and choose a final action.", 7.0)
             SyncActiveCase()
 
+    MoveActiveBagToSecondary(ExpectedCaseId:int, ExpectedRun:int, ExpectedBagGeneration:int, BagIndex:int)<suspends>:void=
+        var BagReached:logic = false
+        if (BagIndex = 0):
+            set BagReached = MovePropChecked(
+                BagPropSmall,
+                SecondaryBagPosition(),
+                BagExitPosition(),
+                2.0,
+                ExpectedCaseId,
+                ExpectedRun,
+                ExpectedBagGeneration,
+                "secondary-bag-small"
+            )
+        else if (BagIndex = 1):
+            set BagReached = MovePropChecked(
+                BagPropMedium,
+                SecondaryBagPosition(),
+                BagExitPosition(),
+                2.0,
+                ExpectedCaseId,
+                ExpectedRun,
+                ExpectedBagGeneration,
+                "secondary-bag-medium"
+            )
+        else:
+            set BagReached = MovePropChecked(
+                BagPropHardShell,
+                SecondaryBagPosition(),
+                BagExitPosition(),
+                2.0,
+                ExpectedCaseId,
+                ExpectedRun,
+                ExpectedBagGeneration,
+                "secondary-bag-hard-shell"
+            )
+        if (ExpectedCaseId <> CurrentCaseId or ExpectedRun <> RunGeneration or ExpectedBagGeneration <> BagGeneration or Phase <> terminal_game_phase.SecondaryScreening):
+            return
+        if (BagReached?):
+            set SecondaryBagReady = true
+            SetBoard(BagBoard, "LINKED BAG {CurrentCaseId} | SECONDARY TABLE READY")
+            if (SecondaryPassengerReady?):
+                SetBoard(SecondaryBoard, "SECONDARY READY\nPASSENGER + BAG PRESENT")
+        else:
+            SetBoard(BagBoard, "LINKED BAG {CurrentCaseId} | SECONDARY ROUTE FAULT")
+            ShowAll("SECONDARY BAG ROUTE RESET | Retry the case decision or use the final action controls.", 6.0)
+
     MovePassengerToResponse(ExpectedCaseId:int, ExpectedRun:int)<suspends>:void=
         set CurrentDestination = terminal_case_destination.Response
         SyncActiveCase()
         MoveReached := MoveActivePassengerChecked(
-            vector3{X := 5200.0, Y := -1900.0, Z := 70.0},
-            vector3{X := 5000.0, Y := -1200.0, Z := 70.0},
+            ResponsePassengerPosition(),
+            ResponsePassengerRetryPosition(),
             4.0,
             ExpectedCaseId,
             ExpectedRun,
@@ -1672,8 +1778,8 @@ terminal_lockdown_controller := class(creative_device):
         set CurrentDestination = terminal_case_destination.Cell
         SyncActiveCase()
         MoveReached := MoveActivePassengerChecked(
-            vector3{X := 5550.0, Y := 1450.0, Z := 70.0},
-            vector3{X := 5000.0, Y := 1450.0, Z := 70.0},
+            CellPosition(),
+            IntakePosition(),
             2.0,
             ExpectedCaseId,
             ExpectedRun,
@@ -1724,6 +1830,7 @@ terminal_lockdown_controller := class(creative_device):
         set DocumentsChecked = false
         set SecondaryChecked = false
         set SecondaryPassengerReady = false
+        set SecondaryBagReady = false
         set PassengerAtIntake = false
         set ResolutionCommitted = false
         set CustodyCommitted = false
@@ -1759,8 +1866,8 @@ terminal_lockdown_controller := class(creative_device):
         if (ActiveBagIndex = 0):
             StartReached := MovePropChecked(
                 BagPropSmall,
-                vector3{X := 1500.0, Y := -1325.0, Z := 175.0},
-                vector3{X := 1500.0, Y := -1600.0, Z := 175.0},
+                BagStagePosition(),
+                BagStageRetryPosition(),
                 0.1,
                 ExpectedCaseId,
                 ExpectedRun,
@@ -1772,8 +1879,8 @@ terminal_lockdown_controller := class(creative_device):
             BagPropSmall.Show()
             ArrivalReached := MovePropChecked(
                 BagPropSmall,
-                vector3{X := 2050.0, Y := -1325.0, Z := 175.0},
-                vector3{X := 1500.0, Y := -1325.0, Z := 175.0},
+                BagEntryPosition(),
+                BagStagePosition(),
                 1.5,
                 ExpectedCaseId,
                 ExpectedRun,
@@ -1785,8 +1892,8 @@ terminal_lockdown_controller := class(creative_device):
         else if (ActiveBagIndex = 1):
             StartReached := MovePropChecked(
                 BagPropMedium,
-                vector3{X := 1500.0, Y := -1325.0, Z := 175.0},
-                vector3{X := 1500.0, Y := -1600.0, Z := 175.0},
+                BagStagePosition(),
+                BagStageRetryPosition(),
                 0.1,
                 ExpectedCaseId,
                 ExpectedRun,
@@ -1798,8 +1905,8 @@ terminal_lockdown_controller := class(creative_device):
             BagPropMedium.Show()
             ArrivalReached := MovePropChecked(
                 BagPropMedium,
-                vector3{X := 2050.0, Y := -1325.0, Z := 175.0},
-                vector3{X := 1500.0, Y := -1325.0, Z := 175.0},
+                BagEntryPosition(),
+                BagStagePosition(),
                 1.5,
                 ExpectedCaseId,
                 ExpectedRun,
@@ -1811,8 +1918,8 @@ terminal_lockdown_controller := class(creative_device):
         else:
             StartReached := MovePropChecked(
                 BagPropHardShell,
-                vector3{X := 1500.0, Y := -1325.0, Z := 175.0},
-                vector3{X := 1500.0, Y := -1600.0, Z := 175.0},
+                BagStagePosition(),
+                BagStageRetryPosition(),
                 0.1,
                 ExpectedCaseId,
                 ExpectedRun,
@@ -1824,8 +1931,8 @@ terminal_lockdown_controller := class(creative_device):
             BagPropHardShell.Show()
             ArrivalReached := MovePropChecked(
                 BagPropHardShell,
-                vector3{X := 2050.0, Y := -1325.0, Z := 175.0},
-                vector3{X := 1500.0, Y := -1325.0, Z := 175.0},
+                BagEntryPosition(),
+                BagStagePosition(),
                 1.5,
                 ExpectedCaseId,
                 ExpectedRun,
@@ -1855,8 +1962,8 @@ terminal_lockdown_controller := class(creative_device):
         SyncActiveCase()
         PassengerActive.Hide()
         MoveResult0 := MoveActivePassengerChecked(
-            vector3{X := -650.0, Y := -2150.0, Z := 70.0},
-            vector3{X := -650.0, Y := -2450.0, Z := 70.0},
+            QueuePassengerStagePosition(),
+            OffsetPosition(QueuePassengerStagePosition(), 0.0, -300.0, 0.0),
             0.1,
             ExpectedCaseId,
             ExpectedRun,
@@ -1867,8 +1974,8 @@ terminal_lockdown_controller := class(creative_device):
             return
         PassengerActive.Show()
         MoveResult1 := MoveActivePassengerChecked(
-            vector3{X := -100.0, Y := -2150.0, Z := 70.0},
-            vector3{X := -650.0, Y := -2150.0, Z := 70.0},
+            OffsetPosition(QueuePassengerStagePosition(), 550.0, 0.0, 0.0),
+            QueuePassengerStagePosition(),
             1.0,
             ExpectedCaseId,
             ExpectedRun,
@@ -1877,8 +1984,8 @@ terminal_lockdown_controller := class(creative_device):
         if (not MoveResult1? or ExpectedCaseId <> CurrentCaseId or ExpectedRun <> RunGeneration):
             return
         MoveResult2 := MoveActivePassengerChecked(
-            vector3{X := 450.0, Y := -1900.0, Z := 70.0},
-            vector3{X := -100.0, Y := -2150.0, Z := 70.0},
+            OffsetPosition(ScannerEntryPosition(), -250.0, -600.0, 0.0),
+            OffsetPosition(QueuePassengerStagePosition(), 550.0, 0.0, 0.0),
             1.0,
             ExpectedCaseId,
             ExpectedRun,
@@ -1887,8 +1994,8 @@ terminal_lockdown_controller := class(creative_device):
         if (not MoveResult2? or ExpectedCaseId <> CurrentCaseId or ExpectedRun <> RunGeneration):
             return
         MoveResult3 := MoveActivePassengerChecked(
-            vector3{X := 900.0, Y := -1300.0, Z := 70.0},
-            vector3{X := 450.0, Y := -1900.0, Z := 70.0},
+            ScannerEntryPosition(),
+            OffsetPosition(ScannerEntryPosition(), -250.0, -600.0, 0.0),
             1.0,
             ExpectedCaseId,
             ExpectedRun,
@@ -1903,8 +2010,8 @@ terminal_lockdown_controller := class(creative_device):
         set CurrentDestination = terminal_case_destination.Decision
         SyncActiveCase()
         MoveResult := MoveActivePassengerChecked(
-            vector3{X := 3900.0, Y := 0.0, Z := 70.0},
-            vector3{X := 3250.0, Y := -650.0, Z := 70.0},
+            DecisionPassengerPosition(),
+            DocumentPassengerPosition(),
             3.0,
             ExpectedCaseId,
             ExpectedRun,
@@ -1920,8 +2027,8 @@ terminal_lockdown_controller := class(creative_device):
         set CurrentDestination = terminal_case_destination.Baggage
         SyncActiveCase()
         MoveResult := MoveActivePassengerChecked(
-            vector3{X := 2700.0, Y := -650.0, Z := 70.0},
-            vector3{X := 2050.0, Y := -1100.0, Z := 70.0},
+            BaggagePassengerPosition(),
+            BaggagePassengerRetryPosition(),
             2.0,
             ExpectedCaseId,
             ExpectedRun,
@@ -1938,8 +2045,8 @@ terminal_lockdown_controller := class(creative_device):
         set CurrentDestination = terminal_case_destination.Documents
         SyncActiveCase()
         MoveResult := MoveActivePassengerChecked(
-            vector3{X := 3250.0, Y := -650.0, Z := 70.0},
-            vector3{X := 2700.0, Y := -650.0, Z := 70.0},
+            DocumentPassengerPosition(),
+            BaggagePassengerPosition(),
             1.5,
             ExpectedCaseId,
             ExpectedRun,
@@ -1960,8 +2067,8 @@ terminal_lockdown_controller := class(creative_device):
         PassengerQueue3.Hide()
         Move1 := MoveCharacterChecked(
             PassengerQueue1,
-            vector3{X := -1200.0, Y := -2150.0, Z := 70.0},
-            vector3{X := -1200.0, Y := -2450.0, Z := 70.0},
+            QueueFrontMarker,
+            OffsetPosition(QueueFrontMarker, 0.0, -300.0, 0.0),
             0.1,
             CurrentCaseId,
             ExpectedRun,
@@ -1969,8 +2076,8 @@ terminal_lockdown_controller := class(creative_device):
         )
         Move2 := MoveCharacterChecked(
             PassengerQueue2,
-            vector3{X := -1700.0, Y := -2150.0, Z := 70.0},
-            vector3{X := -1700.0, Y := -2450.0, Z := 70.0},
+            QueueMiddleMarker,
+            OffsetPosition(QueueMiddleMarker, 0.0, -300.0, 0.0),
             0.1,
             CurrentCaseId,
             ExpectedRun,
@@ -1978,8 +2085,8 @@ terminal_lockdown_controller := class(creative_device):
         )
         Move3 := MoveCharacterChecked(
             PassengerQueue3,
-            vector3{X := -2200.0, Y := -2150.0, Z := 70.0},
-            vector3{X := -2200.0, Y := -2450.0, Z := 70.0},
+            QueueRearMarker,
+            QueueRecyclePosition(),
             0.1,
             CurrentCaseId,
             ExpectedRun,
@@ -2009,8 +2116,8 @@ terminal_lockdown_controller := class(creative_device):
         if (QueueFrontIndex = 0):
             FrontMove := MoveCharacterChecked(
                 PassengerQueue1,
-                vector3{X := -800.0, Y := -2150.0, Z := 70.0},
-                vector3{X := -1200.0, Y := -2150.0, Z := 70.0},
+                QueueAdvancePosition(),
+                QueueFrontMarker,
                 0.6,
                 ExpectedCaseId,
                 ExpectedRun,
@@ -2018,8 +2125,8 @@ terminal_lockdown_controller := class(creative_device):
             )
             MidMove := MoveCharacterChecked(
                 PassengerQueue2,
-                vector3{X := -1200.0, Y := -2150.0, Z := 70.0},
-                vector3{X := -1700.0, Y := -2150.0, Z := 70.0},
+                QueueFrontMarker,
+                QueueMiddleMarker,
                 0.7,
                 ExpectedCaseId,
                 ExpectedRun,
@@ -2027,8 +2134,8 @@ terminal_lockdown_controller := class(creative_device):
             )
             RearMove := MoveCharacterChecked(
                 PassengerQueue3,
-                vector3{X := -1700.0, Y := -2150.0, Z := 70.0},
-                vector3{X := -2200.0, Y := -2150.0, Z := 70.0},
+                QueueMiddleMarker,
+                QueueRearMarker,
                 0.7,
                 ExpectedCaseId,
                 ExpectedRun,
@@ -2037,8 +2144,8 @@ terminal_lockdown_controller := class(creative_device):
             PassengerQueue1.Hide()
             Recycle := MoveCharacterChecked(
                 PassengerQueue1,
-                vector3{X := -2200.0, Y := -2150.0, Z := 70.0},
-                vector3{X := -2200.0, Y := -2450.0, Z := 70.0},
+                QueueRearMarker,
+                QueueRecyclePosition(),
                 0.1,
                 ExpectedCaseId,
                 ExpectedRun,
@@ -2050,8 +2157,8 @@ terminal_lockdown_controller := class(creative_device):
         else if (QueueFrontIndex = 1):
             FrontMove := MoveCharacterChecked(
                 PassengerQueue2,
-                vector3{X := -800.0, Y := -2150.0, Z := 70.0},
-                vector3{X := -1200.0, Y := -2150.0, Z := 70.0},
+                QueueAdvancePosition(),
+                QueueFrontMarker,
                 0.6,
                 ExpectedCaseId,
                 ExpectedRun,
@@ -2059,8 +2166,8 @@ terminal_lockdown_controller := class(creative_device):
             )
             MidMove := MoveCharacterChecked(
                 PassengerQueue3,
-                vector3{X := -1200.0, Y := -2150.0, Z := 70.0},
-                vector3{X := -1700.0, Y := -2150.0, Z := 70.0},
+                QueueFrontMarker,
+                QueueMiddleMarker,
                 0.7,
                 ExpectedCaseId,
                 ExpectedRun,
@@ -2068,8 +2175,8 @@ terminal_lockdown_controller := class(creative_device):
             )
             RearMove := MoveCharacterChecked(
                 PassengerQueue1,
-                vector3{X := -1700.0, Y := -2150.0, Z := 70.0},
-                vector3{X := -2200.0, Y := -2150.0, Z := 70.0},
+                QueueMiddleMarker,
+                QueueRearMarker,
                 0.7,
                 ExpectedCaseId,
                 ExpectedRun,
@@ -2078,8 +2185,8 @@ terminal_lockdown_controller := class(creative_device):
             PassengerQueue2.Hide()
             Recycle := MoveCharacterChecked(
                 PassengerQueue2,
-                vector3{X := -2200.0, Y := -2150.0, Z := 70.0},
-                vector3{X := -2200.0, Y := -2450.0, Z := 70.0},
+                QueueRearMarker,
+                QueueRecyclePosition(),
                 0.1,
                 ExpectedCaseId,
                 ExpectedRun,
@@ -2091,8 +2198,8 @@ terminal_lockdown_controller := class(creative_device):
         else:
             FrontMove := MoveCharacterChecked(
                 PassengerQueue3,
-                vector3{X := -800.0, Y := -2150.0, Z := 70.0},
-                vector3{X := -1200.0, Y := -2150.0, Z := 70.0},
+                QueueAdvancePosition(),
+                QueueFrontMarker,
                 0.6,
                 ExpectedCaseId,
                 ExpectedRun,
@@ -2100,8 +2207,8 @@ terminal_lockdown_controller := class(creative_device):
             )
             MidMove := MoveCharacterChecked(
                 PassengerQueue1,
-                vector3{X := -1200.0, Y := -2150.0, Z := 70.0},
-                vector3{X := -1700.0, Y := -2150.0, Z := 70.0},
+                QueueFrontMarker,
+                QueueMiddleMarker,
                 0.7,
                 ExpectedCaseId,
                 ExpectedRun,
@@ -2109,8 +2216,8 @@ terminal_lockdown_controller := class(creative_device):
             )
             RearMove := MoveCharacterChecked(
                 PassengerQueue2,
-                vector3{X := -1700.0, Y := -2150.0, Z := 70.0},
-                vector3{X := -2200.0, Y := -2150.0, Z := 70.0},
+                QueueMiddleMarker,
+                QueueRearMarker,
                 0.7,
                 ExpectedCaseId,
                 ExpectedRun,
@@ -2119,8 +2226,8 @@ terminal_lockdown_controller := class(creative_device):
             PassengerQueue3.Hide()
             Recycle := MoveCharacterChecked(
                 PassengerQueue3,
-                vector3{X := -2200.0, Y := -2150.0, Z := 70.0},
-                vector3{X := -2200.0, Y := -2450.0, Z := 70.0},
+                QueueRearMarker,
+                QueueRecyclePosition(),
                 0.1,
                 ExpectedCaseId,
                 ExpectedRun,
@@ -2151,6 +2258,7 @@ terminal_lockdown_controller := class(creative_device):
         set ScanInProgress = false
         set BagScanInProgress = false
         set SecondaryPassengerReady = false
+        set SecondaryBagReady = false
         set PassengerAtIntake = false
         set UpgradeBreakResolved = false
         set PowerRepairStage = 0
@@ -2350,8 +2458,11 @@ terminal_lockdown_controller := class(creative_device):
         set ScanInProgress = false
         set BagScanInProgress = false
         set SecondaryPassengerReady = false
+        set SecondaryBagReady = false
         set PassengerAtIntake = false
         PassengerActive.Hide()
+        set BagGeneration += 1
+        HideAllBags()
         CustodyButton.Disable()
         SyncActiveCase()
         set EmergencyGeneration += 1
@@ -2365,6 +2476,7 @@ terminal_lockdown_controller := class(creative_device):
             set PowerRepairCommitted = false
             set ScannerGeneration += 1
             ScanButton.Disable()
+            MovePowerControl(PowerStage1Position(), "main-breaker")
             PowerButton.Enable()
             PowerButton.SetInteractionText(TerminalMessage("STEP 1 | RESET MAIN BREAKER"))
             ResponseAlarm.Enable()
@@ -2396,7 +2508,7 @@ terminal_lockdown_controller := class(creative_device):
 
     OnPowerButton(Agent:agent):void=
         if (Phase = terminal_game_phase.BossJammer):
-            if (not IsAgentNear(Agent, vector3{X := 3950.0, Y := -3200.0, Z := 70.0}, 750.0)?):
+            if (not IsAgentNear(Agent, PowerButton.GetTransform().Translation, 750.0)?):
                 ShowAgent(Agent, "JAMMER CONSOLE OUT OF RANGE | Enter the power room.", 5.0)
                 return
             set Phase = terminal_game_phase.BossBreach
@@ -2413,26 +2525,28 @@ terminal_lockdown_controller := class(creative_device):
             return
         if (not IsHumanAgent(Agent)?):
             return
-        if (not IsAgentNear(Agent, vector3{X := 3950.0, Y := -3200.0, Z := 70.0}, 750.0)?):
+        if (not IsAgentNear(Agent, PowerButton.GetTransform().Translation, 750.0)?):
             ShowAgent(Agent, "POWER CONSOLE OUT OF RANGE | Enter the utility room.", 5.0)
             return
         if (PowerRepairCommitted?):
             return
         if (PowerRepairStage = 0):
             set PowerRepairStage = 1
+            MovePowerControl(PowerStage2Position(), "backup-bus")
             PowerButton.SetInteractionText(TerminalMessage("STEP 2 | REROUTE BACKUP BUS"))
             SetBoard(PowerBoard, "POWER OFFLINE | REPAIR 1/3 | BREAKER RESET")
-            SetBoard(ResponseLoadoutBoard, "BACKUP LIGHTING ACTIVE\nBREAKER RESET\nREPAIR 1/3")
-            ShowAll("POWER REPAIR 1/3 | Main breaker reset. Reroute the backup bus.", 5.0)
+            SetBoard(ResponseLoadoutBoard, "BACKUP LIGHTING ACTIVE\nBREAKER RESET\nMOVE TO EAST CABINET | REPAIR 1/3")
+            ShowAll("POWER REPAIR 1/3 | Main breaker reset. Move to the east cabinet and reroute the backup bus.", 6.0)
             BagScanAudio.Play()
             TerminalLog(DebugEnabled, "[EMERGENCY] Power repair stage 1|Shift={Shift}")
             return
         if (PowerRepairStage = 1):
             set PowerRepairStage = 2
+            MovePowerControl(PowerStage3Position(), "checkpoint-restart")
             PowerButton.SetInteractionText(TerminalMessage("STEP 3 | RESTART CHECKPOINT"))
             SetBoard(PowerBoard, "POWER OFFLINE | REPAIR 2/3 | BACKUP BUS ROUTED")
-            SetBoard(ResponseLoadoutBoard, "BACKUP LIGHTING ACTIVE\nBUS REROUTED\nREPAIR 2/3")
-            ShowAll("POWER REPAIR 2/3 | Backup bus routed. Restart checkpoint systems.", 5.0)
+            SetBoard(ResponseLoadoutBoard, "BACKUP LIGHTING ACTIVE\nBUS REROUTED\nMOVE TO WEST CABINET | REPAIR 2/3")
+            ShowAll("POWER REPAIR 2/3 | Backup bus routed. Move to the west cabinet and restart checkpoint systems.", 6.0)
             ScannerStartAudio.Play()
             TerminalLog(DebugEnabled, "[EMERGENCY] Power repair stage 2|Shift={Shift}")
             return
@@ -2451,6 +2565,7 @@ terminal_lockdown_controller := class(creative_device):
     RestoreNormalPower():void=
         set PowerOnline = true
         ScanButton.Enable()
+        MovePowerControl(PowerStage1Position(), "standby")
         PowerButton.Disable()
         PowerButton.SetInteractionText(TerminalMessage("RESTORE TERMINAL POWER"))
         ResponseAlarm.Stop()
@@ -2488,8 +2603,8 @@ terminal_lockdown_controller := class(creative_device):
         set CurrentDestination = terminal_case_destination.Response
         SyncActiveCase()
         Arrival := MoveActivePassengerChecked(
-            vector3{X := 5200.0, Y := -1900.0, Z := 70.0},
-            vector3{X := 5000.0, Y := -1200.0, Z := 70.0},
+            ResponsePassengerPosition(),
+            ResponsePassengerRetryPosition(),
             3.0,
             ExpectedCaseId,
             ExpectedRun,
@@ -2503,8 +2618,8 @@ terminal_lockdown_controller := class(creative_device):
         SetBoard(EmergencyBoard, "ACTIVE THREAT | CONTAINED IN RESPONSE ROOM")
         loop:
             PatrolA := MoveActivePassengerChecked(
-                vector3{X := 5750.0, Y := -1900.0, Z := 70.0},
-                vector3{X := 5200.0, Y := -1900.0, Z := 70.0},
+                ResponsePatrolAPosition(),
+                ResponsePassengerPosition(),
                 2.2,
                 ExpectedCaseId,
                 ExpectedRun,
@@ -2515,8 +2630,8 @@ terminal_lockdown_controller := class(creative_device):
             if (not PatrolA?):
                 return
             PatrolB := MoveActivePassengerChecked(
-                vector3{X := 5750.0, Y := -2550.0, Z := 70.0},
-                vector3{X := 5750.0, Y := -1900.0, Z := 70.0},
+                ResponsePatrolBPosition(),
+                ResponsePatrolAPosition(),
                 2.2,
                 ExpectedCaseId,
                 ExpectedRun,
@@ -2527,8 +2642,8 @@ terminal_lockdown_controller := class(creative_device):
             if (not PatrolB?):
                 return
             PatrolC := MoveActivePassengerChecked(
-                vector3{X := 5200.0, Y := -2450.0, Z := 70.0},
-                vector3{X := 5750.0, Y := -2550.0, Z := 70.0},
+                ResponsePatrolCPosition(),
+                ResponsePatrolBPosition(),
                 2.2,
                 ExpectedCaseId,
                 ExpectedRun,
@@ -2581,7 +2696,7 @@ terminal_lockdown_controller := class(creative_device):
             return
         if (Phase <> terminal_game_phase.HostileResponse):
             return
-        if (not IsAgentNear(Agent, vector3{X := 5525.0, Y := -2200.0, Z := 70.0}, ResponseProximityRadius)?):
+        if (not IsAgentNear(Agent, ResponseCenterPosition(), ResponseProximityRadius)?):
             ShowAgent(Agent, "REMOTE OUT OF RANGE | Enter the contained response room.", 5.0)
             TerminalLog(DebugEnabled, "[RESPONSE] Out-of-range remote signal rejected for CaseId={CurrentCaseId}")
             return
@@ -2625,7 +2740,7 @@ terminal_lockdown_controller := class(creative_device):
             ShowAgent(Agent, "FINAL THREAT | Disable the jammer at the power-room console first.", 5.0)
             return
         if (Phase = terminal_game_phase.BossBreach):
-            if (not IsAgentNear(Agent, vector3{X := 5570.0, Y := -2290.0, Z := 70.0}, ResponseProximityRadius)?):
+            if (not IsAgentNear(Agent, ResponseButton.GetTransform().Translation, ResponseProximityRadius)?):
                 ShowAgent(Agent, "BREACH CONTROL OUT OF RANGE | Reach the secured response station.", 5.0)
                 return
             set Phase = terminal_game_phase.BossVulnerable
@@ -2645,7 +2760,7 @@ terminal_lockdown_controller := class(creative_device):
             ShowAgent(Agent, "FINAL THREAT SECURED | Complete custody at detention intake.", 5.0)
             return
         if (Phase = terminal_game_phase.HostileResponse):
-            if (not IsAgentNear(Agent, vector3{X := 5570.0, Y := -2290.0, Z := 70.0}, ResponseProximityRadius)?):
+            if (not IsAgentNear(Agent, ResponseButton.GetTransform().Translation, ResponseProximityRadius)?):
                 ShowAgent(Agent, "TOO FAR FROM RESPONSE ZONE | Reach the secured supply station.", 5.0)
                 TerminalLog(DebugEnabled, "[RESPONSE] Remote resistant response rejected for CaseId={CurrentCaseId}")
                 return
@@ -2677,6 +2792,7 @@ terminal_lockdown_controller := class(creative_device):
         CleanupResponseEquipment()
         CurrentBossGeneration := ResponseGeneration
         ResponseButton.Disable()
+        MovePowerControl(PowerStage1Position(), "boss-jammer")
         PowerButton.SetInteractionText(TerminalMessage("DISABLE BREACH JAMMER"))
         PowerButton.Enable()
         CustodyButton.Disable()
@@ -2726,7 +2842,7 @@ terminal_lockdown_controller := class(creative_device):
     CompleteBossCustody(Agent:agent):void=
         if (Phase <> terminal_game_phase.BossSecure or CurrentCustodyMode <> 6):
             return
-        if (not IsAgentNear(Agent, vector3{X := 5000.0, Y := 1450.0, Z := 70.0}, CustodyProximityRadius)?):
+        if (not IsAgentNear(Agent, CustodyButton.GetTransform().Translation, CustodyProximityRadius)?):
             ShowAgent(Agent, "FINAL CUSTODY OUT OF RANGE | Meet the suspect at detention intake.", 5.0)
             return
         if (CustodyCommitted?):
@@ -2742,8 +2858,8 @@ terminal_lockdown_controller := class(creative_device):
         set CurrentDestination = terminal_case_destination.Cell
         SyncActiveCase()
         MoveResult := MoveActivePassengerChecked(
-            vector3{X := 5550.0, Y := 1450.0, Z := 70.0},
-            vector3{X := 5000.0, Y := 1450.0, Z := 70.0},
+            CellPosition(),
+            IntakePosition(),
             2.0,
             ExpectedCaseId,
             ExpectedRun,
@@ -2770,6 +2886,8 @@ terminal_lockdown_controller := class(creative_device):
         set CurrentDestination = terminal_case_destination.None
         set TeamCash += 500
         PassengerActive.Hide()
+        set BagGeneration += 1
+        HideAllBags()
         JailOccupant.Hide()
         SyncActiveCase()
         SetBoard(CheckpointBoard, "TERMINAL SECURED | RESULTS")
@@ -2793,6 +2911,8 @@ terminal_lockdown_controller := class(creative_device):
         set CurrentDestination = terminal_case_destination.None
         set EmergencyGeneration += 1
         PassengerActive.Hide()
+        set BagGeneration += 1
+        HideAllBags()
         JailOccupant.Hide()
         RestoreNormalPower()
         SyncActiveCase()
@@ -2838,9 +2958,11 @@ terminal_lockdown_controller := class(creative_device):
         set QueueFrontIndex = 0
         set QueueGeneration += 1
         set ScannerGeneration += 1
+        set BagGeneration += 1
         set CurrentDestination = terminal_case_destination.Queue
         SyncActiveCase()
         PassengerActive.Hide()
+        HideAllBags()
         JailOccupant.Hide()
         spawn{ResetPassengerQueue(RunGeneration)}
         CustodyButton.Disable()
@@ -2896,6 +3018,133 @@ terminal_lockdown_controller := class(creative_device):
         if (ExpectedCaseId = ActiveCase.CaseId and ExpectedRun = ActiveCase.RunGeneration):
             return true
         false
+
+    # Route positions are derived from already-wired, transform-bearing world
+    # devices instead of embedding absolute map coordinates in production
+    # movement. Queue markers are captured before any Character device moves;
+    # the remaining stations follow their physical control or status device.
+    CaptureRouteMarkers():void=
+        AuthoredQueueFront := PassengerQueue1.GetTransform().Translation
+        set QueueFrontMarker = OffsetPosition(AuthoredQueueFront, -650.0, 0.0, 0.0)
+        set QueueMiddleMarker = OffsetPosition(QueueFrontMarker, -500.0, 0.0, 0.0)
+        set QueueRearMarker = OffsetPosition(QueueMiddleMarker, -500.0, 0.0, 0.0)
+        PowerTransform := PowerButton.GetTransform()
+        set PowerHomePosition = PowerTransform.Translation
+        set PowerHomeRotation = PowerTransform.Rotation
+
+    OffsetPosition(Base:vector3, XOffset:float, YOffset:float, ZOffset:float)<computes>:vector3=
+        vector3{X := Base.X + XOffset, Y := Base.Y + YOffset, Z := Base.Z + ZOffset}
+
+    QueueAdvancePosition()<transacts>:vector3=
+        OffsetPosition(QueueFrontMarker, 400.0, 0.0, 0.0)
+
+    QueueRecyclePosition()<transacts>:vector3=
+        OffsetPosition(QueueRearMarker, 0.0, -300.0, 0.0)
+
+    QueuePassengerStagePosition()<transacts>:vector3=
+        OffsetPosition(QueueFrontMarker, 550.0, 0.0, 0.0)
+
+    ScannerEntryPosition()<transacts>:vector3=
+        OffsetPosition(CheckpointBoard.GetTransform().Translation, -300.0, 0.0, -1050.0)
+
+    ScannerCenterPosition()<transacts>:vector3=
+        OffsetPosition(CheckpointBoard.GetTransform().Translation, 120.0, 0.0, -1050.0)
+
+    ScannerExitPosition()<transacts>:vector3=
+        OffsetPosition(CheckpointBoard.GetTransform().Translation, 500.0, 0.0, -1050.0)
+
+    BagStagePosition()<transacts>:vector3=
+        OffsetPosition(BagButton.GetTransform().Translation, -700.0, -25.0, -165.0)
+
+    BagStageRetryPosition()<transacts>:vector3=
+        OffsetPosition(BagButton.GetTransform().Translation, -700.0, -300.0, -165.0)
+
+    BagEntryPosition()<transacts>:vector3=
+        OffsetPosition(BagButton.GetTransform().Translation, -150.0, -25.0, -165.0)
+
+    BagXRayPosition()<transacts>:vector3=
+        OffsetPosition(BagButton.GetTransform().Translation, 325.0, -25.0, -165.0)
+
+    BagExitPosition()<transacts>:vector3=
+        OffsetPosition(BagButton.GetTransform().Translation, 850.0, -25.0, -165.0)
+
+    BaggagePassengerPosition()<transacts>:vector3=
+        OffsetPosition(BagButton.GetTransform().Translation, 500.0, 650.0, -270.0)
+
+    BaggagePassengerRetryPosition()<transacts>:vector3=
+        OffsetPosition(BagButton.GetTransform().Translation, -150.0, 200.0, -270.0)
+
+    DocumentPassengerPosition()<transacts>:vector3=
+        OffsetPosition(DocumentButton.GetTransform().Translation, 0.0, -650.0, -310.0)
+
+    DecisionPassengerPosition()<transacts>:vector3=
+        OffsetPosition(SecondaryButton.GetTransform().Translation, -450.0, 0.0, -310.0)
+
+    SecurePadPosition()<transacts>:vector3=
+        OffsetPosition(DetainButton.GetTransform().Translation, -150.0, 0.0, -310.0)
+
+    DeparturePosition()<transacts>:vector3=
+        OffsetPosition(CustodyButton.GetTransform().Translation, 2000.0, -350.0, -110.0)
+
+    DepartureRetryPosition()<transacts>:vector3=
+        OffsetPosition(CustodyButton.GetTransform().Translation, 200.0, -550.0, -110.0)
+
+    IntakePosition()<transacts>:vector3=
+        OffsetPosition(CustodyButton.GetTransform().Translation, 0.0, 0.0, -110.0)
+
+    CellPosition()<transacts>:vector3=
+        OffsetPosition(CustodyButton.GetTransform().Translation, 550.0, 0.0, -110.0)
+
+    SecondaryPassengerPosition()<transacts>:vector3=
+        OffsetPosition(CustodyButton.GetTransform().Translation, 400.0, 650.0, -110.0)
+
+    SecondaryBagPosition()<transacts>:vector3=
+        OffsetPosition(CustodyButton.GetTransform().Translation, -280.0, 330.0, -5.0)
+
+    ResponsePassengerPosition()<transacts>:vector3=
+        OffsetPosition(ResponseButton.GetTransform().Translation, -450.0, 1100.0, -350.0)
+
+    ResponsePassengerRetryPosition()<transacts>:vector3=
+        OffsetPosition(ResponseButton.GetTransform().Translation, -650.0, 1800.0, -350.0)
+
+    ResponseCenterPosition()<transacts>:vector3=
+        OffsetPosition(ResponseButton.GetTransform().Translation, -125.0, 800.0, -350.0)
+
+    ResponsePatrolAPosition()<transacts>:vector3=
+        OffsetPosition(ResponseButton.GetTransform().Translation, 100.0, 1100.0, -350.0)
+
+    ResponsePatrolBPosition()<transacts>:vector3=
+        OffsetPosition(ResponseButton.GetTransform().Translation, 100.0, 450.0, -350.0)
+
+    ResponsePatrolCPosition()<transacts>:vector3=
+        OffsetPosition(ResponseButton.GetTransform().Translation, -450.0, 550.0, -350.0)
+
+    RunnerRouteAPosition()<transacts>:vector3=
+        DepartureRetryPosition()
+
+    RunnerExitAPosition()<transacts>:vector3=
+        OffsetPosition(CustodyButton.GetTransform().Translation, 2000.0, 150.0, -110.0)
+
+    RunnerRouteBPosition()<transacts>:vector3=
+        OffsetPosition(ResponseButton.GetTransform().Translation, -500.0, 2150.0, -350.0)
+
+    RunnerExitBPosition()<transacts>:vector3=
+        OffsetPosition(ResponseButton.GetTransform().Translation, 1350.0, 1200.0, -350.0)
+
+    PowerStage1Position()<transacts>:vector3=
+        PowerHomePosition
+
+    PowerStage2Position()<transacts>:vector3=
+        OffsetPosition(PowerHomePosition, 430.0, -270.0, 0.0)
+
+    PowerStage3Position()<transacts>:vector3=
+        OffsetPosition(PowerHomePosition, -430.0, -270.0, 0.0)
+
+    MovePowerControl(Target:vector3, Label:string):void=
+        if (PowerButton.TeleportTo[Target, PowerHomeRotation]):
+            TerminalLog(DebugEnabled, "[POWER] Control moved|Stage={Label}")
+        else:
+            TerminalLog(DebugEnabled, "[POWER] Control move failed|Stage={Label}")
 
     MoveActivePassengerChecked(
         Target:vector3,
