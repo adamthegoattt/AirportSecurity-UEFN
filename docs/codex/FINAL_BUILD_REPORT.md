@@ -134,3 +134,32 @@ the clean follow-up case. There were no final `[QA3 FAIL]` markers or Verse
 runtime errors. The shipping build was then compiled and activated with both QA
 flags false. No actors, devices, map geometry, or reference art changed in this
 reconciliation.
+
+## Production closure addendum - 2026-07-29 PDT
+
+The remaining strong-gate interaction gaps are closed. Shift completion now
+opens a real per-player upgrade panel with three materially different choices:
+faster staged scans, larger correct-decision payouts, or longer emergency
+timers. Selection is guarded to one resolution per break, with scaling cost,
+affordability feedback, maximum levels, and a no-purchase continue path.
+
+Shift 5 power loss now disables checkpoint scanning and requires three utility
+console actions while the alarm and red response lights remain active. Breaker
+reset, backup-bus reroute, and checkpoint restart each update the objective and
+world boards; completion restores equipment, stops the alert presentation, and
+commits the reward once. Timeout still applies its consequence and performs the
+same safe restoration.
+
+The persistent operations panel and final results screen now surface the full
+player-facing run state, including upgrade levels and final accounting. Verse
+compiled successfully, and connected module 42 passed validation, upload,
+candidate resolution, distribution, cooking, and all-platform activation at
+`2026-07-30 05:07:37 UTC`. The full production-handler replay reached every
+QA/QA2/QA3 completion marker, including staged power plus an actual upgrade,
+with no final failure marker or Verse runtime error. Automated Replay was then
+restored to false, saved, and a new normal production session was launched.
+
+Known manual proof remains: a normal-speed human 21-case run, two real clients
+for contention/disconnect behavior, representative multiplayer performance,
+and final human traversal/reference-angle captures. These are reported as open
+tests, not inferred passes.

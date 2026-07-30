@@ -130,3 +130,27 @@
 - Restored both production flags to false, compiled, pushed, validated, and
   activated the shipping build, then stopped the game while leaving UEFN and
   Fortnite open and connected.
+
+## 2026-07-29 PDT - player-facing production closure
+
+- Replaced the single automatic shift upgrade with a per-player three-choice
+  panel and distinct run effects: faster staged scans, increased correct-case
+  payouts, and longer emergency timers. One guarded resolution advances each
+  break; unaffordable and maximum-level choices remain readable and retryable.
+- Reworked Shift 5 from a one-press utility reset into a three-stage breaker,
+  backup-bus, and checkpoint restart sequence. The outage disables scanning,
+  drives alarm/red-light feedback, exposes live 0/3 through 3/3 objectives, and
+  awards exactly once before normal restoration.
+- Expanded persistent HUD/results accounting to include upgrade levels, grade,
+  correct/total, false detentions, missed threats, and final-threat outcome.
+- Updated the disabled production-handler replay to traverse all three repair
+  interactions and purchase Fast Scanner through the production upgrade
+  function.
+- Verse compile passed. Module 42 passed local validation, scratch upload,
+  candidate validation, cooking/distribution, and all-platform activation at
+  `2026-07-30 05:07:37 UTC`.
+- Connected runtime replay passed all QA, QA2, and QA3 milestones, including the
+  new power/upgrade checkpoint (`ScannerUpgrade=1`, `Cash=850`), with no final
+  QA failure marker or Verse runtime error.
+- Restored `AutomatedReplayEnabled=false`, saved the controller actor, and
+  launched a new normal session. `DebugEnabled` remained false throughout.

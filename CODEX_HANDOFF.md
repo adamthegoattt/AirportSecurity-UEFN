@@ -343,3 +343,30 @@ devices, and six feedback Audio Players.
   `DebugEnabled=false` and `AutomatedReplayEnabled=false`. UEFN is `All Saved`,
   the session remains connected, the test game is stopped, and Fortnite remains
   open. Nothing was published or remotely pushed.
+
+## 2026-07-29 PDT - production power, upgrades, and command HUD
+
+- Shift breaks now present a per-player, controller-friendly three-choice
+  system panel: Fast Scanner, Accuracy Payout, or Emergency Reserve, with a
+  continue-without-purchase path. Costs scale by level, affordability and
+  maximum level are readable, and exactly one choice resolves each break.
+- Shift 5 power failure is a real three-stage repair at the utility console:
+  reset the main breaker, reroute the backup bus, then restart checkpoint
+  systems. Scanner access is disabled during the outage; the existing alarm and
+  red response lights run until restore or timeout; the repair reward commits
+  once.
+- The persistent operations HUD now includes upgrade levels. Results include
+  grade, cash, integrity, risk, correct/total, false detentions, missed threats,
+  final-threat branch, upgrades, and replay objective.
+- UEFN compilation passed at `05:05:12 UTC`. Module 42 passed local and candidate
+  validation, uploaded, cooked, distributed, and activated on all platforms at
+  `05:07:37 UTC`.
+- The full connected replay then passed the staged power repair plus a scanner
+  upgrade purchase, detention duplicate guard, both final-threat branches,
+  emergency timeout, false detention, runner capture/escape, resistant
+  response, and a clean follow-up case. No final `[QA3 FAIL]` or Verse runtime
+  error was observed.
+- `AutomatedReplayEnabled` was restored to false and saved; a fresh normal
+  production session was launched. Real two-client contention/disconnect,
+  normal-speed 21-case pacing, and final human traversal/camera proof remain
+  manual QA.

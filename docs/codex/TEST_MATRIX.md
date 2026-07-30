@@ -102,3 +102,16 @@ Never classify one-client automation as real multiplayer testing.
 | SR-07 | Human full-loop and real multiplayer contention | NOT TESTED | Requires manual scanner-to-cell traversal, a 21-case pacing run, and at least two clients |
 | SR-08 | Custody cannot commit before passenger intake readiness | PASS (CODE/RUNTIME) | `PassengerAtIntake` is synchronized into the active case; premature input rejects; runner and resistant custody each reached intake/cell and logged `Resolved=1` |
 | SR-09 | Failure branch leaves the next case clean | PASS (RUNTIME) | Final QA3 run logged false detention, runner capture, runner escape, resistant response, and post-branch clean case at `Resolved=1`, with no final `[QA3 FAIL]` marker |
+
+## Production closure delta - 2026-07-29 PDT
+
+| ID | Test | Status | Evidence / remaining requirement |
+|---|---|---|---|
+| PC-01 | Three distinct upgrade choices with one selection per break | PASS (CODE/RUNTIME PARTIAL) | Fast Scanner, Accuracy Payout, Emergency Reserve, and Continue share one guarded break resolution; runtime purchased Fast Scanner (`ScannerUpgrade=1`); payout/reserve branches compile and were statically verified |
+| PC-02 | Upgrade choices have persistent run effects | PASS (CODE/COMPILE) | Scan sweep multiplier, +$40 correct-resolution payout per level, and +10s emergency duration per level feed production timing/reward handlers and persistent HUD |
+| PC-03 | Shift 5 requires a multi-stage utility repair | PASS (RUNTIME) | Connected replay invoked breaker reset, backup-bus reroute, and checkpoint restart before the milestone; scan is disabled during outage and reward is exactly-once guarded |
+| PC-04 | Command HUD and final results are complete | PASS (CODE/COMPILE) | Persistent panel includes shift, case, clock, cash, integrity, risk, evidence, power/alert, upgrades, objective; results include grade, accuracy, false detentions, missed threats, branch, upgrades, and replay objective |
+| PC-05 | Final Verse compile and connected activation | PASS | `VerseBuild: SUCCESS` at 05:05:12 UTC; module 42 activated on all platforms at 05:07:37 UTC |
+| PC-06 | Full deterministic branch regression | PASS (CONNECTED RUNTIME) | QA/QA2/QA3 milestones completed through post-branch clean case; no final QA failure marker or Verse runtime error |
+| PC-07 | Shipping QA flags and normal-session restart | PASS | Automated Replay unchecked and saved, Debug false, fresh normal session launched with no new replay marker |
+| PC-08 | Real multiplayer and normal-speed full run | NOT TESTED | Requires two real clients plus human 21-case pacing/traversal; deterministic one-client recovery is not represented as real multiplayer proof |

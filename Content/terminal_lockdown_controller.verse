@@ -209,6 +209,12 @@ terminal_lockdown_controller := class(creative_device):
     var CustodyCommitted:logic = false
     var FinalCaseAccountingCommitted:logic = false
     var RunUpgradePurchased:logic = false
+    var ScannerUpgradeLevel:int = 0
+    var PayoutUpgradeLevel:int = 0
+    var EmergencyUpgradeLevel:int = 0
+    var UpgradeBreakResolved:logic = false
+    var PowerRepairStage:int = 0
+    var PowerRepairCommitted:logic = false
     var PowerOnline:logic = true
     var CurrentCustodyMode:int = 0
     var ClaimOwner:?player = false
@@ -226,6 +232,8 @@ terminal_lockdown_controller := class(creative_device):
     var DocumentOpenCase:[player]int = map{}
     var PersistentHUDRoot:[player]canvas = map{}
     var PersistentHUDText:[player]text_block = map{}
+    var UpgradeRootUI:[player]canvas = map{}
+    var UpgradeOpenShift:[player]int = map{}
 
     OnBegin<override>()<suspends>:void=
         StartButton.InteractedWithEvent.Subscribe(OnStartButton)
@@ -339,8 +347,18 @@ terminal_lockdown_controller := class(creative_device):
             Sleep(1.0)
             OnScanButton(Player)
             OnPowerButton(Player)
-            Sleep(1.0)
-            TerminalLog(true, "[QA] Shift 5 power outage and restore complete")
+            Sleep(0.25)
+            OnPowerButton(Player)
+            Sleep(0.25)
+            OnPowerButton(Player)
+            Sleep(0.5)
+            set TeamCash += 500
+            PurchaseUpgrade(Player, 1)
+            Sleep(0.5)
+            TerminalLog(
+                true,
+                "[QA] Shift 5 staged power restore + upgrade complete|PowerStage={PowerRepairStage}|ScannerUpgrade={ScannerUpgradeLevel}|Cash={TeamCash}"
+            )
 
             # Final detected branch: fully checked disguise, detention decision,
             # four response stages, victory, then clean replay reset.
@@ -691,6 +709,7 @@ terminal_lockdown_controller := class(creative_device):
 
     OnPlayerRemoved(Player:player):void=
         CloseDocumentInterface(Player)
+        CloseUpgradeInterface(Player)
         if (Owner := ClaimOwner?, Owner = Player):
             set ClaimOwner = false
             set ClaimGeneration += 1
@@ -733,7 +752,7 @@ terminal_lockdown_controller := class(creative_device):
                     Widget := color_block:
                         DefaultColor := MakeColorFromSRGBValues(6, 18, 32)
                         DefaultOpacity := 0.82
-                        DefaultDesiredSize := vector2{X := 390.0, Y := 205.0}
+                        DefaultDesiredSize := vector2{X := 390.0, Y := 235.0}
                 overlay_slot:
                     Widget := Content
                     Padding := margin{Left := 16.0, Top := 12.0, Right := 16.0, Bottom := 12.0}
@@ -741,7 +760,7 @@ terminal_lockdown_controller := class(creative_device):
             Slots := array:
                 canvas_slot:
                     Anchors := anchors{Minimum := vector2{X := 0.0, Y := 0.0}, Maximum := vector2{X := 0.0, Y := 0.0}}
-                    Offsets := margin{Left := 24.0, Top := 150.0, Right := 390.0, Bottom := 205.0}
+                    Offsets := margin{Left := 24.0, Top := 150.0, Right := 390.0, Bottom := 235.0}
                     Alignment := vector2{X := 0.0, Y := 0.0}
                     SizeToContent := false
                     Widget := Panel
@@ -756,8 +775,8 @@ terminal_lockdown_controller := class(creative_device):
 
     PersistentHUDTextValue()<transacts>:string=
         if (Phase = terminal_game_phase.Results):
-            return "RESULTS  |  CASH ${TeamCash}  INTEGRITY {TeamIntegrity}  RISK {TeamRisk}\nRESOLVED {TotalCasesResolved}  CORRECT {CorrectDecisions}\nOBJECTIVE  {CurrentObjective()}"
-        "SHIFT {Shift}/7  |  CASE {CaseDisplayNumber()}/{CasesPerShift}  |  CLOCK {ShiftElapsedSeconds}s\nCASH ${TeamCash}  |  INTEGRITY {TeamIntegrity}  |  RISK {TeamRisk}\nEVIDENCE  BODY {CompletionMark(BodyChecked)}  BAG {BagCompletionMark()}  DOC {DocumentCompletionMark()}\nPOWER {PowerStatusText()}  |  ALERT {AlertStatusText()}\nOBJECTIVE  {CurrentObjective()}"
+            return "RESULTS  |  GRADE {ResultGrade()}\nCASH ${TeamCash}  |  INTEGRITY {TeamIntegrity}  |  RISK {TeamRisk}\nCORRECT {CorrectDecisions}/{TotalCasesResolved}  |  FALSE DETENTIONS {FalseDetentions}  |  MISSED {MissedThreats}\nFINAL THREAT  {BossBranchLabel()}\nUPGRADES  SCAN {ScannerUpgradeLevel}  PAY {PayoutUpgradeLevel}  EMERGENCY {EmergencyUpgradeLevel}\nOBJECTIVE  {CurrentObjective()}"
+        "SHIFT {Shift}/7  |  CASE {CaseDisplayNumber()}/{CasesPerShift}  |  CLOCK {ShiftElapsedSeconds}s\nCASH ${TeamCash}  |  INTEGRITY {TeamIntegrity}  |  RISK {TeamRisk}\nEVIDENCE  BODY {CompletionMark(BodyChecked)}  BAG {BagCompletionMark()}  DOC {DocumentCompletionMark()}\nPOWER {PowerStatusText()}  |  ALERT {AlertStatusText()}\nUPGRADES  SCAN {ScannerUpgradeLevel}  PAY {PayoutUpgradeLevel}  EMERGENCY {EmergencyUpgradeLevel}\nOBJECTIVE  {CurrentObjective()}"
 
     CaseDisplayNumber()<transacts>:int=
         if (Phase = terminal_game_phase.Waiting):
@@ -804,7 +823,7 @@ terminal_lockdown_controller := class(creative_device):
             return "START SHIFT AT THE BRIEFING DESK"
         if (Phase = terminal_game_phase.Emergency):
             if (Shift = 5 and not PowerOnline?):
-                return "FOLLOW STAFF / POWER SIGNS; RESTORE THE UTILITY CONSOLE"
+                return PowerRepairObjective()
             return "REACH THE SECURED RESPONSE CONTROL"
         if (Phase = terminal_game_phase.Runner):
             return "INTERCEPT THE RUNNER AT THE DEPARTURE ROUTE"
@@ -815,7 +834,7 @@ terminal_lockdown_controller := class(creative_device):
         if (Phase = terminal_game_phase.Custody):
             return "COMPLETE SECURE / JAIL INTAKE AT DETENTION"
         if (Phase = terminal_game_phase.UpgradeBreak):
-            return "USE UPGRADE / NEXT SHIFT AT THE BRIEFING DESK"
+            return "USE UPGRADE DESK; CHOOSE ONE SYSTEM OR CONTINUE"
         if (Phase = terminal_game_phase.BossJammer):
             return "DISABLE THE JAMMER AT THE POWER-ROOM CONSOLE"
         if (Phase = terminal_game_phase.BossBreach):
@@ -849,6 +868,13 @@ terminal_lockdown_controller := class(creative_device):
         set MissedThreats = 0
         set BossBranch = terminal_boss_branch.None
         set RunUpgradePurchased = false
+        set ScannerUpgradeLevel = 0
+        set PayoutUpgradeLevel = 0
+        set EmergencyUpgradeLevel = 0
+        set UpgradeBreakResolved = false
+        set PowerRepairStage = 0
+        set PowerRepairCommitted = false
+        CloseAllUpgradeInterfaces()
         set PowerOnline = true
         set CurrentCustodyMode = 0
         set CustodyCommitted = false
@@ -1300,12 +1326,14 @@ terminal_lockdown_controller := class(creative_device):
                 BeginDetention()
                 return
             else if (Decision = terminal_decision.Secondary):
-                set TeamCash += 125
-                ShowAll("CORRECT SECONDARY | Supervisor resolved the administrative hold | +125 cash.", 6.0)
+                Payout := CorrectPayout(125)
+                set TeamCash += Payout
+                ShowAll("CORRECT SECONDARY | Supervisor resolved the administrative hold | +{Payout} cash.", 6.0)
                 SetBoard(CaseBoard, "CASE {CurrentCaseId} | SECONDARY HOLD COMPLETE | DEPARTING")
             else:
-                set TeamCash += 100
-                ShowAll("CORRECT CLEAR | Traveler proceeds to departures | +100 cash.", 5.0)
+                Payout := CorrectPayout(100)
+                set TeamCash += Payout
+                ShowAll("CORRECT CLEAR | Traveler proceeds to departures | +{Payout} cash.", 5.0)
                 SetBoard(CaseBoard, "CASE {CurrentCaseId} | CLEARED | DEPARTING")
         else:
             if (Decision = terminal_decision.Detain):
@@ -1426,12 +1454,13 @@ terminal_lockdown_controller := class(creative_device):
         set CurrentDestination = terminal_case_destination.Cell
         SyncActiveCase()
         CustodyButton.Disable()
-        set TeamCash += 175
+        CustodyPayout := CorrectPayout(175)
+        set TeamCash += CustodyPayout
         LowerRisk(2)
         SetBoard(CustodyBoard, "CASE {CurrentCaseId} | JAILED | INTAKE COMPLETE")
         SetBoard(CellBoard, "CELL GATE CLOSING | CASE {CurrentCaseId}")
-        SetBoard(CaseBoard, "CASE {CurrentCaseId} | ARREST COMPLETE | +175")
-        ShowAll("JAIL INTAKE COMPLETE | Arrest finalized exactly once | +175 cash.", 6.0)
+        SetBoard(CaseBoard, "CASE {CurrentCaseId} | ARREST COMPLETE | +{CustodyPayout}")
+        ShowAll("JAIL INTAKE COMPLETE | Arrest finalized exactly once | +{CustodyPayout} cash.", 6.0)
         PositiveAudio.Play()
         spawn{MovePassengerIntoCellAndFinish(CurrentCaseId, RunGeneration)}
 
@@ -2108,6 +2137,7 @@ terminal_lockdown_controller := class(creative_device):
     BeginUpgradeBreak():void=
         set ResponseGeneration += 1
         CleanupResponseEquipment()
+        CloseAllUpgradeInterfaces()
         ResponseButton.Disable()
         set DocumentGeneration += 1
         CloseAllDocumentInterfaces()
@@ -2122,6 +2152,9 @@ terminal_lockdown_controller := class(creative_device):
         set BagScanInProgress = false
         set SecondaryPassengerReady = false
         set PassengerAtIntake = false
+        set UpgradeBreakResolved = false
+        set PowerRepairStage = 0
+        set PowerRepairCommitted = false
         ScanButton.Enable()
         CustodyButton.Disable()
         CustodyButton.SetInteractionText(TerminalMessage("SECURE / JAIL INTAKE"))
@@ -2137,26 +2170,173 @@ terminal_lockdown_controller := class(creative_device):
         if (Shift >= 7):
             ShowAll("Final Boarding audit complete. Use RESPOND if the final threat is active.", 6.0)
             return
-        ShowAll("SHIFT {Shift} COMPLETE | Cash {TeamCash} | Integrity {TeamIntegrity} | Risk {TeamRisk} | Use UPGRADE / NEXT SHIFT.", 8.0)
+        ShowAll("SHIFT {Shift} COMPLETE | Cash {TeamCash} | Choose FAST SCAN, PAYOUT, EMERGENCY RESERVE, or CONTINUE.", 8.0)
         TerminalLog(DebugEnabled, "[SHIFT] Completed Shift={Shift}")
 
     OnUpgradeButton(Agent:agent):void=
         if (Phase <> terminal_game_phase.UpgradeBreak):
             ShowAgent(Agent, "Upgrade desk is available only between shifts.", 4.0)
             return
-        if (not RunUpgradePurchased? and TeamCash >= 250):
-            set TeamCash -= 250
+        if (UpgradeBreakResolved?):
+            return
+        if (not IsHumanAgent(Agent)?):
+            return
+        if (AutomatedReplayEnabled?):
+            ResolveUpgradeBreak("AUTOMATED QA CONTINUE")
+            return
+        if (Player := player[Agent]):
+            if (OpenShift := UpgradeOpenShift[Player], OpenShift = Shift):
+                ShowAgent(Agent, "Upgrade interface is already open.", 3.0)
+                return
+            OpenUpgradeInterface(Player)
+
+    OpenUpgradeInterface(Player:player):void=
+        if (Phase <> terminal_game_phase.UpgradeBreak or UpgradeBreakResolved?):
+            return
+        CloseUpgradeInterface(Player)
+        Header := text_block:
+            DefaultText := TerminalMessage("ASTRA SYSTEMS UPGRADE | SHIFT {Shift} COMPLETE")
+            DefaultTextColor := NamedColors.White
+            DefaultTextSize := 26.0
+        CashReadout := text_block:
+            DefaultText := TerminalMessage("TEAM CASH  ${TeamCash}  |  CHOOSE ONE UPGRADE OR CONTINUE")
+            DefaultTextColor := NamedColors.LightCyan
+            DefaultTextSize := 18.0
+        ScannerDescription := text_block:
+            DefaultText := TerminalMessage("FAST SCANNER\nShortens every staged body sweep for this run. Current level {ScannerUpgradeLevel}/3.")
+            DefaultTextColor := NamedColors.White
+            DefaultTextSize := 17.0
+            AutoWrap := true
+            WrapWidth := 560.0
+        ScannerButton := button_loud{DefaultText := TerminalMessage(ScannerUpgradeLabel())}
+        ScannerButton.OnClick().Subscribe(OnUpgradeScanner)
+        PayoutDescription := text_block:
+            DefaultText := TerminalMessage("ACCURACY PAYOUT\nAdds $40 to every correct routine resolution. Current level {PayoutUpgradeLevel}/3.")
+            DefaultTextColor := NamedColors.White
+            DefaultTextSize := 17.0
+            AutoWrap := true
+            WrapWidth := 560.0
+        PayoutButton := button_loud{DefaultText := TerminalMessage(PayoutUpgradeLabel())}
+        PayoutButton.OnClick().Subscribe(OnUpgradePayout)
+        EmergencyDescription := text_block:
+            DefaultText := TerminalMessage("EMERGENCY RESERVE\nAdds 10 seconds to future emergency response timers. Current level {EmergencyUpgradeLevel}/3.")
+            DefaultTextColor := NamedColors.White
+            DefaultTextSize := 17.0
+            AutoWrap := true
+            WrapWidth := 560.0
+        EmergencyButton := button_loud{DefaultText := TerminalMessage(EmergencyUpgradeLabel())}
+        EmergencyButton.OnClick().Subscribe(OnUpgradeEmergency)
+        ContinueButton := button_quiet{DefaultText := TerminalMessage("CONTINUE WITHOUT PURCHASE")}
+        ContinueButton.OnClick().Subscribe(OnUpgradeContinue)
+        Content := stack_box:
+            Orientation := orientation.Vertical
+            Slots := array:
+                stack_box_slot{Widget := Header, Padding := margin{Bottom := 8.0}}
+                stack_box_slot{Widget := CashReadout, Padding := margin{Bottom := 22.0}}
+                stack_box_slot{Widget := ScannerDescription, Padding := margin{Bottom := 8.0}}
+                stack_box_slot{Widget := ScannerButton, Padding := margin{Bottom := 20.0}}
+                stack_box_slot{Widget := PayoutDescription, Padding := margin{Bottom := 8.0}}
+                stack_box_slot{Widget := PayoutButton, Padding := margin{Bottom := 20.0}}
+                stack_box_slot{Widget := EmergencyDescription, Padding := margin{Bottom := 8.0}}
+                stack_box_slot{Widget := EmergencyButton, Padding := margin{Bottom := 24.0}}
+                stack_box_slot{Widget := ContinueButton}
+        Panel := overlay:
+            Slots := array:
+                overlay_slot:
+                    Widget := color_block:
+                        DefaultColor := MakeColorFromSRGBValues(7, 16, 28)
+                        DefaultOpacity := 0.97
+                        DefaultDesiredSize := vector2{X := 660.0, Y := 710.0}
+                overlay_slot:
+                    Widget := Content
+                    Padding := margin{Left := 34.0, Top := 28.0, Right := 34.0, Bottom := 28.0}
+        Root := canvas:
+            Slots := array:
+                canvas_slot:
+                    Anchors := anchors{Minimum := vector2{X := 0.5, Y := 0.5}, Maximum := vector2{X := 0.5, Y := 0.5}}
+                    Offsets := margin{Right := 660.0, Bottom := 710.0}
+                    Alignment := vector2{X := 0.5, Y := 0.5}
+                    SizeToContent := false
+                    Widget := Panel
+        if (set UpgradeRootUI[Player] = Root) {}
+        if (set UpgradeOpenShift[Player] = Shift) {}
+        if (PlayerUI := GetPlayerUI[Player]):
+            PlayerUI.AddWidget(Root, player_ui_slot{InputMode := ui_input_mode.All, ZOrder := 125})
+
+    OnUpgradeScanner(Message:widget_message):void=
+        PurchaseUpgrade(Message.Player, 1)
+
+    OnUpgradePayout(Message:widget_message):void=
+        PurchaseUpgrade(Message.Player, 2)
+
+    OnUpgradeEmergency(Message:widget_message):void=
+        PurchaseUpgrade(Message.Player, 3)
+
+    OnUpgradeContinue(Message:widget_message):void=
+        if (Phase <> terminal_game_phase.UpgradeBreak or UpgradeBreakResolved?):
+            return
+        ResolveUpgradeBreak("NO UPGRADE PURCHASED")
+
+    PurchaseUpgrade(Player:player, Choice:int):void=
+        if (Phase <> terminal_game_phase.UpgradeBreak or UpgradeBreakResolved?):
+            return
+        if (Choice = 1):
+            ScannerCost := ScannerUpgradeCost()
+            if (ScannerUpgradeLevel >= 3):
+                ShowAgent(Player, "FAST SCANNER is already at maximum level.", 4.0)
+                return
+            if (TeamCash < ScannerCost):
+                ShowAgent(Player, "FAST SCANNER requires ${ScannerCost}. Team cash: ${TeamCash}.", 4.0)
+                return
+            set TeamCash -= ScannerCost
+            set ScannerUpgradeLevel += 1
             set RunUpgradePurchased = true
-            if (TeamIntegrity <= 90):
-                set TeamIntegrity += 10
-            else:
-                set TeamIntegrity = 100
-            LowerRisk(5)
-            ShowAll("CHECKPOINT CAPACITOR installed | Integrity repaired, Risk reduced, and scanner sweep accelerated for this run.", 6.0)
+            ResolveUpgradeBreak("FAST SCANNER LEVEL {ScannerUpgradeLevel} INSTALLED")
+            return
+        if (Choice = 2):
+            PayoutCost := PayoutUpgradeCost()
+            if (PayoutUpgradeLevel >= 3):
+                ShowAgent(Player, "ACCURACY PAYOUT is already at maximum level.", 4.0)
+                return
+            if (TeamCash < PayoutCost):
+                ShowAgent(Player, "ACCURACY PAYOUT requires ${PayoutCost}. Team cash: ${TeamCash}.", 4.0)
+                return
+            set TeamCash -= PayoutCost
+            set PayoutUpgradeLevel += 1
+            set RunUpgradePurchased = true
+            ResolveUpgradeBreak("ACCURACY PAYOUT LEVEL {PayoutUpgradeLevel} INSTALLED")
+            return
+        EmergencyCost := EmergencyUpgradeCost()
+        if (EmergencyUpgradeLevel >= 3):
+            ShowAgent(Player, "EMERGENCY RESERVE is already at maximum level.", 4.0)
+            return
+        if (TeamCash < EmergencyCost):
+            ShowAgent(Player, "EMERGENCY RESERVE requires ${EmergencyCost}. Team cash: ${TeamCash}.", 4.0)
+            return
+        set TeamCash -= EmergencyCost
+        set EmergencyUpgradeLevel += 1
+        set RunUpgradePurchased = true
+        ResolveUpgradeBreak("EMERGENCY RESERVE LEVEL {EmergencyUpgradeLevel} INSTALLED")
+
+    ResolveUpgradeBreak(Outcome:string):void=
+        if (Phase <> terminal_game_phase.UpgradeBreak or UpgradeBreakResolved?):
+            return
+        set UpgradeBreakResolved = true
+        CloseAllUpgradeInterfaces()
+        ShowAll("{Outcome} | Next shift opening.", 5.0)
         set Shift += 1
         set CasesInShift = 0
         set ShiftElapsedSeconds = 0
         PrepareNextCase()
+
+    CloseUpgradeInterface(Player:player):void=
+        if (Root := UpgradeRootUI[Player], PlayerUI := GetPlayerUI[Player]):
+            PlayerUI.RemoveWidget(Root)
+        if (set UpgradeOpenShift[Player] = -1) {}
+
+    CloseAllUpgradeInterfaces():void=
+        for (Player : GetPlayspace().GetPlayers()):
+            CloseUpgradeInterface(Player)
 
     BeginEmergency():void=
         set ResponseGeneration += 1
@@ -2181,16 +2361,26 @@ terminal_lockdown_controller := class(creative_device):
         NegativeAudio.Play()
         if (Shift = 5):
             set PowerOnline = false
+            set PowerRepairStage = 0
+            set PowerRepairCommitted = false
             set ScannerGeneration += 1
             ScanButton.Disable()
             PowerButton.Enable()
-            SetBoard(PowerBoard, "POWER OFFLINE | RESTORE AT UTILITY CONSOLE")
-            ShowAll("POWER OUTAGE | Scanner offline. Follow STAFF / POWER route and restore the utility console.", 8.0)
+            PowerButton.SetInteractionText(TerminalMessage("STEP 1 | RESET MAIN BREAKER"))
+            ResponseAlarm.Enable()
+            ResponseAlarm.Play()
+            ResponseLightA.Enable()
+            ResponseLightA.TurnOn()
+            ResponseLightB.Enable()
+            ResponseLightB.TurnOn()
+            SetBoard(PowerBoard, "POWER OFFLINE | REPAIR 0/3 | RESET MAIN BREAKER")
+            SetBoard(ResponseLoadoutBoard, "BACKUP LIGHTING ACTIVE\nPOWER ROOM REQUIRED\nREPAIR 0/3")
+            ShowAll("POWER OUTAGE | Equipment stopped, backup alarm active. Follow STAFF / POWER and reset the main breaker.", 8.0)
         else:
             SetBoard(PowerBoard, "POWER ONLINE | SECURITY LOCKDOWN")
             ShowAll("LOCKDOWN | {EmergencyLabel(Shift)} | Use RESPOND / SECURE before the timer expires.", 8.0)
         TerminalLog(DebugEnabled, "[EMERGENCY] Started|Shift={Shift}|Generation={CurrentEmergencyGeneration}")
-        spawn{EmergencyTimeout(CurrentEmergencyGeneration, EmergencyTimeoutSeconds)}
+        spawn{EmergencyTimeout(CurrentEmergencyGeneration, EmergencyWaitSeconds())}
 
     EmergencyTimeout(ExpectedGeneration:int, WaitSeconds:float)<suspends>:void=
         Sleep(WaitSeconds)
@@ -2221,14 +2411,41 @@ terminal_lockdown_controller := class(creative_device):
         if (Phase <> terminal_game_phase.Emergency or Shift <> 5 or PowerOnline?):
             ShowAgent(Agent, "Power console is online. No repair is required.", 4.0)
             return
+        if (not IsHumanAgent(Agent)?):
+            return
+        if (not IsAgentNear(Agent, vector3{X := 3950.0, Y := -3200.0, Z := 70.0}, 750.0)?):
+            ShowAgent(Agent, "POWER CONSOLE OUT OF RANGE | Enter the utility room.", 5.0)
+            return
+        if (PowerRepairCommitted?):
+            return
+        if (PowerRepairStage = 0):
+            set PowerRepairStage = 1
+            PowerButton.SetInteractionText(TerminalMessage("STEP 2 | REROUTE BACKUP BUS"))
+            SetBoard(PowerBoard, "POWER OFFLINE | REPAIR 1/3 | BREAKER RESET")
+            SetBoard(ResponseLoadoutBoard, "BACKUP LIGHTING ACTIVE\nBREAKER RESET\nREPAIR 1/3")
+            ShowAll("POWER REPAIR 1/3 | Main breaker reset. Reroute the backup bus.", 5.0)
+            BagScanAudio.Play()
+            TerminalLog(DebugEnabled, "[EMERGENCY] Power repair stage 1|Shift={Shift}")
+            return
+        if (PowerRepairStage = 1):
+            set PowerRepairStage = 2
+            PowerButton.SetInteractionText(TerminalMessage("STEP 3 | RESTART CHECKPOINT"))
+            SetBoard(PowerBoard, "POWER OFFLINE | REPAIR 2/3 | BACKUP BUS ROUTED")
+            SetBoard(ResponseLoadoutBoard, "BACKUP LIGHTING ACTIVE\nBUS REROUTED\nREPAIR 2/3")
+            ShowAll("POWER REPAIR 2/3 | Backup bus routed. Restart checkpoint systems.", 5.0)
+            ScannerStartAudio.Play()
+            TerminalLog(DebugEnabled, "[EMERGENCY] Power repair stage 2|Shift={Shift}")
+            return
+        set PowerRepairCommitted = true
+        set PowerRepairStage = 3
         set EmergencyGeneration += 1
         set TeamCash += 200
         LowerRisk(8)
         RestoreNormalPower()
         SetBoard(EmergencyBoard, "POWER RESTORED | TERMINAL NORMAL")
-        ShowAll("POWER RESTORED | Scanner and checkpoint systems online | +200 cash.", 7.0)
+        ShowAll("POWER REPAIR 3/3 | Scanner, baggage, displays, and checkpoint systems online | +200 cash.", 7.0)
         PositiveAudio.Play()
-        TerminalLog(DebugEnabled, "[EMERGENCY] Power restored|Shift={Shift}")
+        TerminalLog(DebugEnabled, "[EMERGENCY] Power restored after staged repair|Shift={Shift}")
         BeginUpgradeBreak()
 
     RestoreNormalPower():void=
@@ -2236,6 +2453,9 @@ terminal_lockdown_controller := class(creative_device):
         ScanButton.Enable()
         PowerButton.Disable()
         PowerButton.SetInteractionText(TerminalMessage("RESTORE TERMINAL POWER"))
+        ResponseAlarm.Stop()
+        ResponseLightA.TurnOff()
+        ResponseLightB.TurnOff()
         SetBoard(PowerBoard, "POWER ONLINE")
 
     StartResponseEvent():void=
@@ -2585,6 +2805,7 @@ terminal_lockdown_controller := class(creative_device):
     ResetToWaiting():void=
         set ResponseGeneration += 1
         CleanupResponseEquipment()
+        CloseAllUpgradeInterfaces()
         ResponseButton.Disable()
         set DocumentGeneration += 1
         CloseAllDocumentInterfaces()
@@ -2601,6 +2822,13 @@ terminal_lockdown_controller := class(creative_device):
         set ResolutionCommitted = false
         set CustodyCommitted = false
         set FinalCaseAccountingCommitted = false
+        set ScannerUpgradeLevel = 0
+        set PayoutUpgradeLevel = 0
+        set EmergencyUpgradeLevel = 0
+        set UpgradeBreakResolved = false
+        set PowerRepairStage = 0
+        set PowerRepairCommitted = false
+        set RunUpgradePurchased = false
         set CurrentCustodyMode = 0
         set PassengerReadyForScan = false
         set ScanInProgress = false
@@ -2950,9 +3178,61 @@ terminal_lockdown_controller := class(creative_device):
             FinishDefeat(Reason)
 
     ScannerSweepStageSeconds()<transacts>:float=
-        if (RunUpgradePurchased?):
+        if (ScannerUpgradeLevel >= 3):
+            return ScannerSweepSeconds * 0.5
+        if (ScannerUpgradeLevel = 2):
             return ScannerSweepSeconds * 0.65
+        if (ScannerUpgradeLevel = 1):
+            return ScannerSweepSeconds * 0.8
         ScannerSweepSeconds
+
+    CorrectPayout(Base:int)<transacts>:int=
+        Base + PayoutUpgradeLevel * 40
+
+    EmergencyWaitSeconds()<transacts>:float=
+        if (EmergencyUpgradeLevel >= 3):
+            return EmergencyTimeoutSeconds + 30.0
+        if (EmergencyUpgradeLevel = 2):
+            return EmergencyTimeoutSeconds + 20.0
+        if (EmergencyUpgradeLevel = 1):
+            return EmergencyTimeoutSeconds + 10.0
+        EmergencyTimeoutSeconds
+
+    PowerRepairObjective()<transacts>:string=
+        if (PowerRepairStage = 0):
+            return "POWER ROOM STEP 1/3 | RESET MAIN BREAKER"
+        if (PowerRepairStage = 1):
+            return "POWER ROOM STEP 2/3 | REROUTE BACKUP BUS"
+        if (PowerRepairStage = 2):
+            return "POWER ROOM STEP 3/3 | RESTART CHECKPOINT"
+        "POWER RESTORATION COMMITTING"
+
+    ScannerUpgradeCost()<transacts>:int=
+        200 + ScannerUpgradeLevel * 100
+
+    PayoutUpgradeCost()<transacts>:int=
+        250 + PayoutUpgradeLevel * 100
+
+    EmergencyUpgradeCost()<transacts>:int=
+        200 + EmergencyUpgradeLevel * 75
+
+    ScannerUpgradeLabel()<transacts>:string=
+        if (ScannerUpgradeLevel >= 3):
+            return "FAST SCANNER | MAXIMUM LEVEL"
+        Cost := ScannerUpgradeCost()
+        "BUY FAST SCANNER | ${Cost}"
+
+    PayoutUpgradeLabel()<transacts>:string=
+        if (PayoutUpgradeLevel >= 3):
+            return "ACCURACY PAYOUT | MAXIMUM LEVEL"
+        Cost := PayoutUpgradeCost()
+        "BUY ACCURACY PAYOUT | ${Cost}"
+
+    EmergencyUpgradeLabel()<transacts>:string=
+        if (EmergencyUpgradeLevel >= 3):
+            return "EMERGENCY RESERVE | MAXIMUM LEVEL"
+        Cost := EmergencyUpgradeCost()
+        "BUY EMERGENCY RESERVE | ${Cost}"
 
     RaiseRisk(Amount:int):void=
         set TeamRisk += Amount

@@ -267,3 +267,31 @@
 - Final production state: `DebugEnabled=false`,
   `AutomatedReplayEnabled=false`, UEFN `All Saved`, session connected, and test
   game stopped.
+
+## Production closure validation - 2026-07-29 PDT
+
+- Static/code review PASS: the live project, `work_live_patch`, and prior clean
+  checkpoint were reconciled before editing. Existing queue, evidence,
+  documents, outcomes, routing, emergency, response, and reset systems were
+  preserved.
+- Verse compilation PASS at `2026-07-30 05:05:12 UTC`; no package compile error
+  remained. The earlier local variable-name ambiguity was corrected before the
+  final build.
+- Connected-session refresh PASS: module 42 completed local validation, upload,
+  candidate resolution, distribution, client/server cooking, and all-platform
+  activation at `05:07:37 UTC`.
+- Connected runtime replay PASS: body/clear; body/bag/document/secondary;
+  detention intake and duplicate guard; three Shift 5 power interactions plus
+  one Fast Scanner purchase; detected and missed final-threat branches; claim
+  release/reclaim; emergency timeout; false detention; runner capture; runner
+  escape; resistant response/custody; and post-branch clean case.
+- Final QA values included `ScannerUpgrade=1`, `Cash=850`, detected accounting
+  `Resolved=4 Correct=4 Missed=0`, isolated missed accounting
+  `Resolved=2 Correct=1 Missed=1`, and `Resolved=1` for every isolated QA3
+  branch. No final `[QA3 FAIL]` marker or Verse runtime error appeared.
+- Shipping-state PASS: `AutomatedReplayEnabled` was unchecked and saved, while
+  `DebugEnabled` remained false. A new normal session was launched and did not
+  emit a new automated-replay marker.
+- Still manual/not tested: real two-client contention and disconnect recovery,
+  normal-speed human 21-case pacing, representative multiplayer performance,
+  and final human reference-angle traversal/capture.
