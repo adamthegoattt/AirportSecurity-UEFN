@@ -165,6 +165,11 @@ terminal_lockdown_controller := class(creative_device):
     @editable
     ClaimInactivitySeconds:float = 90.0
 
+    # Production tuning hook used by the staged scanner. The between-shift
+    # checkpoint capacitor shortens this second sweep stage for the run.
+    @editable
+    ScannerSweepSeconds:float = 1.4
+
     @editable
     DebugEnabled:logic = false
 
@@ -181,6 +186,7 @@ terminal_lockdown_controller := class(creative_device):
     var Shift:int = 0
     var CasesInShift:int = 0
     var TotalCasesResolved:int = 0
+    var ShiftElapsedSeconds:int = 0
     var CurrentCaseId:int = 0
     var CurrentTemplate:int = 0
     var TeamIntegrity:int = 100
@@ -218,6 +224,8 @@ terminal_lockdown_controller := class(creative_device):
     var ActiveCase:terminal_active_case = terminal_active_case{}
     var DocumentRootUI:[player]canvas = map{}
     var DocumentOpenCase:[player]int = map{}
+    var PersistentHUDRoot:[player]canvas = map{}
+    var PersistentHUDText:[player]text_block = map{}
 
     OnBegin<override>()<suspends>:void=
         StartButton.InteractedWithEvent.Subscribe(OnStartButton)
@@ -237,6 +245,7 @@ terminal_lockdown_controller := class(creative_device):
 
         ConfigureButtons()
         ConfigurePhysicalPresentation()
+        spawn{PersistentHUDLoop()}
         spawn{AutoStartWaitingRun()}
         if (AutomatedReplayEnabled?):
             spawn{RunAutomatedReplay()}
@@ -673,6 +682,8 @@ terminal_lockdown_controller := class(creative_device):
         ResponseLightB.TurnOff()
 
     OnPlayerAdded(Player:player):void=
+        EnsurePersistentHUD(Player)
+        RefreshPersistentHUD(Player)
         StatusHUD.Show(Player, TerminalMessage(CurrentStatus()), ?DisplayTime := 8.0)
         if (Phase = terminal_game_phase.HostileResponse):
             ResponseGranter.GrantItem(Player)
@@ -689,6 +700,134 @@ terminal_lockdown_controller := class(creative_device):
             ShowAll("Case claim released. Any officer may continue Case {CurrentCaseId}.", 5.0)
             TerminalLog(DebugEnabled, "[RECOVERY] Claim released for CaseId={CurrentCaseId}")
 
+    PersistentHUDLoop()<suspends>:void=
+        loop:
+            if (Phase <> terminal_game_phase.Waiting and Phase <> terminal_game_phase.Results):
+                set ShiftElapsedSeconds += 1
+            for (Player : GetPlayspace().GetPlayers()):
+                EnsurePersistentHUD(Player)
+                RefreshPersistentHUD(Player)
+            Sleep(1.0)
+
+    EnsurePersistentHUD(Player:player):void=
+        if (ExistingRoot := PersistentHUDRoot[Player]):
+            return
+        Readout := text_block:
+            DefaultText := TerminalMessage(PersistentHUDTextValue())
+            DefaultTextColor := NamedColors.White
+            DefaultTextSize := 15.0
+            AutoWrap := true
+            WrapWidth := 360.0
+        Header := text_block:
+            DefaultText := TerminalMessage("ASTRA CHECKPOINT OPERATIONS")
+            DefaultTextColor := NamedColors.LightCyan
+            DefaultTextSize := 17.0
+        Content := stack_box:
+            Orientation := orientation.Vertical
+            Slots := array:
+                stack_box_slot{Widget := Header, Padding := margin{Bottom := 6.0}}
+                stack_box_slot{Widget := Readout}
+        Panel := overlay:
+            Slots := array:
+                overlay_slot:
+                    Widget := color_block:
+                        DefaultColor := MakeColorFromSRGBValues(6, 18, 32)
+                        DefaultOpacity := 0.82
+                        DefaultDesiredSize := vector2{X := 390.0, Y := 205.0}
+                overlay_slot:
+                    Widget := Content
+                    Padding := margin{Left := 16.0, Top := 12.0, Right := 16.0, Bottom := 12.0}
+        Root := canvas:
+            Slots := array:
+                canvas_slot:
+                    Anchors := anchors{Minimum := vector2{X := 0.0, Y := 0.0}, Maximum := vector2{X := 0.0, Y := 0.0}}
+                    Offsets := margin{Left := 24.0, Top := 150.0, Right := 390.0, Bottom := 205.0}
+                    Alignment := vector2{X := 0.0, Y := 0.0}
+                    SizeToContent := false
+                    Widget := Panel
+        if (set PersistentHUDRoot[Player] = Root) {}
+        if (set PersistentHUDText[Player] = Readout) {}
+        if (PlayerUI := GetPlayerUI[Player]):
+            PlayerUI.AddWidget(Root, player_ui_slot{InputMode := ui_input_mode.None, ZOrder := 20})
+
+    RefreshPersistentHUD(Player:player):void=
+        if (Readout := PersistentHUDText[Player]):
+            Readout.SetText(TerminalMessage(PersistentHUDTextValue()))
+
+    PersistentHUDTextValue()<transacts>:string=
+        if (Phase = terminal_game_phase.Results):
+            return "RESULTS  |  CASH ${TeamCash}  INTEGRITY {TeamIntegrity}  RISK {TeamRisk}\nRESOLVED {TotalCasesResolved}  CORRECT {CorrectDecisions}\nOBJECTIVE  {CurrentObjective()}"
+        "SHIFT {Shift}/7  |  CASE {CaseDisplayNumber()}/{CasesPerShift}  |  CLOCK {ShiftElapsedSeconds}s\nCASH ${TeamCash}  |  INTEGRITY {TeamIntegrity}  |  RISK {TeamRisk}\nEVIDENCE  BODY {CompletionMark(BodyChecked)}  BAG {BagCompletionMark()}  DOC {DocumentCompletionMark()}\nPOWER {PowerStatusText()}  |  ALERT {AlertStatusText()}\nOBJECTIVE  {CurrentObjective()}"
+
+    CaseDisplayNumber()<transacts>:int=
+        if (Phase = terminal_game_phase.Waiting):
+            return 0
+        if (CasesInShift >= CasesPerShift):
+            return CasesPerShift
+        CasesInShift + 1
+
+    CompletionMark(Complete:logic)<computes>:string=
+        if (Complete?):
+            return "DONE"
+        "--"
+
+    BagCompletionMark()<transacts>:string=
+        if (Shift < 2):
+            return "N/A"
+        CompletionMark(BagChecked)
+
+    DocumentCompletionMark()<transacts>:string=
+        if (Shift < 3):
+            return "N/A"
+        CompletionMark(DocumentsChecked)
+
+    PowerStatusText()<transacts>:string=
+        if (PowerOnline?):
+            return "ONLINE"
+        "OFFLINE"
+
+    AlertStatusText()<transacts>:string=
+        if (Phase = terminal_game_phase.Emergency):
+            if (Shift = 5):
+                return "OUTAGE"
+            return "LOCKDOWN"
+        if (Phase = terminal_game_phase.Runner):
+            return "RUNNER"
+        if (Phase = terminal_game_phase.HostileResponse):
+            return "RESPONSE"
+        if (Phase = terminal_game_phase.BossJammer or Phase = terminal_game_phase.BossBreach or Phase = terminal_game_phase.BossVulnerable or Phase = terminal_game_phase.BossSecure):
+            return "FINAL THREAT"
+        "NORMAL"
+
+    CurrentObjective()<transacts>:string=
+        if (Phase = terminal_game_phase.Waiting):
+            return "START SHIFT AT THE BRIEFING DESK"
+        if (Phase = terminal_game_phase.Emergency):
+            if (Shift = 5 and not PowerOnline?):
+                return "FOLLOW STAFF / POWER SIGNS; RESTORE THE UTILITY CONSOLE"
+            return "REACH THE SECURED RESPONSE CONTROL"
+        if (Phase = terminal_game_phase.Runner):
+            return "INTERCEPT THE RUNNER AT THE DEPARTURE ROUTE"
+        if (Phase = terminal_game_phase.HostileResponse):
+            return "TAKE SIGNAL REMOTE A; ENGAGE INSIDE THE RESPONSE ROOM"
+        if (Phase = terminal_game_phase.SecondaryScreening):
+            return "FOLLOW THE PASSENGER; PERFORM THE CONTROLLED SEARCH"
+        if (Phase = terminal_game_phase.Custody):
+            return "COMPLETE SECURE / JAIL INTAKE AT DETENTION"
+        if (Phase = terminal_game_phase.UpgradeBreak):
+            return "USE UPGRADE / NEXT SHIFT AT THE BRIEFING DESK"
+        if (Phase = terminal_game_phase.BossJammer):
+            return "DISABLE THE JAMMER AT THE POWER-ROOM CONSOLE"
+        if (Phase = terminal_game_phase.BossBreach):
+            return "INTERRUPT THE BREACH AT THE RESPONSE STATION"
+        if (Phase = terminal_game_phase.BossVulnerable):
+            return "ENGAGE THE THREAT AT CLOSE RANGE IN THE RESPONSE ROOM"
+        if (Phase = terminal_game_phase.BossSecure):
+            return "MOVE THE THREAT TO DETENTION AND COMPLETE FINAL CUSTODY"
+        if (Phase = terminal_game_phase.Results):
+            return "USE RESPOND / SECURE TO START A CLEAN REPLAY"
+        EvidencePrompt()
+
     OnStartButton(Agent:agent):void=
         if (Phase <> terminal_game_phase.Waiting):
             ShowAgent(Agent, "A run is already active. Follow the current objective.", 4.0)
@@ -701,6 +840,7 @@ terminal_lockdown_controller := class(creative_device):
         set Shift = 1
         set CasesInShift = 0
         set TotalCasesResolved = 0
+        set ShiftElapsedSeconds = 0
         set TeamIntegrity = 100
         set TeamRisk = 0
         set TeamCash = 0
@@ -766,7 +906,7 @@ terminal_lockdown_controller := class(creative_device):
         TerminalLog(DebugEnabled, "[SCAN] Started|CaseId={CurrentCaseId}|Template={CurrentTemplate}|Generation={ScannerGeneration}")
 
     RunScannerSequence(ExpectedCaseId:int, ExpectedRun:int, ExpectedScannerGeneration:int, Template:int)<suspends>:void=
-        Sleep(0.75)
+        Sleep(0.5)
         if (ExpectedCaseId <> CurrentCaseId or ExpectedRun <> RunGeneration or ExpectedScannerGeneration <> ScannerGeneration):
             return
         if (not PowerOnline?):
@@ -774,7 +914,7 @@ terminal_lockdown_controller := class(creative_device):
             SetBoard(CheckpointBoard, "SCANNER OFFLINE | RESTORE POWER")
             return
         SetBoard(CheckpointBoard, "SCANNER ACTIVE | AMBER SWEEP | 50%")
-        Sleep(1.25)
+        Sleep(ScannerSweepStageSeconds())
         if (ExpectedCaseId <> CurrentCaseId or ExpectedRun <> RunGeneration or ExpectedScannerGeneration <> ScannerGeneration):
             return
         if (not PowerOnline?):
@@ -2012,9 +2152,10 @@ terminal_lockdown_controller := class(creative_device):
             else:
                 set TeamIntegrity = 100
             LowerRisk(5)
-            ShowAll("POWER CAPACITOR purchased | Integrity repaired and Risk reduced for this run.", 5.0)
+            ShowAll("CHECKPOINT CAPACITOR installed | Integrity repaired, Risk reduced, and scanner sweep accelerated for this run.", 6.0)
         set Shift += 1
         set CasesInShift = 0
+        set ShiftElapsedSeconds = 0
         PrepareNextCase()
 
     BeginEmergency():void=
@@ -2454,6 +2595,7 @@ terminal_lockdown_controller := class(creative_device):
         set BossBranch = terminal_boss_branch.None
         set Shift = 0
         set CasesInShift = 0
+        set ShiftElapsedSeconds = 0
         set ClaimOwner = false
         set ClaimGeneration += 1
         set ResolutionCommitted = false
@@ -2807,6 +2949,11 @@ terminal_lockdown_controller := class(creative_device):
         if (TeamIntegrity <= 0):
             FinishDefeat(Reason)
 
+    ScannerSweepStageSeconds()<transacts>:float=
+        if (RunUpgradePurchased?):
+            return ScannerSweepSeconds * 0.65
+        ScannerSweepSeconds
+
     RaiseRisk(Amount:int):void=
         set TeamRisk += Amount
         if (TeamRisk > 100):
@@ -2835,7 +2982,9 @@ terminal_lockdown_controller := class(creative_device):
         if (Phase = terminal_game_phase.Results):
             return "RESULTS | Integrity {TeamIntegrity} | Correct {CorrectDecisions}/{TotalCasesResolved}"
         if (Phase = terminal_game_phase.Emergency):
-            return "LOCKDOWN | {EmergencyLabel(Shift)} | Use RESPOND / SECURE."
+            if (Shift = 5 and not PowerOnline?):
+                return "POWER OUTAGE | Follow STAFF / POWER signs and restore the utility-room console."
+            return "LOCKDOWN | {EmergencyLabel(Shift)} | Reach the secured response control."
         if (Phase = terminal_game_phase.Runner):
             return "RUNNER | Intercept Case {CurrentCaseId} before departure."
         if (Phase = terminal_game_phase.HostileResponse):
@@ -2844,6 +2993,14 @@ terminal_lockdown_controller := class(creative_device):
             return "SECONDARY | Follow Case {CurrentCaseId} to the controlled room and perform the additional check."
         if (Phase = terminal_game_phase.Custody):
             return "CUSTODY | Deliver Case {CurrentCaseId} to detention intake."
+        if (Phase = terminal_game_phase.BossJammer):
+            return "FINAL THREAT | Disable the jammer at the power-room console."
+        if (Phase = terminal_game_phase.BossBreach):
+            return "FINAL THREAT | Interrupt the breach at the secured response station."
+        if (Phase = terminal_game_phase.BossVulnerable):
+            return "FINAL THREAT | Engage inside the response room at close range."
+        if (Phase = terminal_game_phase.BossSecure):
+            return "FINAL THREAT | Complete final custody at detention intake."
         "SHIFT {Shift} {ShiftLabel(Shift)} | CASE {CurrentCaseId} {TemplateName(CurrentTemplate)} | {EvidencePrompt()}"
 
     EvidencePrompt()<transacts>:string=
@@ -2860,12 +3017,12 @@ terminal_lockdown_controller := class(creative_device):
 
     SecondaryResultText(Template:int)<computes>:string=
         if (Template = 7):
-            return "RESTRICTED BATTERY CONCEALMENT CONFIRMED - DETAIN"
+            return "SHIELDED CELL ARRAY | LABEL CODE CX-9 | CARGO POLICY APPLIES"
         if (Template = 3):
-            return "EXPIRED CREDENTIAL VERIFIED - SUPERVISOR RELEASE"
+            return "AUTHORITY RECORD | DATE LAPSED | SUPERVISOR OVERRIDE AVAILABLE"
         if (Template = 10):
-            return "CLOSED GATE VERIFIED - REROUTE AND RELEASE"
-        "NO NEW THREAT FOUND - USE ORIGINAL EVIDENCE"
+            return "MANIFEST UPDATE | GATE A3 CLOSED | A5 REBOOK CONFIRMED"
+        "NO ADDITIONAL ANOMALY OBSERVED | USE COLLECTED EVIDENCE"
 
     IdentityName(Template:int)<computes>:string=
         if (Template = 1):
@@ -2981,13 +3138,9 @@ terminal_lockdown_controller := class(creative_device):
         "[OK] ACCESS: ROUTE CONSISTENT"
 
     DocumentStatusColor(Template:int):color=
-        Evidence := DocumentEvidence(Template)
-        if (Evidence = "VALID"):
-            return NamedColors.LightGreen
-        Required := RequiredDecision(Template)
-        if (Required = terminal_decision.Secondary):
+        if (Template = 3 or Template = 4 or Template = 5 or Template = 9 or Template = 10 or Template = 12):
             return NamedColors.Yellow
-        NamedColors.OrangeRed
+        NamedColors.LightGreen
 
     SelectTemplate(CurrentShift:int, CompletedInShift:int):int=
         if (CurrentShift = 1):
@@ -3040,83 +3193,56 @@ terminal_lockdown_controller := class(creative_device):
         terminal_decision.Clear
 
     ScannerResultText(Template:int):string=
-        Required := RequiredDecision(Template)
-        if (Required = terminal_decision.Detain):
-            return "RED / SUSPICIOUS"
-        if (Required = terminal_decision.Secondary):
-            return "YELLOW / UNCERTAIN"
-        "GREEN / CLEAR"
+        if (Template = 2 or Template = 8):
+            return "DETECTED / RIGID PROFILE"
+        if (Template = 9):
+            return "REVIEW / DENSE CARD PROFILE"
+        "NO ANOMALY / BASELINE"
 
     BagResultText(Template:int):string=
-        Evidence := BagEvidence(Template)
-        if (Evidence = "CLEAR"):
-            return "GREEN / CLEAR"
-        Required := RequiredDecision(Template)
-        if (Required = terminal_decision.Secondary):
-            return "YELLOW / POLICY HOLD"
-        "RED / RESTRICTED ITEM"
+        if (Template = 7):
+            return "OVERLAP / MANUAL CHECK"
+        if (Template = 4 or Template = 8 or Template = 12):
+            return "DENSE OBJECT / REVIEW"
+        "EXPECTED PERSONAL ITEMS"
 
     TemplateName(Template:int)<computes>:string=
-        if (Template = 1):
-            return "Nova Harbor commuter"
-        if (Template = 2):
-            return "Restricted-item carrier"
-        if (Template = 3):
-            return "Expired credential hold"
-        if (Template = 4):
-            return "Jammer smuggler"
-        if (Template = 5):
-            return "Portrait mismatch alert"
-        if (Template = 6):
-            return "Nervous but valid traveler"
-        if (Template = 7):
-            return "Drone battery policy case"
-        if (Template = 8):
-            return "Armed infiltrator"
-        if (Template = 9):
-            return "Elite access-card infiltrator"
-        if (Template = 10):
-            return "Closed-gate courier"
-        if (Template = 11):
-            return "Final-boarding VIP"
-        if (Template = 12):
-            return "The Breacher disguise"
-        "Unknown case"
+        IdentityName(Template)
 
     BodyEvidence(Template:int):string=
         if (Template = 2):
-            return "FLAGGED: concealed shock baton at right side"
+            return "DENSE PROFILE | RIGHT HIP | 31 CM"
         if (Template = 8):
-            return "FLAGGED: concealed blaster at accessory region"
+            return "RIGID PROFILE | OUTER LAYER | 24 CM"
         if (Template = 9):
-            return "FLAGGED: copied master access card"
-        "CLEAR"
+            return "LAMINATED PROFILE | CHEST POCKET | HIGH DENSITY"
+        "NO ANOMALY OBSERVED"
 
     BagEvidence(Template:int):string=
         if (Template = 4):
-            return "FLAGGED: security jammer"
+            return "SHIELDED ELECTRONICS | MULTIPLE ANTENNA-LIKE LINES"
         if (Template = 7):
-            return "FLAGGED: cargo-only drone battery"
+            return "DENSE CELL ARRAY | LABEL PARTIALLY OBSCURED"
         if (Template = 8):
-            return "FLAGGED: portal override module"
+            return "SEALED MODULE | NONSTANDARD CONNECTOR PROFILE"
         if (Template = 12):
-            return "FLAGGED: compact jammer node"
-        "CLEAR"
+            return "COMPACT ELECTRONICS | SHIELDED CORE"
+        "CLOTHING | PERSONAL ELECTRONICS | ROUTINE DENSITY"
 
     DocumentEvidence(Template:int):string=
         if (Template = 3):
-            return "FLAGGED: credential expired"
+            return "DATE FIELD | 2025-11-30"
         if (Template = 4):
-            return "FLAGGED: invalid seal"
+            return "SEAL CODE | CHECKSUM 41-AX / 39"
         if (Template = 5):
-            return "FLAGGED: portrait mismatch"
+            return "PORTRAIT COMPARE | TWO FEATURES DIFFER"
         if (Template = 9):
-            return "FLAGGED: altered access tier"
+            return "ACCESS FIELD | TIER 4 / MANIFEST TIER 2"
         if (Template = 10):
-            return "FLAGGED: Gate A3 closed"
+            return "ROUTE FIELD | GATE A3 / STATUS CLOSED"
         if (Template = 12):
-            return "FLAGGED: duplicate intelligence code"
-        "VALID"
+            return "SEAL FIELD | CODE ALSO PRESENT ON WATCH RECORD"
+        "FIELDS CONSISTENT | SEAL CHECKSUM MATCH"
 
     ShiftLabel(CurrentShift:int)<computes>:string=
         if (CurrentShift = 1):
