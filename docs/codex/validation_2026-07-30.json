@@ -1,0 +1,106 @@
+{
+  "session_date": "2026-07-30",
+  "base_sha": "55eac73cc3d7e7b32abf7b7aebccc23b523b9ba9",
+  "implementation_head": "1264a01b00c4255b8f5978f9da2ece2b7ddcdc7a",
+  "branch": "codex/airport-reference-rebuild",
+  "map": "/AirportSecurity/AirportSecurity",
+  "controller_actor": "TL_Controller",
+  "uefn_version": "5.8",
+  "production_flags": {
+    "AutoStartEnabled": false,
+    "AutomatedReplayEnabled": false,
+    "DebugEnabled": false,
+    "verification": "Each checkbox was visually inspected as false in the saved TL_Controller details panel after the final production save. Verse defaults are also false."
+  },
+  "tests": [
+    {
+      "name": "UEFN Verse build",
+      "status": "PASS",
+      "observed": "Compile Verse completed with the UEFN tooltip 'Built successfully.' after the final production save. The prior detailed log also recorded VerseBuild: SUCCESS."
+    },
+    {
+      "name": "Live map validation",
+      "status": "PASS",
+      "observed": "356 actors valid, 0 invalid, 0 not validated, 0 errors, 0 warnings, and no remaining disallowed fallbacks."
+    },
+    {
+      "name": "Production builder idempotency",
+      "status": "PASS",
+      "observed": "Second builder run: created 0, updated 91, deleted_stale 0, production_actor_count 91, actor count remained 356, no duplicate TL labels, level and dirty packages saved."
+    },
+    {
+      "name": "Scanner floor geometry and collision audit",
+      "status": "PASS",
+      "observed": "Terminal floor top, north scanner pad top, and south scanner pad top are all 88.0 cm. Decorative scanner pad static meshes use NoCollision; their bounds overlap only for query. The scan button is outside the aperture at (1120, -1850, 180)."
+    },
+    {
+      "name": "Production intentional startup",
+      "status": "PASS",
+      "observed": "With production flags disabled in a live Fortnite session, the persistent HUD remained SHIFT 0/7, CASE 0/3, CLOCK 0s, POWER ONLINE, ALERT NORMAL and directed the player to the physical staffing desk. No stale QA replay started."
+    },
+    {
+      "name": "Runtime passenger scan and clear path probe",
+      "status": "PARTIAL",
+      "observed": "The disabled-by-default QA probe invoked the same production handlers. Fortnite displayed BODY SCANNER ACTIVE and the UEFN Verse log recorded '[QA] Shift 1 body/clear path complete' at 2026-07-30 07:45:18 UTC. No Verse runtime error was observed. This was not a manually driven case."
+    },
+    {
+      "name": "Manual scanner walk, sprint, crouch, both directions and off-center",
+      "status": "UNVERIFIED",
+      "observed": "Direct held movement input could not be sustained by the available desktop automation API. Geometry and collision were audited, but live traversal must still be performed by a human or an input-capable test harness."
+    },
+    {
+      "name": "Passenger scanner traversal",
+      "status": "PARTIAL",
+      "observed": "The live runtime reached the production BODY SCANNER ACTIVE sequence and completed the Shift 1 body/clear marker. A persisted player-eye screenshot of the passenger inside the aperture was not captured."
+    },
+    {
+      "name": "Complete normal manually driven case",
+      "status": "UNVERIFIED",
+      "observed": "The production session was launched and intentional waiting state verified, but a complete case was not manually driven because held movement input was unavailable."
+    },
+    {
+      "name": "Manual secondary, detention, power emergency, results and replay",
+      "status": "UNVERIFIED",
+      "observed": "Production code and actor wiring were compiled and structurally validated, but these branches were not manually traversed in the live client during this session."
+    },
+    {
+      "name": "Two-client contention and disconnect recovery",
+      "status": "UNVERIFIED",
+      "observed": "Only one Fortnite client was available."
+    },
+    {
+      "name": "Final production session relaunch",
+      "status": "FAIL",
+      "observed": "After the final save, compile, validation, and commits, Launch Session was attempted again. UEFN remained Session Disconnected and reported that Unreal Editor for Fortnite services were currently unavailable."
+    }
+  ],
+  "screenshots": [
+    "docs/codex/proof-2026-07-29/10_native_scanner_and_conveyors.png",
+    "docs/codex/proof-2026-07-29/11_power_cabinets.png",
+    "docs/codex/proof-2026-07-29/12_furnished_detention_cell.png"
+  ],
+  "known_unverified_items": [
+    "Live walk, sprint, crouch, reverse-direction, and off-center scanner traversal without jumping",
+    "Persisted screenshot of the moving passenger centered inside the scanner",
+    "Manual body/bag/document/CLEAR case",
+    "Manual SECONDARY passenger-and-bag route and reveal",
+    "Manual correct and false detention",
+    "Manual three-step power restoration and stale-timeout recovery",
+    "Manual results/replay cleanup",
+    "Real two-client claim contention, disconnect recovery, and join-in-progress HUD"
+  ],
+  "editor_final_state": {
+    "map": "/AirportSecurity/AirportSecurity",
+    "saved": true,
+    "all_saved_indicator": true,
+    "session": "DISCONNECTED_FINAL_RELAUNCH_BLOCKED_BY_UEFN_SERVICES",
+    "pending_push_count": "NOT_APPLICABLE_WITH_SESSION_DISCONNECTED",
+    "revision_control_edits": 0
+  },
+  "relevant_errors": [],
+  "non_blocking_environment_warnings": [
+    "Repeated Epic Connect messaging authentication warnings appeared in the editor log; they did not prevent compile, validation, or the observed live runtime path.",
+    "The final post-commit Launch Session attempt was blocked because UEFN services were unavailable."
+  ],
+  "multiplayer_test_status": "UNVERIFIED"
+}
