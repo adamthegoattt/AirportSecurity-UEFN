@@ -217,3 +217,53 @@
   cannot reliably hold movement or capture the Fortnite mouse.
 - Final application state: UEFN open, `All Saved`, `Session Connected`, game
   stopped; Fortnite open. Publishing was not performed.
+
+## State and routing hardening validation - 2026-07-29 PDT
+
+- Changed production sources: `Content/terminal_lockdown_controller.verse` and
+  `Content/terminal_lockdown_types.verse`.
+- UEFN Verse compile: PASS (`Built successfully`; script linking and
+  `VerseBuild: SUCCESS`).
+- Connected-session refresh: PASS. Local validation completed, scratch push and
+  candidate validation succeeded, upload completed, and content activated on
+  all platforms.
+- Runtime state replay: PASS for clear, body/bag/document/secondary, detention
+  duplicate guard, power outage/restore, claim release/reclaim, emergency
+  timeout/recovery, and both final-threat accounting branches.
+- Movement evidence included direct arrivals, stale-callback rejection, and
+  retry/teleport fallback when concurrent QA movement blocked a route. No Verse
+  runtime error was observed.
+- Live-client smoke: PASS for join/game-in-progress, approximately 50 FPS, and
+  zero observed packet loss. FAIL for spawn presentation: the initial view is
+  overbright/open and building controls remain available.
+- Not tested: human end-to-end traversal, two-client claim contention and owner
+  disconnect, normal-speed 21-case pacing, and representative multiplayer
+  performance.
+- No map actors/devices were added or changed in this checkpoint; the prior
+  282-actor reference-match audit remains the applicable map inventory.
+
+## Final custody-route race regression - 2026-07-29 PDT
+
+- A bounded replay first exposed that runner/response interception could start
+  a detention move while the previous active-passenger `MoveTo` was still
+  unwinding. The overlapping calls could both remain suspended and prevent the
+  cell transfer from completing.
+- Added active-passenger movement generations, an explicit
+  `PassengerAtIntake` invariant, and a custody readiness rejection. A newer
+  route now supersedes an interrupted route before that route can retry.
+- Final connected replay PASS: false detention, runner capture, runner escape,
+  resistant response/custody, and the clean post-branch case each logged
+  `Resolved=1`; no `[QA3 FAIL]` marker or Verse runtime error occurred in the
+  final run.
+- Shift 7 exactly-once accounting remained intact after the routing fix. The
+  detected branch advanced to `Resolved=4, Correct=4, Missed=0`; the isolated
+  missed branch logged `Resolved=2, Correct=1, Missed=1` after its own reset.
+- One QA-only compile failed while formatting a `logic` value directly inside
+  a diagnostic string. The fallback was explicit pass/fail log branches; the
+  corrected QA build and the later shipping build both compiled successfully.
+- Final shipping refresh PASS at `2026-07-30 01:20:33 UTC`: local validation,
+  candidate validation, upload, cook/distribution, and activation completed on
+  all platforms. No QA marker appeared after that refresh.
+- Final production state: `DebugEnabled=false`,
+  `AutomatedReplayEnabled=false`, UEFN `All Saved`, session connected, and test
+  game stopped.

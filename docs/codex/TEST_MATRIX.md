@@ -88,3 +88,17 @@ Never classify one-client automation as real multiplayer testing.
 | SPAWN-02 | Island/device spawn configuration | PASS (EDITOR) | Spawn Location=Spawn Pads; random selection; both pads Always and island-start enabled |
 | SPAWN-03 | Fresh-session spawn-to-checkpoint traversal | MANUAL QA | Long-lived edit-session respawn camera was inconclusive; current automation cannot hold movement/capture mouse reliably |
 | ART-07 | Eleven final runtime reference-angle captures | MANUAL QA | Requires a newly started play session and human camera positioning; no editor-only frame is labeled runtime proof |
+
+## State and routing hardening delta - 2026-07-29 PDT
+
+| ID | Test | Status | Evidence / remaining requirement |
+|---|---|---|---|
+| SR-01 | Reject illegal/unavailable interaction before case claim | PASS (CODE/RUNTIME) | Scan, bag, document, secondary, and decision handlers validate prerequisites before `TryClaim`; replay completed claim/reclaim and duplicate-decision milestones |
+| SR-02 | Keep one synchronized active-case identity | PASS (CODE/RUNTIME) | `terminal_active_case` tracks case/run/shift/template/owner/evidence/destination/phase and stale movement callbacks were rejected in live logs |
+| SR-03 | Final threat counts exactly once on both branches | PASS (RUNTIME) | Latest post-fix replay: detected logged `Resolved=4, Correct=4, Missed=0`; isolated missed branch logged `Resolved=2, Correct=1, Missed=1`, each advancing final accounting once |
+| SR-04 | Blocked passenger and bag routes cannot softlock silently | PASS (RUNTIME WITH FALLBACK) | Active-passenger movement generations supersede interrupted routes before retry; queue/bag movers retain stale, retry, teleport, and safe-hide fallbacks; no Verse runtime error |
+| SR-05 | Clean shipping configuration after QA | PASS (FINAL STATIC/COMPILE) | `DebugEnabled=false`; `AutomatedReplayEnabled=false`; final production compile/push/activation completed at 01:20:33 UTC |
+| SR-06 | Fresh client spawn presentation | FAIL (PRESENTATION) | Live client joined, but the starting view remains overbright/open and building controls are enabled |
+| SR-07 | Human full-loop and real multiplayer contention | NOT TESTED | Requires manual scanner-to-cell traversal, a 21-case pacing run, and at least two clients |
+| SR-08 | Custody cannot commit before passenger intake readiness | PASS (CODE/RUNTIME) | `PassengerAtIntake` is synchronized into the active case; premature input rejects; runner and resistant custody each reached intake/cell and logged `Resolved=1` |
+| SR-09 | Failure branch leaves the next case clean | PASS (RUNTIME) | Final QA3 run logged false detention, runner capture, runner escape, resistant response, and post-branch clean case at `Resolved=1`, with no final `[QA3 FAIL]` marker |

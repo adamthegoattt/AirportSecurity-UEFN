@@ -98,3 +98,39 @@ used; the pass matches spatial function, sightlines, proportions, and airport
 readability with Fortnite/UEFN-native families. Runtime traversal and final
 camera-angle capture remain manual QA because current automation cannot hold
 movement or reliably capture the Fortnite mouse.
+
+## State-correctness addendum - 2026-07-29 PDT
+
+This checkpoint did not add art or devices. It hardened the existing physical
+loop against stale state and failed movement: one active-case record mirrors
+identity, ownership, evidence, destination, phase, custody, and final accounting;
+interactions validate before claiming; abandoned claims expire; and every
+production character/bag move has retry, teleport, or safe-despawn recovery.
+
+Shift 7 now contributes to total accuracy exactly once. Connected-session QA
+observed direct route arrivals, stale work rejection, blocked-route fallback,
+both final-accounting branches, detention duplicate protection, claim recovery,
+emergency recovery, and no Verse runtime error. Final Verse compilation and
+session validation/activation passed.
+
+The remaining highest-impact defect is presentation/configuration at spawn: the
+live client begins on an overbright/open sightline and exposes building controls.
+After that is corrected, the exact next proof target is a human scanner-to-cell
+vertical slice followed by two-client contention/disconnect and the normal-speed
+21-case pacing run.
+
+## Final custody-route reconciliation - 2026-07-29 PDT
+
+The active passenger now has a movement generation separate from queue
+Characters. Runner capture, resistant response, normal custody, departure,
+secondary, boss, scanner, and evidence-desk routes supersede older movement
+work before it may retry. Custody also requires the synchronized
+`PassengerAtIntake` state, preventing direct or stale intake events from
+committing rewards while the suspect is still in transit.
+
+The final connected replay logged one completed case for each isolated failure
+branch: false detention, runner capture, runner escape, resistant response, and
+the clean follow-up case. There were no final `[QA3 FAIL]` markers or Verse
+runtime errors. The shipping build was then compiled and activated with both QA
+flags false. No actors, devices, map geometry, or reference art changed in this
+reconciliation.

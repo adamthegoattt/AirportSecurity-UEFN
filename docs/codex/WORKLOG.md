@@ -97,3 +97,36 @@
 - Verse build, QA activation, and all QA3 state outcomes passed.
 - Restored Automated Replay false, saved, and completed a clean normal-mode
   activation at 01:24:10 UTC with no later QA3 marker or relevant error.
+
+## 2026-07-29 PDT - state correctness and movement recovery
+
+- Audited the clean `codex/airport-reference-rebuild` checkpoint, existing
+  devices/actors, production flags, UEFN state, connected Fortnite client, and
+  recent build/session logs before editing.
+- Added a synchronized active-case record and corrected claim ordering so
+  invalid or unavailable interactions cannot steal ownership.
+- Added a renewable inactivity lease for abandoned claims and preserved the
+  existing disconnect release path.
+- Replaced unchecked passenger, queue, response, boss, and linked-bag `MoveTo`
+  calls with checked retry/teleport/safe-hide recovery and stale case/run guards.
+- Added exactly-once Shift 7 accounting; the player-paced live replay retained
+  earlier completions and logged `3/4/0` then `4/4/1`
+  resolved/correct/missed totals.
+- Compiled, pushed, locally validated, uploaded, activated, joined the live
+  client, ran the production-handler replay, and performed a stop/reset check.
+- Recorded the remaining spawn presentation/building-control defect and kept
+  human full-loop plus real multiplayer tests open instead of overstating QA.
+
+## 2026-07-29 PDT - final custody-route race fix
+
+- Converted every route for the active passenger to a generation-tracked
+  checked mover. Queue Characters retain independent checked movers, so normal
+  concurrent queue staging is unaffected.
+- Added `PassengerAtIntake` to the canonical active-case snapshot and rejected
+  custody input until intake movement or its safe fallback completes.
+- The final player-paced failure replay passed false detention, runner capture,
+  runner escape, resistant response/custody, and a following clean case with
+  one resolved case in every isolated branch and no final QA failure markers.
+- Restored both production flags to false, compiled, pushed, validated, and
+  activated the shipping build, then stopped the game while leaving UEFN and
+  Fortnite open and connected.

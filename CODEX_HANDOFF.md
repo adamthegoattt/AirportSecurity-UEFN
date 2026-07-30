@@ -305,3 +305,41 @@ devices, and six feedback Audio Players.
 - Highest-value next tests: two-client claim/disconnect QA, a normal-speed
   21-case pacing run, representative multiplayer performance, and a manual
   spawn-to-checkpoint traversal from a newly started play session.
+
+## 2026-07-29 state and routing hardening checkpoint
+
+- `terminal_lockdown_controller.verse` now validates interaction legality before
+  claiming a case, renews claims through a bounded inactivity lease, and rejects
+  stale case/run work through one synchronized `terminal_active_case` record.
+- Every production character/linked-bag route now checks `MoveTo` results. A
+  blocked route retries through a clearance point, then teleports or safely
+  hides/despawns instead of leaving the case softlocked.
+- Shift 7 final-threat accounting is committed exactly once for both detected
+  and missed branches. Player-paced live QA preserved preceding case totals:
+  detected logged `Resolved=3, Correct=4, Missed=0`, and missed logged
+  `Resolved=4, Correct=4, Missed=1`.
+- UEFN compiled, hot-pushed, locally validated, uploaded, and activated the
+  changed content. The connected Fortnite client joined at roughly 50 FPS with
+  zero observed packet loss; no Verse runtime error appeared in the replay.
+- No map actors or devices were added in this checkpoint. The player spawn view
+  still exposes an overbright/open terminal sightline, and building controls are
+  still available; these are the next presentation/configuration defects.
+- Full human traversal, two-client contention/disconnect, and a normal-speed
+  21-case pacing run remain untested. Production flags must remain false after
+  any replay run.
+
+## 2026-07-29 final custody-route reconciliation
+
+- Active-passenger movement is generation tracked. Starting intake, cell,
+  response, departure, or another active route supersedes an interrupted route
+  before that older route can retry and deadlock the Character device.
+- `PassengerAtIntake` is part of the synchronized active-case state. Custody
+  commits only after intake reaches its destination or completes its bounded
+  fallback; premature direct events are rejected without rewards or claims.
+- Final QA3 replay passed false detention, runner capture, runner escape,
+  resistant response/custody, and a clean follow-up case with `Resolved=1` in
+  every isolated branch and no final failure marker.
+- Final shipping activation completed at `2026-07-30 01:20:33 UTC` with
+  `DebugEnabled=false` and `AutomatedReplayEnabled=false`. UEFN is `All Saved`,
+  the session remains connected, the test game is stopped, and Fortnite remains
+  open. Nothing was published or remotely pushed.
