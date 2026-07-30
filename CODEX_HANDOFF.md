@@ -370,3 +370,29 @@ devices, and six feedback Audio Players.
   production session was launched. Real two-client contention/disconnect,
   normal-speed 21-case pacing, and final human traversal/camera proof remain
   manual QA.
+
+## 2026-07-29 PDT - native checkpoint and support-room polish
+
+- Added eight managed, Fortnite-native production props without replacing the
+  validated gameplay shell: one checkpoint security scanner, two bag
+  conveyors, two power-room electrical cabinets, and a detention bed, sink,
+  and bench.
+- The scanner's first test placement obstructed the checkpoint aperture. Live
+  editor inspection caught the issue; the final managed transform moves it to
+  the lane-side reader position and preserves the open traversal path.
+- Every new class was proved through disposable load, spawn, actor validation,
+  and cleanup before promotion. The final idempotency rerun created zero new
+  actors, updated 91 managed production actors, removed no stale actors, and
+  left no duplicate `TL_` labels.
+- Final live-map audit: 356 actors, 344 unique `TL_` actors, 91 managed
+  production actors, zero invalid/not-validated actors, zero warnings/errors,
+  and no remaining disallowed fallback.
+- `build_airport_production_pass.py` is synchronized into the canonical live
+  project. Three high-resolution editor proof views document the checkpoint,
+  power room, and detention-cell result.
+- Verse compilation passed at `2026-07-30 06:23:12 UTC`. Module 43 passed local
+  validation, upload, client/server cooking, distribution, and all-platform
+  activation at `06:24:36 UTC`; the connected client returned to Game in
+  Progress with the operations HUD visible.
+- The existing production controller and mechanics were not changed. Shipping
+  defaults remain `DebugEnabled=false` and `AutomatedReplayEnabled=false`.

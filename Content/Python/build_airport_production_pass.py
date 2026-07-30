@@ -28,6 +28,14 @@ CLASSES = {
     "chair": "/Game/Athena/Apollo/Environments/BuildingActors/Office/Props/Apollo_Office_Chair_01.Apollo_Office_Chair_01_C",
     "ceiling_light": "/Game/Creative/BuildingActors/Props/CP_Yacht_Ceiling_Light.CP_Yacht_Ceiling_Light_C",
     "emergency_light": "/Game/Creative/BuildingActors/Props/CP_Apollo_TrainTunnelEmergency_Light.CP_Apollo_TrainTunnelEmergency_Light_C",
+    # Native prop families proven with disposable spawn, actor validation, and
+    # cleanup before they are promoted into the saved production batch.
+    "security_scanner": "/Game/Athena/Apollo/Environments/BuildingActors/Agency/Props/Apollo_Agency_SecurityScanner_02.Apollo_Agency_SecurityScanner_02_C",
+    "conveyor": "/Game/Environments/Apollo/Sets/Industrial/Props/Blueprints/Apollo_IND_ConveyorBelt_01.Apollo_IND_ConveyorBelt_01_C",
+    "electrical_box": "/Game/Athena/Apollo/Environments/BuildingActors/Tinfoil/Props/Apollo_Tinfoil_ElectricalBox_01.Apollo_Tinfoil_ElectricalBox_01_C",
+    "prison_bed": "/Game/Athena/Apollo/Environments/BuildingActors/SharkPrison/Props/Apollo_SharkPrison_SingleBed_01.Apollo_SharkPrison_SingleBed_01_C",
+    "prison_sink": "/Game/Athena/BuildingActors/Props/Building/ActorBlueprints/Containers/Athena_Prop_Prison_Bathroom_Sink.Athena_Prop_Prison_Bathroom_Sink_C",
+    "cell_bench": "/Game/Environments/Helios/Props/Brimstone/Brimstone_Cell_Bench_A/Blueprints/BP_Brimstone_CellBench_A.BP_Brimstone_CellBench_A_C",
 }
 
 
@@ -252,6 +260,13 @@ PROPS = [
     ("PlanterCenter", "planter", (2500, 3250, 110), 300.0, 0.0),
     ("PlanterEast", "planter", (5000, 3150, 110), 300.0, 0.0),
     ("PlanterEntry", "planter", (-1100, 1100, 80), 260.0, 0.0),
+    # Native scanner and conveyors replace the weakest block-only silhouettes
+    # while retaining the stable gameplay pad, button, and luggage transforms.
+    # The native prop is a solid imaging panel, so it dresses the lane edge
+    # instead of occupying the walk-through opening or its navigation path.
+    ("NativeScanner", "security_scanner", (1120, -1700, 110), 600.0, 90.0),
+    ("BagConveyorIn", "conveyor", (2050, -1300, 110), 590.0, 0.0),
+    ("BagConveyorOut", "conveyor", (3200, -1300, 110), 590.0, 0.0),
     # Officer-facing technical props make the scanner/X-ray hierarchy legible.
     ("BagOperatorConsole", "monitor", (2700, -940, 365), 260.0, 180.0),
     ("DocumentOperatorConsole", "monitor", (3300, -560, 365), 230.0, 180.0),
@@ -268,10 +283,15 @@ PROPS = [
     # Distinct power, office, and detention props from validated native classes.
     ("PowerServiceMonitor", "monitor", (3950, -3020, 370), 250.0, 0.0),
     ("PowerStatusLight", "emergency_light", (3950, -2860, 760), 180.0, 0.0),
+    ("PowerElectricalCabinetA", "electrical_box", (3520, -3470, 110), 390.0, 0.0),
+    ("PowerElectricalCabinetB", "electrical_box", (4380, -3470, 110), 390.0, 0.0),
     ("OfficeDeskSecond", "desk", (5750, -2850, 115), 760.0, 180.0),
     ("OfficeChairThird", "chair", (5850, -3070, 115), 150.0, 0.0),
     ("OfficeMonitorD", "monitor", (6020, -3280, 420), 230.0, 0.0),
     ("DetentionSecureDoor", "prison_door", (5050, 1450, 100), 930.0, 90.0),
+    ("DetentionBed", "prison_bed", (5750, 1120, 110), 410.0, 90.0),
+    ("DetentionSink", "prison_sink", (6060, 1730, 110), 105.0, -90.0),
+    ("DetentionBenchNative", "cell_bench", (5640, 1840, 110), 310.0, 180.0),
     ("DetentionToilet", "prison_toilet", (6020, 1810, 105), 150.0, -90.0),
     ("DetentionEmergencyLight", "emergency_light", (5580, 1980, 810), 180.0, 180.0),
 ]

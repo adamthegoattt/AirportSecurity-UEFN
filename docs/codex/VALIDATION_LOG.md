@@ -295,3 +295,28 @@
 - Still manual/not tested: real two-client contention and disconnect recovery,
   normal-speed human 21-case pacing, representative multiplayer performance,
   and final human reference-angle traversal/capture.
+
+## Native checkpoint and support-room polish validation - 2026-07-29 PDT
+
+- Candidate proof PASS: scanner, conveyor, electrical cabinet, prison bed,
+  prison sink, and cell bench each loaded, spawned, validated as `VALID`, and
+  were removed from the disposable proof cycle with no residue.
+- Managed builder PASS: final rerun reported `created=0`, `updated=91`,
+  `deleted_stale=0`, `production_actor_count=91`, `actor_count_before=356`,
+  `actor_count_after=356`, `duplicate_tl_labels=[]`, and successful level/dirty
+  package saves.
+- Whole-map validation PASS: 356 actors checked; 356 valid, 0 invalid, 0 not
+  validated, 0 warnings, 0 errors, and no disallowed fallback classes.
+- Visual clearance PASS: a blocking first scanner placement was corrected to a
+  side reader; the final proof shows the checkpoint aperture unobstructed.
+- Visual proof PASS: high-resolution editor captures record the scanner and bag
+  conveyors, electrical cabinets, and furnished detention cell.
+- Verse/session PASS: `VerseBuild: SUCCESS` at `2026-07-30 06:23:12 UTC`;
+  module 43 completed validation, upload, client/server cooking, distribution,
+  and all-platform activation at `06:24:36 UTC`.
+- Connected-client smoke PASS: Fortnite resumed into Game in Progress with the
+  Astra checkpoint HUD visible at Shift 1 / Case 1, 54 FPS, 29 ms ping, and 0%
+  observed packet loss.
+- Static prop changes did not modify Verse or device wiring. Real two-client
+  behavior, normal-speed 21-case pacing, and representative multiplayer
+  performance remain manual tests.

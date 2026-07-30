@@ -154,3 +154,18 @@
   QA failure marker or Verse runtime error.
 - Restored `AutomatedReplayEnabled=false`, saved the controller actor, and
   launched a new normal session. `DebugEnabled` remained false throughout.
+
+## 2026-07-29 PDT - native checkpoint and support-room polish
+
+- Proved six Fortnite-native actor classes in disposable spawn/validate/cleanup
+  cycles before editing the production set.
+- Extended the idempotent production builder with eight managed actors: a
+  checkpoint scanner, two baggage conveyors, two electrical cabinets, and
+  three detention furnishings.
+- Inspected every edited zone in the live UEFN viewport. Moved the initial
+  scanner placement out of the checkpoint aperture, then reran the builder to
+  a zero-create idempotent result.
+- Saved and validated the 356-actor live map with no actor warnings, errors,
+  duplicate `TL_` labels, stale managed actors, or disallowed fallbacks.
+- Captured three high-resolution editor proof images and synchronized the
+  updated builder into the canonical live project.
