@@ -36,6 +36,9 @@ CLASSES = {
     "prison_bed": "/Game/Athena/Apollo/Environments/BuildingActors/SharkPrison/Props/Apollo_SharkPrison_SingleBed_01.Apollo_SharkPrison_SingleBed_01_C",
     "prison_sink": "/Game/Athena/BuildingActors/Props/Building/ActorBlueprints/Containers/Athena_Prop_Prison_Bathroom_Sink.Athena_Prop_Prison_Bathroom_Sink_C",
     "cell_bench": "/Game/Environments/Helios/Props/Brimstone/Brimstone_Cell_Bench_A/Blueprints/BP_Brimstone_CellBench_A.BP_Brimstone_CellBench_A_C",
+    "stanchion": "/Game/Environments/Helios/Props/Commerce/Commerce_BeltStanchion_A/Blueprints/BP_Commerce_BeltStanchion_A.BP_Commerce_BeltStanchion_A_C",
+    "breaker": "/Game/Environments/Helios/Props/Coastal/Coastal_Breakers_A/Blueprints/BP_Coastal_Breaker_A.BP_Coastal_Breaker_A_C",
+    "triple_seat": "/Game/Creative/Sets/ArtDeco_Bank/Props/CP_ArtDeco_Triple_Couch_B.CP_ArtDeco_Triple_Couch_B_C",
 }
 
 
@@ -254,6 +257,37 @@ BOXES = [
     ("DetentionOuterFrameSouth", (4890, 880, 610), (160, 140, 1020), "MIDNIGHT_BLUE"),
     ("DetentionRedLine", (4820, 1450, 125), (180, 1100, 20), "RED_ORANGE"),
     ("CellRearBand", (6200, 1450, 420), (70, 1050, 300), "MIDNIGHT_BLUE"),
+    # Full-height glazing now has dark airport mullions and a grounded sill,
+    # preserving the aircraft view while eliminating the open-void read.
+    ("WindowSill", (2500, 3670, 155), (7800, 85, 120), "MIDNIGHT_BLUE"),
+    ("WindowHeader", (2500, 3670, 1190), (7800, 85, 150), "MIDNIGHT_BLUE"),
+    ("WindowMullion01", (-900, 3670, 670), (85, 85, 1040), "MIDNIGHT_BLUE"),
+    ("WindowMullion02", (100, 3670, 670), (85, 85, 1040), "MIDNIGHT_BLUE"),
+    ("WindowMullion03", (1100, 3670, 670), (85, 85, 1040), "MIDNIGHT_BLUE"),
+    ("WindowMullion04", (2100, 3670, 670), (85, 85, 1040), "MIDNIGHT_BLUE"),
+    ("WindowMullion05", (3100, 3670, 670), (85, 85, 1040), "MIDNIGHT_BLUE"),
+    ("WindowMullion06", (4100, 3670, 670), (85, 85, 1040), "MIDNIGHT_BLUE"),
+    ("WindowMullion07", (5100, 3670, 670), (85, 85, 1040), "MIDNIGHT_BLUE"),
+    ("WindowMullion08", (6100, 3670, 670), (85, 85, 1040), "MIDNIGHT_BLUE"),
+    # Scanner and X-ray accents are thin, nonblocking visual status elements.
+    ("ScannerInnerLightLeft", (1115, -1572, 520), (195, 24, 670), "AQUA"),
+    ("ScannerInnerLightRight", (1115, -1028, 520), (195, 24, 670), "AQUA"),
+    ("ScannerReadyStrip", (1015, -1300, 915), (22, 500, 38), "APPLE_GREEN"),
+    ("BagMachineAccent", (2110, -1300, 735), (35, 650, 55), "AQUA"),
+    ("BagEntryFrameTop", (2020, -1300, 720), (130, 600, 100), "MIDNIGHT_BLUE"),
+    ("BagEntryFrameNorth", (2020, -1035, 475), (130, 80, 490), "MIDNIGHT_BLUE"),
+    ("BagEntryFrameSouth", (2020, -1565, 475), (130, 80, 490), "MIDNIGHT_BLUE"),
+    # Designed officer work surfaces tie the evidence stations together.
+    ("DocumentDesk", (3480, -520, 300), (950, 520, 420), "GRAY"),
+    ("DocumentDeskFront", (3480, -260, 285), (950, 55, 390), "MIDNIGHT_BLUE"),
+    ("SecondaryWorktop", (4620, 1760, 260), (900, 520, 330), "GRAY"),
+    ("SecondaryAmberStrip", (4620, 1495, 410), (900, 32, 55), "GOLD"),
+    ("DetentionIntakeTop", (5070, 1450, 350), (500, 760, 90), "GRAY"),
+    ("DetentionGateStatus", (4920, 1450, 760), (35, 500, 120), "RED_ORANGE"),
+    # Apron markings and stand guidance deepen the exterior airport identity.
+    ("ApronCenterline", (5200, 5050, 105), (2600, 32, 8), "GOLD"),
+    ("ApronStandBar", (5200, 4800, 105), (32, 1150, 8), "GOLD"),
+    ("ApronEdgeStripe", (2500, 4200, 105), (7600, 38, 8), "WHITE"),
 ]
 
 
@@ -305,7 +339,49 @@ PROPS = [
     ("DetentionBenchNative", "cell_bench", (5640, 1840, 110), 310.0, 180.0),
     ("DetentionToilet", "prison_toilet", (6020, 1810, 105), 150.0, -90.0),
     ("DetentionEmergencyLight", "emergency_light", (5580, 1980, 810), 180.0, 180.0),
+    # A second native panel completes the walk-through scanner silhouette.
+    ("NativeScannerRight", "security_scanner", (1120, -900, 110), 600.0, -90.0),
+    # Airport queue hardware frames four visible positions without occupying
+    # the active route centerline.
+    ("QueuePostSouth01", "stanchion", (-2200, -2520, 105), 145.0, 0.0),
+    ("QueuePostSouth02", "stanchion", (-1600, -2520, 105), 145.0, 0.0),
+    ("QueuePostSouth03", "stanchion", (-1000, -2520, 105), 145.0, 0.0),
+    ("QueuePostSouth04", "stanchion", (-400, -2520, 105), 145.0, 0.0),
+    ("QueuePostSouth05", "stanchion", (200, -2520, 105), 145.0, 0.0),
+    ("QueuePostNorth01", "stanchion", (-2200, -1780, 105), 145.0, 180.0),
+    ("QueuePostNorth02", "stanchion", (-1600, -1780, 105), 145.0, 180.0),
+    ("QueuePostNorth03", "stanchion", (-1000, -1780, 105), 145.0, 180.0),
+    ("QueuePostNorth04", "stanchion", (-400, -1780, 105), 145.0, 180.0),
+    ("QueuePostNorth05", "stanchion", (200, -1780, 105), 145.0, 180.0),
+    # Modern grouped seating adds the denser waiting-area rhythm in the target.
+    ("WaitingTripleSeatA", "triple_seat", (900, 2850, 105), 470.0, 0.0),
+    ("WaitingTripleSeatB", "triple_seat", (1900, 2850, 105), 470.0, 0.0),
+    ("WaitingTripleSeatC", "triple_seat", (3200, 3150, 105), 470.0, 180.0),
+    ("WaitingTripleSeatD", "triple_seat", (4200, 3150, 105), 470.0, 180.0),
+    # Ceiling luminaires create a legible checkpoint spine and public-lounge bay.
+    ("CeilingLightCheckpoint01", "ceiling_light", (200, -2300, 1250), 330.0, 0.0),
+    ("CeilingLightCheckpoint02", "ceiling_light", (1400, -1900, 1250), 330.0, 0.0),
+    ("CeilingLightCheckpoint03", "ceiling_light", (2600, -1400, 1250), 330.0, 0.0),
+    ("CeilingLightDecision", "ceiling_light", (4300, 0, 1250), 360.0, 90.0),
+    ("CeilingLightLounge01", "ceiling_light", (800, 2800, 1250), 360.0, 0.0),
+    ("CeilingLightLounge02", "ceiling_light", (2400, 2800, 1250), 360.0, 0.0),
+    ("CeilingLightLounge03", "ceiling_light", (4000, 2800, 1250), 360.0, 0.0),
+    # Three visibly distinct breaker cabinets support the multi-step outage.
+    ("PowerBreakerMain", "breaker", (3500, -3090, 110), 310.0, 0.0),
+    ("PowerBreakerBackup", "breaker", (3950, -3090, 110), 310.0, 0.0),
+    ("PowerBreakerCheckpoint", "breaker", (4400, -3090, 110), 310.0, 0.0),
+    # Secondary and document workstations now read as staffed inspections.
+    ("DocumentDeskChair", "chair", (3480, -850, 110), 150.0, 0.0),
+    ("SecondaryDesk", "desk", (4620, 1760, 110), 720.0, 90.0),
+    ("SecondaryChair", "chair", (4500, 2050, 110), 150.0, 180.0),
+    ("SecondaryMonitor", "monitor", (4700, 1740, 430), 230.0, -90.0),
 ]
+
+
+NONBLOCKING_BOX_TOKENS = (
+    "Flow", "Rug", "InfoScreen", "Hazard", "Accent", "Light",
+    "Status", "Apron", "Stripe", "RedLine", "Threshold",
+)
 
 
 world = unreal.EditorLevelLibrary.get_editor_world()
@@ -359,7 +435,10 @@ for actor in actors_before:
 
 created = []
 for spec in BOXES:
-    created.append(spawn_box(classes, *spec).get_actor_label())
+    actor = spawn_box(classes, *spec)
+    if any(token in spec[0] for token in NONBLOCKING_BOX_TOKENS):
+        make_decorative_nonblocking(actor)
+    created.append(actor.get_actor_label())
 for spec in PROPS:
     created.append(spawn_prop(classes, *spec).get_actor_label())
 

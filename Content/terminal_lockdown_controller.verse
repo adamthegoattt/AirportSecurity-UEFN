@@ -165,6 +165,9 @@ terminal_lockdown_controller := class(creative_device):
     @editable
     ClaimInactivitySeconds:float = 90.0
 
+    @editable
+    SecondaryScreeningCost:int = 25
+
     # Production tuning hook used by the staged scanner. The between-shift
     # checkpoint capacitor shortens this second sweep stage for the run.
     @editable
@@ -204,6 +207,8 @@ terminal_lockdown_controller := class(creative_device):
     var BagChecked:logic = false
     var DocumentsChecked:logic = false
     var SecondaryChecked:logic = false
+    var SecondaryCostPaid:logic = false
+    var SecondaryActionStage:int = 0
     var PassengerReadyForScan:logic = false
     var ScanInProgress:logic = false
     var BagScanInProgress:logic = false
@@ -212,6 +217,7 @@ terminal_lockdown_controller := class(creative_device):
     var PassengerAtIntake:logic = false
     var ActivePassengerMoveGeneration:int = 0
     var ResolutionCommitted:logic = false
+    var CaseCompletionCommitted:logic = false
     var CustodyCommitted:logic = false
     var FinalCaseAccountingCommitted:logic = false
     var RunUpgradePurchased:logic = false
@@ -897,7 +903,10 @@ terminal_lockdown_controller := class(creative_device):
         set BagScanInProgress = false
         set SecondaryPassengerReady = false
         set SecondaryBagReady = false
+        set SecondaryCostPaid = false
+        set SecondaryActionStage = 0
         set PassengerAtIntake = false
+        set CaseCompletionCommitted = false
         set FinalCaseAccountingCommitted = false
         set QueueFrontIndex = 0
         set QueueGeneration += 1
@@ -1009,6 +1018,10 @@ terminal_lockdown_controller := class(creative_device):
             spawn{MovePassengerToDecision(ExpectedCaseId, ExpectedRun)}
 
     OnBagButton(Agent:agent):void=
+        if (not PowerOnline?):
+            ShowAgent(Agent, "BAGGAGE X-RAY OFFLINE | Restore terminal power before inspecting luggage.", 5.0)
+            SetBoard(BagBoard, "X-RAY OFFLINE | POWER ROOM REQUIRED")
+            return
         if (Shift < 2):
             ShowAgent(Agent, "Baggage Control unlocks in Shift 2.", 4.0)
             return
@@ -1144,6 +1157,10 @@ terminal_lockdown_controller := class(creative_device):
             spawn{MovePassengerToDecision(ExpectedCaseId, ExpectedRun)}
 
     OnDocumentButton(Agent:agent):void=
+        if (not PowerOnline?):
+            ShowAgent(Agent, "DOCUMENT READER OFFLINE | Restore terminal power before reviewing credentials.", 5.0)
+            SetBoard(DocumentBoard, "DOCUMENT READER OFFLINE | POWER ROOM REQUIRED")
+            return
         if (Shift < 3):
             ShowAgent(Agent, "Identity Desk unlocks in Shift 3.", 4.0)
             return
@@ -1303,10 +1320,20 @@ terminal_lockdown_controller := class(creative_device):
         if (SecondaryChecked? or Phase = terminal_game_phase.SecondaryScreening):
             ShowAgent(Agent, "SECONDARY already completed for Case {CurrentCaseId}.", 4.0)
             return
+        if (TeamCash < SecondaryScreeningCost):
+            ShowAgent(
+                Agent,
+                "SECONDARY requires ${SecondaryScreeningCost}. Team cash: ${TeamCash}. Complete another legal decision or choose CLEAR / DETAIN.",
+                6.0
+            )
+            return
         Claimed := TryClaim(Agent)
         if (not Claimed?):
             return
 
+        set TeamCash -= SecondaryScreeningCost
+        set SecondaryCostPaid = true
+        set SecondaryActionStage = 0
         set Phase = terminal_game_phase.SecondaryScreening
         set CurrentDestination = terminal_case_destination.Secondary
         CloseAllDocumentInterfaces()
@@ -1319,7 +1346,7 @@ terminal_lockdown_controller := class(creative_device):
         SyncActiveCase()
         SetBoard(CaseBoard, "CASE {CurrentCaseId} | ROUTING TO SECONDARY")
         SetBoard(SecondaryBoard, "SECONDARY\nPASSENGER + BAG IN TRANSIT")
-        ShowAll("SECONDARY SELECTED | Follow the passenger and linked bag to the controlled room, then perform the additional check at intake.", 8.0)
+        ShowAll("SECONDARY AUTHORIZED | ${SecondaryScreeningCost} charged. Follow the passenger and linked bag, then complete both controlled-room checks.", 8.0)
         TerminalLog(DebugEnabled, "[SECONDARY] Routed|CaseId={CurrentCaseId}|Template={CurrentTemplate}")
         spawn{MovePassengerToSecondary(CurrentCaseId, RunGeneration)}
         if (Shift >= 2):
@@ -1535,21 +1562,29 @@ terminal_lockdown_controller := class(creative_device):
         Claimed := TryClaim(Agent)
         if (not Claimed?):
             return
+        if (SecondaryActionStage = 0):
+            set SecondaryActionStage = 1
+            CustodyButton.SetInteractionText(TerminalMessage("SECONDARY STEP 2 | MANUAL BAG / RECORD CHECK"))
+            SetBoard(CaseBoard, "CASE {CurrentCaseId} | TRACE + ID CHECK | {SecondaryPassengerClue(CurrentTemplate)}")
+            SetBoard(SecondaryBoard, "SECONDARY 1/2 COMPLETE\nPERFORM MANUAL BAG / RECORD CHECK")
+            ShowAll("SECONDARY 1/2 | {SecondaryPassengerClue(CurrentTemplate)} | Use the station again for the linked-bag and record check.", 7.0)
+            TerminalLog(DebugEnabled, "[SECONDARY] Passenger check complete|CaseId={CurrentCaseId}|Template={CurrentTemplate}")
+            return
         set SecondaryChecked = true
         set SecondaryPassengerReady = false
         set SecondaryBagReady = false
         set CurrentCustodyMode = 0
-        if (TeamCash >= 25):
-            set TeamCash -= 25
+        set SecondaryCostPaid = false
+        set SecondaryActionStage = 2
         set Phase = terminal_game_phase.AwaitingDecision
         set CurrentDestination = terminal_case_destination.Decision
         CustodyButton.Disable()
         CustodyButton.SetInteractionText(TerminalMessage("SECURE / JAIL INTAKE"))
         SetSecondaryFinalControls()
         SetBoard(CaseBoard, "CASE {CurrentCaseId} | SECONDARY RESULT | {SecondaryResultText(CurrentTemplate)}")
-        SetBoard(SecondaryBoard, "SECONDARY COMPLETE\nRETURN TO DECISION DESK")
+        SetBoard(SecondaryBoard, "SECONDARY 2/2 COMPLETE\nRETURN TO DECISION DESK")
         SyncActiveCase()
-        ShowAll("SECONDARY CHECK COMPLETE | {SecondaryResultText(CurrentTemplate)} | Return to the decision desk and RELEASE or DETAIN.", 8.0)
+        ShowAll("SECONDARY 2/2 COMPLETE | {SecondaryResultText(CurrentTemplate)} | Return to the decision desk and RELEASE or DETAIN.", 8.0)
         TerminalLog(DebugEnabled, "[SECONDARY] Completed|CaseId={CurrentCaseId}|Template={CurrentTemplate}")
 
     RunnerEscape(ExpectedCaseId:int, ExpectedRun:int)<suspends>:void=
@@ -1603,8 +1638,12 @@ terminal_lockdown_controller := class(creative_device):
             CleanupResponseEquipment()
             PassengerActive.Hide()
             if (not EscapeReached?):
-                SetBoard(CaseBoard, "CASE {CurrentCaseId} | RUNNER ROUTE FAILED | SAFE DESPAWN")
-                TerminalLog(DebugEnabled, "[MOVE] Runner resolved through safe-despawn fallback|CaseId={CurrentCaseId}")
+                SetBoard(CaseBoard, "CASE {CurrentCaseId} | RUNNER ROUTE FAILED | SAFE CONTAINMENT")
+                SetBoard(CustodyBoard, "DETENTION INTAKE | ROUTE FAILURE | NO ESCAPE PENALTY")
+                ShowAll("RUNNER ROUTE FAILED | Safe containment completed. No escape penalty was applied.", 6.0)
+                TerminalLog(DebugEnabled, "[MOVE] Runner route failure resolved without escape penalty|CaseId={CurrentCaseId}")
+                FinishCase()
+                return
             RaiseRisk(16)
             DamageIntegrity(10, "Runner escaped")
             if (Phase = terminal_game_phase.Results):
@@ -1642,21 +1681,32 @@ terminal_lockdown_controller := class(creative_device):
             ExpectedRun,
             "detention-intake"
         )
+        var VerifiedArrival:logic = false
+        if (MoveReached?, IsActivePassengerNear(IntakePosition(), 325.0)?):
+            set VerifiedArrival = true
         if (ExpectedCaseId = CurrentCaseId and ExpectedRun = RunGeneration and Phase = terminal_game_phase.Custody):
-            set PassengerAtIntake = true
-            CustodyButton.SetInteractionText(TerminalMessage("SECURE / JAIL INTAKE"))
-            CustodyButton.Enable()
-            if (MoveReached?):
+            if (VerifiedArrival?):
+                set PassengerAtIntake = true
+                CustodyButton.SetInteractionText(TerminalMessage("SECURE / JAIL INTAKE"))
+                CustodyButton.Enable()
                 SetBoard(CustodyBoard, "CASE {CurrentCaseId} AT INTAKE | SECURE NOW")
             else:
-                SetBoard(CustodyBoard, "CASE {CurrentCaseId} ROUTE FALLBACK | COMPLETE INTAKE")
+                set PassengerAtIntake = false
+                CustodyButton.Disable()
+                SetBoard(CustodyBoard, "CASE {CurrentCaseId} INTAKE ROUTE FAULT | ARRIVAL NOT VERIFIED")
+                ShowAll("CUSTODY ROUTE FAULT | Intake remains locked because suspect arrival was not verified.", 7.0)
+                TerminalLog(DebugEnabled, "[CUSTODY] Intake arrival verification failed|CaseId={CurrentCaseId}")
         else if (ExpectedCaseId = CurrentCaseId and ExpectedRun = RunGeneration and Phase = terminal_game_phase.BossSecure):
-            CustodyButton.SetInteractionText(TerminalMessage("FINAL CUSTODY INTAKE"))
-            CustodyButton.Enable()
-            if (MoveReached?):
+            if (VerifiedArrival?):
+                set PassengerAtIntake = true
+                CustodyButton.SetInteractionText(TerminalMessage("FINAL CUSTODY INTAKE"))
+                CustodyButton.Enable()
                 SetBoard(CustodyBoard, "FINAL THREAT AT INTAKE | SECURE NOW")
             else:
-                SetBoard(CustodyBoard, "FINAL ROUTE FALLBACK | COMPLETE INTAKE")
+                set PassengerAtIntake = false
+                CustodyButton.Disable()
+                SetBoard(CustodyBoard, "FINAL THREAT ROUTE FAULT | ARRIVAL NOT VERIFIED")
+                TerminalLog(DebugEnabled, "[BOSS] Final intake arrival verification failed|CaseId={CurrentCaseId}")
 
     MovePassengerToSecurePad(ExpectedCaseId:int, ExpectedRun:int)<suspends>:void=
         set CurrentDestination = terminal_case_destination.Detention
@@ -1698,12 +1748,7 @@ terminal_lockdown_controller := class(creative_device):
                     SetBoard(SecondaryBoard, "SECONDARY\nPASSENGER READY | BAG IN TRANSIT")
                 SetBoard(CaseBoard, "CASE {CurrentCaseId} | PASSENGER IN SECONDARY ROOM")
             else:
-                set CurrentCustodyMode = 0
-                set Phase = terminal_game_phase.AwaitingDecision
-                CustodyButton.Disable()
-                RefreshDecisionControls()
-                SetBoard(SecondaryBoard, "SECONDARY ROUTE OFFLINE\nRETURN TO DECISION")
-                ShowAll("SECONDARY ROUTE RESET | Return to the decision desk and choose a final action.", 7.0)
+                AbortSecondaryRouting("Passenger could not reach the controlled room")
             SyncActiveCase()
 
     MoveActiveBagToSecondary(ExpectedCaseId:int, ExpectedRun:int, ExpectedBagGeneration:int, BagIndex:int)<suspends>:void=
@@ -1750,7 +1795,30 @@ terminal_lockdown_controller := class(creative_device):
                 SetBoard(SecondaryBoard, "SECONDARY READY\nPASSENGER + BAG PRESENT")
         else:
             SetBoard(BagBoard, "LINKED BAG {CurrentCaseId} | SECONDARY ROUTE FAULT")
-            ShowAll("SECONDARY BAG ROUTE RESET | Retry the case decision or use the final action controls.", 6.0)
+            AbortSecondaryRouting("Linked bag could not reach the inspection table")
+
+    AbortSecondaryRouting(Reason:string):void=
+        if (Phase <> terminal_game_phase.SecondaryScreening):
+            return
+        if (SecondaryCostPaid?):
+            set TeamCash += SecondaryScreeningCost
+        set SecondaryCostPaid = false
+        set SecondaryActionStage = 0
+        set SecondaryPassengerReady = false
+        set SecondaryBagReady = false
+        set CurrentCustodyMode = 0
+        set Phase = terminal_game_phase.AwaitingDecision
+        set CurrentDestination = terminal_case_destination.Decision
+        set ClaimOwner = false
+        set ClaimGeneration += 1
+        CustodyButton.Disable()
+        CustodyButton.SetInteractionText(TerminalMessage("SECURE / JAIL INTAKE"))
+        RefreshDecisionControls()
+        SetBoard(SecondaryBoard, "SECONDARY ROUTE OFFLINE\nCOST REFUNDED | RETURN TO DECISION")
+        SetBoard(CaseBoard, "CASE {CurrentCaseId} | SECONDARY ABORTED | COST REFUNDED")
+        SyncActiveCase()
+        ShowAll("SECONDARY ABORTED | {Reason}. ${SecondaryScreeningCost} refunded; return to CLEAR or DETAIN.", 8.0)
+        TerminalLog(DebugEnabled, "[SECONDARY] Route aborted and refunded|CaseId={CurrentCaseId}|Reason={Reason}")
 
     MovePassengerToResponse(ExpectedCaseId:int, ExpectedRun:int)<suspends>:void=
         set CurrentDestination = terminal_case_destination.Response
@@ -1796,6 +1864,10 @@ terminal_lockdown_controller := class(creative_device):
             FinishCase()
 
     FinishCase():void=
+        if (CaseCompletionCommitted?):
+            TerminalLog(DebugEnabled, "[CASE] Duplicate completion rejected|CaseId={CurrentCaseId}|Run={RunGeneration}")
+            return
+        set CaseCompletionCommitted = true
         CloseAllDocumentInterfaces()
         set TotalCasesResolved += 1
         set CasesInShift += 1
@@ -1831,8 +1903,11 @@ terminal_lockdown_controller := class(creative_device):
         set SecondaryChecked = false
         set SecondaryPassengerReady = false
         set SecondaryBagReady = false
+        set SecondaryCostPaid = false
+        set SecondaryActionStage = 0
         set PassengerAtIntake = false
         set ResolutionCommitted = false
+        set CaseCompletionCommitted = false
         set CustodyCommitted = false
         set FinalCaseAccountingCommitted = false
         set CurrentCustodyMode = 0
@@ -2259,6 +2334,8 @@ terminal_lockdown_controller := class(creative_device):
         set BagScanInProgress = false
         set SecondaryPassengerReady = false
         set SecondaryBagReady = false
+        set SecondaryCostPaid = false
+        set SecondaryActionStage = 0
         set PassengerAtIntake = false
         set UpgradeBreakResolved = false
         set PowerRepairStage = 0
@@ -2476,6 +2553,9 @@ terminal_lockdown_controller := class(creative_device):
             set PowerRepairCommitted = false
             set ScannerGeneration += 1
             ScanButton.Disable()
+            BagButton.Disable()
+            DocumentButton.Disable()
+            ResponseButton.Disable()
             MovePowerControl(PowerStage1Position(), "main-breaker")
             PowerButton.Enable()
             PowerButton.SetInteractionText(TerminalMessage("STEP 1 | RESET MAIN BREAKER"))
@@ -2486,6 +2566,8 @@ terminal_lockdown_controller := class(creative_device):
             ResponseLightB.Enable()
             ResponseLightB.TurnOn()
             SetBoard(PowerBoard, "POWER OFFLINE | REPAIR 0/3 | RESET MAIN BREAKER")
+            SetBoard(BagBoard, "X-RAY OFFLINE | NO CONVEYOR POWER")
+            SetBoard(DocumentBoard, "DOCUMENT READER OFFLINE | BACKUP POWER ONLY")
             SetBoard(ResponseLoadoutBoard, "BACKUP LIGHTING ACTIVE\nPOWER ROOM REQUIRED\nREPAIR 0/3")
             ShowAll("POWER OUTAGE | Equipment stopped, backup alarm active. Follow STAFF / POWER and reset the main breaker.", 8.0)
         else:
@@ -2565,6 +2647,8 @@ terminal_lockdown_controller := class(creative_device):
     RestoreNormalPower():void=
         set PowerOnline = true
         ScanButton.Enable()
+        BagButton.Enable()
+        DocumentButton.Enable()
         MovePowerControl(PowerStage1Position(), "standby")
         PowerButton.Disable()
         PowerButton.SetInteractionText(TerminalMessage("RESTORE TERMINAL POWER"))
@@ -2842,6 +2926,9 @@ terminal_lockdown_controller := class(creative_device):
     CompleteBossCustody(Agent:agent):void=
         if (Phase <> terminal_game_phase.BossSecure or CurrentCustodyMode <> 6):
             return
+        if (not PassengerAtIntake?):
+            ShowAgent(Agent, "FINAL THREAT IN TRANSIT | Intake remains locked until suspect arrival is verified.", 5.0)
+            return
         if (not IsAgentNear(Agent, CustodyButton.GetTransform().Translation, CustodyProximityRadius)?):
             ShowAgent(Agent, "FINAL CUSTODY OUT OF RANGE | Meet the suspect at detention intake.", 5.0)
             return
@@ -2940,6 +3027,7 @@ terminal_lockdown_controller := class(creative_device):
         set ClaimOwner = false
         set ClaimGeneration += 1
         set ResolutionCommitted = false
+        set CaseCompletionCommitted = false
         set CustodyCommitted = false
         set FinalCaseAccountingCommitted = false
         set ScannerUpgradeLevel = 0
@@ -2954,6 +3042,9 @@ terminal_lockdown_controller := class(creative_device):
         set ScanInProgress = false
         set BagScanInProgress = false
         set SecondaryPassengerReady = false
+        set SecondaryBagReady = false
+        set SecondaryCostPaid = false
+        set SecondaryActionStage = 0
         set PassengerAtIntake = false
         set QueueFrontIndex = 0
         set QueueGeneration += 1
@@ -3272,10 +3363,11 @@ terminal_lockdown_controller := class(creative_device):
         false
 
     CommitFinalCaseAccounting(Submitted:terminal_decision, Expected:terminal_decision):void=
-        if (FinalCaseAccountingCommitted?):
+        if (FinalCaseAccountingCommitted? or CaseCompletionCommitted?):
             TerminalLog(DebugEnabled, "[BOSS] Duplicate final-case accounting rejected|CaseId={CurrentCaseId}")
             return
         set FinalCaseAccountingCommitted = true
+        set CaseCompletionCommitted = true
         set TotalCasesResolved += 1
         set CasesInShift += 1
         if (Submitted = Expected):
@@ -3296,6 +3388,7 @@ terminal_lockdown_controller := class(creative_device):
         if (ExpectedClaimGeneration <> ClaimGeneration or not CaseIdentityMatches(ExpectedCaseId, ExpectedRun)?):
             return
         if (ScanInProgress? or BagScanInProgress? or Phase = terminal_game_phase.Inspecting or Phase = terminal_game_phase.SecondaryScreening):
+            spawn{ClaimInactivityTimeout(Player, ExpectedCaseId, ExpectedRun, ExpectedClaimGeneration)}
             return
         if (Owner := ClaimOwner?, Owner = Player):
             set ClaimOwner = false
@@ -3413,6 +3506,16 @@ terminal_lockdown_controller := class(creative_device):
     IsAgentNearActivePassenger(Agent:agent, Radius:float)<transacts>:logic=
         PassengerLocation := PassengerActive.GetTransform().Translation
         IsAgentNear(Agent, PassengerLocation, Radius)
+
+    IsActivePassengerNear(Target:vector3, Radius:float)<transacts>:logic=
+        PassengerLocation := PassengerActive.GetTransform().Translation
+        DeltaX := PassengerLocation.X - Target.X
+        DeltaY := PassengerLocation.Y - Target.Y
+        DeltaZ := PassengerLocation.Z - Target.Z
+        RangeDistanceSquared := DeltaX * DeltaX + DeltaY * DeltaY + DeltaZ * DeltaZ
+        if (RangeDistanceSquared <= Radius * Radius):
+            return true
+        false
 
     IsHumanAgent(Agent:agent)<transacts>:logic=
         if (player[Agent]):
@@ -3543,6 +3646,15 @@ terminal_lockdown_controller := class(creative_device):
 
     FullEvidence(Template:int):string=
         "Body {BodyEvidence(Template)} | Bag {BagEvidence(Template)} | Docs {DocumentEvidence(Template)}"
+
+    SecondaryPassengerClue(Template:int)<computes>:string=
+        if (Template = 3):
+            return "IDENTITY TRACE MATCHED | AUTHORITY RECORD NEEDS DATE REVIEW"
+        if (Template = 7):
+            return "TRACE CLEAN | POWER-CELL LABEL REMAINS PARTIALLY SHIELDED"
+        if (Template = 10):
+            return "IDENTITY MATCHED | ROUTE RECORD HAS A RECENT MANIFEST UPDATE"
+        "IDENTITY + TRACE BASELINE | NO NEW BODY-SCAN ANOMALY"
 
     SecondaryResultText(Template:int)<computes>:string=
         if (Template = 7):
