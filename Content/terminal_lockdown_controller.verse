@@ -690,10 +690,10 @@ terminal_lockdown_controller := class(creative_device):
         ClearButton.SetInteractionText(TerminalMessage("GREEN | PASS PASSENGER"))
         ClearButton.SetInteractionTime(0.25)
         ClearButton.SetMaxTriggerCount(0)
-        SecondaryButton.SetInteractionText(TerminalMessage("RED | NO PASS | SEND TO SECONDARY"))
+        SecondaryButton.SetInteractionText(TerminalMessage("AMBER | DENY ENTRY | SEND TO SECONDARY"))
         SecondaryButton.SetInteractionTime(0.5)
         SecondaryButton.SetMaxTriggerCount(0)
-        DetainButton.SetInteractionText(TerminalMessage("RED | DETAIN SUSPECT"))
+        DetainButton.SetInteractionText(TerminalMessage("RED | JAIL / DETAIN SUSPECT"))
         DetainButton.SetInteractionTime(0.75)
         DetainButton.SetMaxTriggerCount(0)
         ResponseButton.SetInteractionText(TerminalMessage("RESPOND / SECURE"))
@@ -2040,7 +2040,7 @@ terminal_lockdown_controller := class(creative_device):
         ResolveDecision(Agent, terminal_decision.Clear)
 
     OnSecondaryButton(Agent:agent):void=
-        # The detector-side red NO PASS control preserves the project's staged
+        # The detector-side amber DENY control preserves the project's staged
         # rules: it routes the same active passenger to Secondary, where the
         # later release/detain choice remains authoritative.
         Legal := IsCaseInteractionLegal(Agent)
@@ -2054,7 +2054,7 @@ terminal_lockdown_controller := class(creative_device):
             ShowAgent(Agent, "SECONDARY already completed for Case {CurrentCaseId}.", 4.0)
             return
         if (not IsAgentNear(Agent, SecondaryButton.GetTransform().Translation, 650.0)?):
-            ShowAgent(Agent, "MOVE TO THE RED NO PASS CONTROL BESIDE THE DETECTOR.", 4.0)
+            ShowAgent(Agent, "MOVE TO THE AMBER DENY CONTROL BESIDE THE DETECTOR.", 4.0)
             return
         Claimed := TryClaim(Agent, terminal_claim_stage.Secondary)
         if (not Claimed?):
@@ -2220,7 +2220,7 @@ terminal_lockdown_controller := class(creative_device):
             return
         set CurrentCustodyMode = 5
         DetainButton.Disable()
-        DetainButton.SetInteractionText(TerminalMessage("RED | DETAIN SUSPECT"))
+        DetainButton.SetInteractionText(TerminalMessage("RED | JAIL / DETAIN SUSPECT"))
         SetBoard(CustodyBoard, "SUSPECT SECURED | ESCORTING TO INTAKE")
         ShowAll("SUSPECT SECURED | Stay with the escort to detention intake.", 5.0)
         TerminalLog(DebugEnabled, "[CUSTODY] Close-range secure complete|CaseId={CurrentCaseId}")
@@ -2804,7 +2804,7 @@ terminal_lockdown_controller := class(creative_device):
         set CurrentDestination = terminal_case_destination.Scanner
         SyncActiveCase()
         SetDecisionControlsAvailable(false)
-        DetainButton.SetInteractionText(TerminalMessage("RED | DETAIN SUSPECT"))
+        DetainButton.SetInteractionText(TerminalMessage("RED | JAIL / DETAIN SUSPECT"))
         CustodyButton.SetInteractionText(TerminalMessage("SECURE / JAIL INTAKE"))
         CustodyButton.Disable()
         SecondaryPassengerButton.Disable()
@@ -3272,7 +3272,7 @@ terminal_lockdown_controller := class(creative_device):
         SecondaryBagButton.Disable()
         SecondaryRecordsButton.Disable()
         CustodyButton.SetInteractionText(TerminalMessage("SECURE / JAIL INTAKE"))
-        DetainButton.SetInteractionText(TerminalMessage("RED | DETAIN SUSPECT"))
+        DetainButton.SetInteractionText(TerminalMessage("RED | JAIL / DETAIN SUSPECT"))
         PowerButton.Disable()
         ActivePassengerDevice().Hide()
         set BagGeneration += 1
@@ -4018,7 +4018,7 @@ terminal_lockdown_controller := class(creative_device):
         spawn{ResetPassengerQueue(RunGeneration)}
         CustodyButton.Disable()
         CustodyButton.SetInteractionText(TerminalMessage("SECURE / JAIL INTAKE"))
-        DetainButton.SetInteractionText(TerminalMessage("RED | DETAIN SUSPECT"))
+        DetainButton.SetInteractionText(TerminalMessage("RED | JAIL / DETAIN SUSPECT"))
         RestoreNormalPower()
         SetBoard(CheckpointBoard, "SECURITY CHECKPOINT | OPEN")
         SetBoard(CaseBoard, "CURRENT PASSENGER | WAITING FOR SHIFT")
@@ -4145,7 +4145,10 @@ terminal_lockdown_controller := class(creative_device):
         OffsetPosition(CheckpointBoard.GetTransform().Translation, 700.0, 0.0, -1050.0)
 
     SecurePadPosition()<transacts>:vector3=
-        OffsetPosition(DetainButton.GetTransform().Translation, -150.0, 0.0, -310.0)
+        # The wired JAIL button is mounted below the detector console cap. Keep
+        # the close-range secure position on the separate red floor pad beside
+        # the console instead of underneath its blocking cabinet.
+        OffsetPosition(DetainButton.GetTransform().Translation, 305.0, 300.0, -185.0)
 
     DeparturePosition()<transacts>:vector3=
         OffsetPosition(CustodyButton.GetTransform().Translation, 2000.0, -350.0, -110.0)
@@ -4580,8 +4583,8 @@ terminal_lockdown_controller := class(creative_device):
                 SecondaryButton.Enable()
                 DetainButton.Disable()
                 SetBoard(ClearBoard, "PASS / CLEAR\nLOCKED - MANUAL SEARCH")
-                SetBoard(SecondaryBoard, "RED | NO PASS\nSECONDARY REQUIRED")
-                SetBoard(DetainBoard, "DETAIN\nLOCKED - MANUAL SEARCH")
+                SetBoard(SecondaryBoard, "AMBER | DENY ENTRY\nSECONDARY REQUIRED")
+                SetBoard(DetainBoard, "JAIL / DETAIN\nLOCKED - MANUAL SEARCH")
                 return
             Ready := ReadyForDecision()
             SetDecisionControlsAvailable(Ready)
@@ -4594,23 +4597,23 @@ terminal_lockdown_controller := class(creative_device):
             SecondaryButton.Enable()
             DetainButton.Enable()
             SetBoard(ClearBoard, "GREEN | PASS / CLEAR\nAUTHORIZED")
-            SetBoard(SecondaryBoard, "RED | NO PASS\nSEND TO SECONDARY")
-            SetBoard(DetainBoard, "RED | DETAIN\nAUTHORIZED")
+            SetBoard(SecondaryBoard, "AMBER | DENY ENTRY\nSEND TO SECONDARY")
+            SetBoard(DetainBoard, "RED | JAIL / DETAIN\nAUTHORIZED")
             return
         ClearButton.Disable()
         SecondaryButton.Disable()
         DetainButton.Disable()
         SetBoard(ClearBoard, "PASS / CLEAR\nLOCKED - COMPLETE CHECKS")
-        SetBoard(SecondaryBoard, "NO PASS / SECONDARY\nLOCKED - COMPLETE CHECKS")
-        SetBoard(DetainBoard, "DETAIN\nLOCKED - COMPLETE CHECKS")
+        SetBoard(SecondaryBoard, "DENY / SECONDARY\nLOCKED - COMPLETE CHECKS")
+        SetBoard(DetainBoard, "JAIL / DETAIN\nLOCKED - COMPLETE CHECKS")
 
     SetSecondaryFinalControls():void=
         ClearButton.Enable()
         SecondaryButton.Disable()
         DetainButton.Enable()
         SetBoard(ClearBoard, "GREEN | PASS / RELEASE\nAUTHORIZED")
-        SetBoard(SecondaryBoard, "NO PASS / SECONDARY\nCHECK COMPLETE")
-        SetBoard(DetainBoard, "RED | DETAIN\nAUTHORIZED")
+        SetBoard(SecondaryBoard, "DENY / SECONDARY\nCHECK COMPLETE")
+        SetBoard(DetainBoard, "RED | JAIL / DETAIN\nAUTHORIZED")
 
     ShowDecisionSubmitted(Decision:terminal_decision):void=
         ClearButton.Disable()
@@ -4618,17 +4621,17 @@ terminal_lockdown_controller := class(creative_device):
         DetainButton.Disable()
         if (Decision = terminal_decision.Clear):
             SetBoard(ClearBoard, "PASS / CLEAR\nSUBMITTED")
-            SetBoard(SecondaryBoard, "NO PASS / SECONDARY\nSTANDBY")
-            SetBoard(DetainBoard, "DETAIN\nSTANDBY")
+            SetBoard(SecondaryBoard, "DENY / SECONDARY\nSTANDBY")
+            SetBoard(DetainBoard, "JAIL / DETAIN\nSTANDBY")
             return
         if (Decision = terminal_decision.Secondary):
             SetBoard(ClearBoard, "PASS / CLEAR\nSTANDBY")
-            SetBoard(SecondaryBoard, "NO PASS / SECONDARY\nSUBMITTED")
-            SetBoard(DetainBoard, "DETAIN\nSTANDBY")
+            SetBoard(SecondaryBoard, "DENY / SECONDARY\nSUBMITTED")
+            SetBoard(DetainBoard, "JAIL / DETAIN\nSTANDBY")
             return
         SetBoard(ClearBoard, "PASS / CLEAR\nSTANDBY")
-        SetBoard(SecondaryBoard, "NO PASS / SECONDARY\nSTANDBY")
-        SetBoard(DetainBoard, "DETAIN\nSUBMITTED")
+        SetBoard(SecondaryBoard, "DENY / SECONDARY\nSTANDBY")
+        SetBoard(DetainBoard, "JAIL / DETAIN\nSUBMITTED")
 
     IsAgentNear(Agent:agent, Target:vector3, Radius:float)<transacts>:logic=
         if (AutomatedReplayEnabled?):

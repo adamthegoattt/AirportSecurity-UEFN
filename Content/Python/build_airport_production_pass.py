@@ -358,8 +358,8 @@ BILLBOARD_DEFAULTS = {
     "TL_BOARD_EmergencyStatus": "RESPONSE SUPPLY | STANDBY",
     "TL_BOARD_ResponseLoadout": "SECURITY RESPONSE KIT\nSIGNAL REMOTE A\nSTANDBY",
     "TL_BOARD_ClearControl": "PASS / CLEAR\nLOCKED - COMPLETE CHECKS",
-    "TL_BOARD_SecondaryControl": "NO PASS / SECONDARY\nLOCKED - COMPLETE CHECKS",
-    "TL_BOARD_DetainControl": "DETAIN\nLOCKED - COMPLETE CHECKS",
+    "TL_BOARD_SecondaryControl": "AMBER | DENY ENTRY\nLOCKED - COMPLETE CHECKS",
+    "TL_BOARD_DetainControl": "RED | JAIL / DETAIN\nLOCKED - COMPLETE CHECKS",
 }
 
 
@@ -470,25 +470,27 @@ BOXES = [
     # the BagButton-derived entry, tunnel, and exit route at Y=-1325.
     ("BagConveyorIn", (2175, -1325, 108), (650, 240, 40), "BLACK"),
     ("BagConveyorOut", (2825, -1325, 108), (550, 240, 40), "BLACK"),
-    # The detector-side console is the primary two-choice checkpoint decision
-    # station. It remains outside the Y=-1300 passenger path while the passenger
-    # stops immediately beyond the centered arch, visible from both controls.
-    ("CheckpointDecisionBase", (1500, -2200, 165), (520, 260, 154), "MIDNIGHT_BLUE"),
-    ("CheckpointDecisionTop", (1500, -2200, 251), (520, 260, 18), "GRAY"),
-    ("CheckpointDecisionDivider", (1500, -2200, 276), (18, 210, 32), "SILVER"),
+    # The detector-side console is the authoritative three-way decision station:
+    # amber DENY routes to secondary, green PASS releases the passenger, and red
+    # JAIL starts the existing physical custody route. It remains outside the
+    # Y=-1300 passenger path while all three controls stay readable at a glance.
+    ("CheckpointDecisionBase", (1615, -2200, 165), (820, 260, 154), "MIDNIGHT_BLUE"),
+    ("CheckpointDecisionTop", (1615, -2200, 251), (820, 260, 18), "GRAY"),
+    ("CheckpointDecisionDividerLeft", (1500, -2200, 276), (18, 210, 32), "SILVER"),
+    ("CheckpointDecisionDividerRight", (1730, -2200, 276), (18, 210, 32), "SILVER"),
     ("CheckpointNoPassSymbolA", (1385, -2200, 307), (70, 18, 12), "WHITE", 45.0),
     ("CheckpointNoPassSymbolB", (1385, -2200, 307), (70, 18, 12), "WHITE", -45.0),
     ("CheckpointPassSymbolA", (1592, -2205, 300), (50, 18, 12), "WHITE", -40.0),
     ("CheckpointPassSymbolB", (1628, -2194, 313), (85, 18, 12), "WHITE", 42.0),
-    # Detain remains a later, explicit post-Secondary action at the custody desk.
-    ("DetainConsole", (4380, 760, 190), (760, 500, 300), "RED_ORANGE"),
+    ("CheckpointJailSymbolA", (1845, -2200, 307), (70, 18, 12), "WHITE", 45.0),
+    ("CheckpointJailSymbolB", (1845, -2200, 307), (70, 18, 12), "WHITE", -45.0),
+    # A separate close-range pad beside the console keeps the post-decision
+    # SECURE SUSPECT interaction out of both the console collision and lane.
+    ("CheckpointSecurePad", (2150, -1900, 108), (280, 240, 12), "RED_ORANGE"),
     # The former center-spanning desks are consolidated into compact service
     # counters at the terminal's north edge, preserving real airport functions
     # without interrupting the checkpoint sightline.
     ("DecisionDeskFront", (4650, 3260, 320), (1200, 120, 520), "MIDNIGHT_BLUE"),
-    ("DecisionDetainPad", (4380, 760, 108), (760, 520, 12), "RED_ORANGE"),
-    ("DecisionDetainBackplate", (4260, 760, 700), (45, 640, 600), "RED_ORANGE"),
-    ("DecisionDetainGuide", (3920, 760, 106), (780, 42, 8), "RED_ORANGE"),
     # Runway-facing lounge islands and a low media wall.
     ("WaitingRugA", (1550, 3000, 108), (2600, 1050, 10), "MIDNIGHT_BLUE"),
     ("WaitingRugB", (3650, 3000, 108), (1400, 1050, 10), "MIDNIGHT_BLUE"),
@@ -559,7 +561,6 @@ BOXES = [
     ("ApronEdgeStripe", (2500, 4200, 105), (7600, 38, 8), "WHITE"),
     # Physical actuation caps and cabinet indicators make the hidden device
     # backends read as deliberate airport controls at player eye height.
-    ("DecisionDetainActuator", (4260, 760, 485), (150, 250, 95), "RED_ORANGE"),
     ("PowerMainIndicator", (3500, -2965, 520), (125, 24, 125), "RED_ORANGE"),
     ("PowerBackupIndicator", (3950, -2965, 520), (125, 24, 125), "GOLD"),
     ("PowerRestartIndicator", (4400, -2965, 520), (125, 24, 125), "AQUA"),
@@ -589,20 +590,24 @@ BOXES = [
 
 
 # Rounded, two-layer physical actuators avoid placeholder cubes and make the
-# red/green choice readable from the normal player position. Rims and caps are
-# separated vertically, so no coplanar color surfaces can flicker.
+# amber/green/red choice readable from the normal player position. Rims and caps
+# are separated vertically, so no coplanar color surfaces can flicker.
 SHAPES = [
     ("WestWindowPane", "glass", (-2200, 3775, 810), (1600, 36, 1000), "PACIFIC_BLUE"),
     ("CheckpointNoPassRim", "cylinder", (1385, -2200, 277), (150, 150, 36), "SILVER"),
-    ("CheckpointNoPassCap", "cylinder", (1385, -2200, 297), (122, 122, 44), "RED_ORANGE"),
+    ("CheckpointNoPassCap", "cylinder", (1385, -2200, 297), (122, 122, 44), "GOLD"),
     ("CheckpointPassRim", "cylinder", (1615, -2200, 277), (150, 150, 36), "SILVER"),
     ("CheckpointPassCap", "cylinder", (1615, -2200, 297), (122, 122, 44), "APPLE_GREEN"),
+    ("CheckpointJailRim", "cylinder", (1845, -2200, 277), (150, 150, 36), "SILVER"),
+    ("CheckpointJailCap", "cylinder", (1845, -2200, 297), (122, 122, 44), "RED_ORANGE"),
 ]
 
 
 LABELS = [
-    ("CheckpointNoPassLabel", (1385, -2025, 405), "NO PASS\nSECONDARY"),
+    ("CheckpointNoPassLabel", (1385, -2025, 405), "DENY\nSECONDARY"),
     ("CheckpointPassLabel", (1615, -2025, 405), "PASS\nCLEAR"),
+    ("CheckpointJailLabel", (1845, -2025, 405), "JAIL\nDETAIN"),
+    ("CheckpointSecureLabel", (2150, -1760, 255), "SECURE\nSUSPECT"),
 ]
 
 
@@ -858,13 +863,14 @@ for actor in all_actors():
         scan_button_relocated = True
         break
 
-# Reuse the authoritative, already-bound CLEAR and SECONDARY Button devices as
-# PASS and NO PASS backends. Moving the existing actors preserves every Verse
-# reference and avoids a parallel/fake decision system. Their stock meshes stay
-# hidden beneath the modeled caps while normal Fortnite interaction remains.
+# Reuse the authoritative, already-bound CLEAR, SECONDARY, and DETAIN Button
+# devices as PASS, DENY, and JAIL backends. Moving the existing actors preserves
+# every Verse reference and avoids a parallel/fake decision system. Their stock
+# meshes stay hidden beneath the modeled caps while Fortnite interaction remains.
 decision_button_placements = {
     "TL_BTN_Clear": (1615.0, -2200.0, 295.0),
     "TL_BTN_Secondary": (1385.0, -2200.0, 295.0),
+    "TL_BTN_Detain": (1845.0, -2200.0, 295.0),
 }
 decision_buttons_relocated = []
 for actor in all_actors():
