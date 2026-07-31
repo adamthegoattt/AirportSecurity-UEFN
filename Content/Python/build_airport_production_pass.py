@@ -17,6 +17,7 @@ EXISTING = {}
 CLASSES = {
     "cube": "/Game/Creative/Sets/PropSets/Primitives/Rounds/Props/CP_Primitive_Cube.CP_Primitive_Cube_C",
     "cylinder": "/Game/Creative/Sets/PropSets/Primitives/Rounds/Props/CP_Primitive_Cylinder_Small.CP_Primitive_Cylinder_Small_C",
+    "glass": "/Game/Creative/Sets/Glass/Props/CP_Glass_PropWall.CP_Glass_PropWall_C",
     "beam": "/Game/Creative/Items/Building_Parts/MetalBeams/CP_Metal_I_Bar.CP_Metal_I_Bar_C",
     "bench": "/Game/Athena/Apollo/Environments/BuildingActors/Agency/Props/Apollo_Agency_Bench_01.Apollo_Agency_Bench_01_C",
     "planter": "/Game/Creative/BuildingActors/Props/CP_Agency_Planter_02.CP_Agency_Planter_02_C",
@@ -92,6 +93,21 @@ def center_actor(actor, center):
         False,
         False,
     )
+
+
+def resize_existing_actor(actor, center, size):
+    """Resize a retained shell actor by bounds, independent of its pivot."""
+    actor.set_actor_scale3d(unreal.Vector(1.0, 1.0, 1.0))
+    _, extent = actor.get_actor_bounds(False)
+    base = (
+        max(extent.x * 2.0, 1.0),
+        max(extent.y * 2.0, 1.0),
+        max(extent.z * 2.0, 1.0),
+    )
+    actor.set_actor_scale3d(
+        unreal.Vector(size[0] / base[0], size[1] / base[1], size[2] / base[2])
+    )
+    center_actor(actor, center)
 
 
 def spawn_box(classes, suffix, center, size, color, yaw=0.0):
@@ -358,6 +374,35 @@ SPAWN_PLACEMENTS = {
 }
 
 
+# Extend the public terminal 16 m west. The retained large detector remains at
+# X=1050, but this moves the shell's visual center from X=2500 to X=1700 and
+# gives the oversized checkpoint frame deliberate breathing room. Both the base
+# shell and reference-finish actors are adjusted when present, so this remains
+# correct regardless of which upstream builder ran most recently.
+SHELL_BOX_ADJUSTMENTS = {
+    "TL_GEO_TerminalFloor": ((1700, 0, 32), (9400, 7600, 64)),
+    "TL_ART_TerminalFloor": ((1700, 0, 76), (9400, 7600, 24)),
+    "TL_ART_EntryFloor": ((-1925, 0, 58), (2150, 2500, 20)),
+    "TL_GEO_WallSouth": ((1700, -3830, 650), (9600, 80, 1300)),
+    "TL_ART_SouthWallLiner": ((1700, -3780, 650), (9600, 60, 1300)),
+    "TL_GEO_WallNorth": ((1700, 3830, 150), (9600, 80, 300)),
+    "TL_GEO_WindowTopBeam": ((1700, 3810, 1240), (9600, 100, 120)),
+    "TL_GEO_RoofCrossNorth": ((1700, 2600, 1320), (9400, 100, 100)),
+    "TL_GEO_RoofCrossCenter": ((1700, 0, 1320), (9400, 100, 100)),
+    "TL_GEO_RoofCrossSouth": ((1700, -2600, 1320), (9400, 100, 100)),
+    "TL_ART_RoofCrossNorth": ((1700, 2600, 1370), (9400, 100, 100)),
+    "TL_ART_RoofCrossCenter": ((1700, 0, 1370), (9400, 100, 100)),
+    "TL_ART_RoofCrossSouth": ((1700, -2600, 1370), (9400, 100, 100)),
+}
+
+SHELL_LOCATION_ADJUSTMENTS = {
+    "TL_GEO_WallWestNorth": (-3100, 2830, 650),
+    "TL_GEO_WallWestSouth": (-3100, -2830, 650),
+    "TL_ART_WestWallNorth": (-3060, 2820, 650),
+    "TL_ART_WestWallSouth": (-3060, -2820, 650),
+}
+
+
 BOXES = [
     # White ceiling coffers and cool structural rhythm: the terminal now reads
     # as an interior rather than an open blue box from the spawn camera.
@@ -375,9 +420,18 @@ BOXES = [
     ("CeilingPanel12", (3500, 200, 1325), (850, 3600, 45), "SILVER"),
     ("CeilingPanel13", (4500, 200, 1325), (850, 3600, 45), "SILVER"),
     ("CeilingPanel14", (5500, 200, 1325), (850, 3600, 45), "SILVER"),
+    ("CeilingPanelWestSouth01", (-1500, -2550, 1325), (850, 1500, 45), "SILVER"),
+    ("CeilingPanelWestSouth02", (-2500, -2550, 1325), (850, 1500, 45), "SILVER"),
+    ("CeilingPanelWestMain01", (-1500, 200, 1325), (850, 3600, 45), "SILVER"),
+    ("CeilingPanelWestMain02", (-2500, 200, 1325), (850, 3600, 45), "SILVER"),
+    ("WestRoofRib", (-2000, 0, 1320), (120, 7500, 120), "SILVER"),
+    ("WestWindowSill", (-2200, 3830, 150), (1600, 80, 300), "GRAY"),
+    ("WestWindowHeader", (-2200, 3810, 1240), (1600, 100, 120), "SILVER"),
+    ("WestWindowMullion01", (-3000, 3775, 810), (70, 70, 1120), "MIDNIGHT_BLUE"),
+    ("WestWindowMullion02", (-2200, 3775, 810), (70, 70, 1120), "MIDNIGHT_BLUE"),
     # Public concourse color bands and deliberate floor flow.
-    ("SouthWallBlueBand", (2500, -3735, 410), (7900, 55, 220), "PACIFIC_BLUE"),
-    ("WestPortalBlueBand", (-1430, 0, 410), (55, 1850, 220), "PACIFIC_BLUE"),
+    ("SouthWallBlueBand", (1700, -3735, 410), (9500, 55, 220), "PACIFIC_BLUE"),
+    ("WestPortalBlueBand", (-3030, 0, 410), (55, 1850, 220), "PACIFIC_BLUE"),
     ("EastPortalBlueBand", (6430, 0, 410), (55, 1850, 220), "PACIFIC_BLUE"),
     ("PassengerFlow01", (-650, -2150, 108), (2200, 36, 8), "WHITE"),
     ("PassengerFlow02", (650, -1750, 108), (900, 36, 8), "WHITE", 35.0),
@@ -386,13 +440,12 @@ BOXES = [
     ("DetentionFlow", (4550, 1450, 108), (1200, 46, 8), "RED_ORANGE"),
     # Thin, nonblocking color fields make the passenger route and staff work
     # zones readable from eye level without recreating a collision lip.
-    # One passenger-scale walk-through body scanner. The old reference arch,
-    # giant green header, and paired native imaging panels are retired below.
-    # The 160 cm clear width supports centered and slightly off-center Fortnite
-    # traversal; the 260 cm clear height keeps the player camera below the beam.
-    ("ScannerSideLeft", (1120, -1410, 238), (80, 60, 300), "GRAY"),
-    ("ScannerSideRight", (1120, -1190, 238), (80, 60, 300), "GRAY"),
-    ("ScannerCrown", (1120, -1300, 368), (80, 280, 40), "MIDNIGHT_BLUE"),
+    # Restore the original oversized, wall-backed detector proportions requested
+    # by the map owner. Its 740 cm clear opening stays centered on Y=-1300, and
+    # the pillars start at the finished floor top so there is no traversal lip.
+    ("LargeDetectorLeft", (1050, -1760, 548), (140, 180, 920), "SILVER"),
+    ("LargeDetectorRight", (1050, -840, 548), (140, 180, 920), "SILVER"),
+    ("LargeDetectorTop", (1050, -1300, 960), (140, 1100, 120), "SILVER"),
     # Low baggage belts and a hollow three-piece X-ray portal replace the old
     # stacked solid shell/void and giant reference belt. Their centers follow
     # the BagButton-derived entry, tunnel, and exit route at Y=-1325.
@@ -401,13 +454,13 @@ BOXES = [
     # The detector-side console is the primary two-choice checkpoint decision
     # station. It remains outside the Y=-1300 passenger path while the passenger
     # stops immediately beyond the centered arch, visible from both controls.
-    ("CheckpointDecisionBase", (1500, -1710, 165), (520, 260, 154), "MIDNIGHT_BLUE"),
-    ("CheckpointDecisionTop", (1500, -1710, 251), (520, 260, 18), "GRAY"),
-    ("CheckpointDecisionDivider", (1500, -1710, 276), (18, 210, 32), "SILVER"),
-    ("CheckpointNoPassSymbolA", (1385, -1710, 307), (70, 18, 12), "WHITE", 45.0),
-    ("CheckpointNoPassSymbolB", (1385, -1710, 307), (70, 18, 12), "WHITE", -45.0),
-    ("CheckpointPassSymbolA", (1592, -1715, 300), (50, 18, 12), "WHITE", -40.0),
-    ("CheckpointPassSymbolB", (1628, -1704, 313), (85, 18, 12), "WHITE", 42.0),
+    ("CheckpointDecisionBase", (1500, -2200, 165), (520, 260, 154), "MIDNIGHT_BLUE"),
+    ("CheckpointDecisionTop", (1500, -2200, 251), (520, 260, 18), "GRAY"),
+    ("CheckpointDecisionDivider", (1500, -2200, 276), (18, 210, 32), "SILVER"),
+    ("CheckpointNoPassSymbolA", (1385, -2200, 307), (70, 18, 12), "WHITE", 45.0),
+    ("CheckpointNoPassSymbolB", (1385, -2200, 307), (70, 18, 12), "WHITE", -45.0),
+    ("CheckpointPassSymbolA", (1592, -2205, 300), (50, 18, 12), "WHITE", -40.0),
+    ("CheckpointPassSymbolB", (1628, -2194, 313), (85, 18, 12), "WHITE", 42.0),
     # Detain remains a later, explicit post-Secondary action at the custody desk.
     ("DetainConsole", (4380, 760, 190), (760, 500, 300), "RED_ORANGE"),
     ("DecisionDeskFront", (4800, 0, 320), (120, 2480, 520), "MIDNIGHT_BLUE"),
@@ -454,12 +507,9 @@ BOXES = [
     ("WindowMullion06", (4100, 3670, 670), (85, 85, 1040), "MIDNIGHT_BLUE"),
     ("WindowMullion07", (5100, 3670, 670), (85, 85, 1040), "MIDNIGHT_BLUE"),
     ("WindowMullion08", (6100, 3670, 670), (85, 85, 1040), "MIDNIGHT_BLUE"),
-    # Scanner and X-ray accents are thin, nonblocking visual status elements.
-    ("ScannerInnerLightLeft", (1074, -1374, 215), (8, 8, 220), "AQUA"),
-    ("ScannerInnerLightRight", (1074, -1226, 215), (8, 8, 220), "AQUA"),
-    ("ScannerReadyStrip", (1074, -1300, 368), (8, 140, 14), "APPLE_GREEN"),
-    ("ScannerControlPedestal", (1120, -1750, 143), (90, 100, 110), "MIDNIGHT_BLUE"),
-    ("ScannerControlFace", (1120, -1696, 155), (70, 8, 45), "AQUA"),
+    # The scan control stays outside the retained large detector's south pillar.
+    ("LargeDetectorControlPedestal", (1050, -2010, 143), (100, 120, 110), "MIDNIGHT_BLUE"),
+    ("LargeDetectorControlFace", (1050, -1946, 155), (80, 8, 45), "AQUA"),
     ("BagMachineAccent", (2525, -1325, 328), (125, 330, 18), "AQUA"),
     ("BagEntryFrameTop", (2525, -1325, 318), (125, 360, 40), "MIDNIGHT_BLUE"),
     ("BagEntryFrameNorth", (2525, -1155, 193), (125, 50, 210), "MIDNIGHT_BLUE"),
@@ -502,12 +552,8 @@ BOXES = [
     ("QueueLaneGlow02", (-1150, -2460, 109), (520, 24, 9), "AQUA"),
     ("QueueLaneGlow03", (-550, -2460, 109), (520, 24, 9), "AQUA"),
     ("QueueLaneGlow04", (50, -2460, 109), (520, 24, 9), "AQUA"),
-    ("ScannerExitResultTower", (1510, -1040, 155.5), (100, 70, 135), "MIDNIGHT_BLUE"),
-    ("ScannerExitResultFace", (1456, -1040, 178), (8, 55, 70), "AQUA"),
-    ("ScannerSweepLight01", (1074, -1345, 335), (8, 20, 8), "AQUA"),
-    ("ScannerSweepLight02", (1074, -1315, 335), (8, 20, 8), "AQUA"),
-    ("ScannerSweepLight03", (1074, -1285, 335), (8, 20, 8), "AQUA"),
-    ("ScannerSweepLight04", (1074, -1255, 335), (8, 20, 8), "AQUA"),
+    ("LargeDetectorResultTower", (1450, -650, 155.5), (100, 70, 135), "MIDNIGHT_BLUE"),
+    ("LargeDetectorResultFace", (1396, -650, 178), (8, 55, 70), "AQUA"),
     ("XRayRollerInbound01", (1720, -1300, 230), (58, 430, 22), "SILVER"),
     ("XRayRollerInbound02", (1830, -1300, 230), (58, 430, 22), "SILVER"),
     ("XRayRollerInbound03", (1940, -1300, 230), (58, 430, 22), "SILVER"),
@@ -537,16 +583,17 @@ BOXES = [
 # red/green choice readable from the normal player position. Rims and caps are
 # separated vertically, so no coplanar color surfaces can flicker.
 SHAPES = [
-    ("CheckpointNoPassRim", "cylinder", (1385, -1710, 277), (150, 150, 36), "SILVER"),
-    ("CheckpointNoPassCap", "cylinder", (1385, -1710, 297), (122, 122, 44), "RED_ORANGE"),
-    ("CheckpointPassRim", "cylinder", (1615, -1710, 277), (150, 150, 36), "SILVER"),
-    ("CheckpointPassCap", "cylinder", (1615, -1710, 297), (122, 122, 44), "APPLE_GREEN"),
+    ("WestWindowPane", "glass", (-2200, 3775, 810), (1600, 36, 1000), "PACIFIC_BLUE"),
+    ("CheckpointNoPassRim", "cylinder", (1385, -2200, 277), (150, 150, 36), "SILVER"),
+    ("CheckpointNoPassCap", "cylinder", (1385, -2200, 297), (122, 122, 44), "RED_ORANGE"),
+    ("CheckpointPassRim", "cylinder", (1615, -2200, 277), (150, 150, 36), "SILVER"),
+    ("CheckpointPassCap", "cylinder", (1615, -2200, 297), (122, 122, 44), "APPLE_GREEN"),
 ]
 
 
 LABELS = [
-    ("CheckpointNoPassLabel", (1385, -1535, 405), "NO PASS\nSECONDARY"),
-    ("CheckpointPassLabel", (1615, -1535, 405), "PASS\nCLEAR"),
+    ("CheckpointNoPassLabel", (1385, -2025, 405), "NO PASS\nSECONDARY"),
+    ("CheckpointPassLabel", (1615, -2025, 405), "PASS\nCLEAR"),
 ]
 
 
@@ -625,7 +672,7 @@ PROPS = [
     # Additional native detail creates the prop density and operational read of
     # the references without turning the route into another primitive blockout.
     ("QueueInfoMonitor", "monitor", (-2180, -2150, 720), 210.0, 90.0),
-    ("ScannerResultMonitor", "monitor", (1510, -1040, 235), 110.0, -90.0),
+    ("LargeDetectorResultMonitor", "monitor", (1450, -650, 235), 110.0, -90.0),
     ("DecisionSupervisorChair", "chair", (4870, 0, 110), 150.0, -90.0),
     ("DecisionEvidenceMonitor", "monitor", (4740, 0, 620), 270.0, 180.0),
     ("WaitingCarryOnA", "luggage_b", (520, 3260, 110), 105.0, 12.0),
@@ -653,10 +700,10 @@ NONBLOCKING_BOX_TOKENS = (
     "Guide", "Backplate", "Roller", "Nameplate", "Divider", "Face", "Symbol",
 )
 
-# Reference and earlier production passes layered two giant arches, two solid
-# imaging panels, a second inactive lane, and coplanar scanner pads over this
-# checkpoint. Retire all of those sources on every idempotent rerun so the one
-# passenger-scale production frame above remains authoritative.
+# Reference and base passes can layer duplicate arches, solid imaging panels,
+# a second inactive lane, and coplanar pads over the checkpoint. Retire those
+# sources on every rerun; the single restored TL_PROD_LargeDetector frame above
+# now owns the requested oversized wall-backed silhouette.
 RETIRED_BLOCKING_ART_LABELS = {
     "TL_ART_ScannerSouth",
     "TL_ART_ScannerSouthPad",
@@ -719,6 +766,19 @@ for key, path in CLASSES.items():
         raise RuntimeError("Approved production class failed to load: " + path)
     classes[key] = loaded
 
+shell_adjusted = []
+for actor in actors_before:
+    label = actor.get_actor_label()
+    box_adjustment = SHELL_BOX_ADJUSTMENTS.get(label)
+    if box_adjustment is not None:
+        resize_existing_actor(actor, *box_adjustment)
+        shell_adjusted.append(label)
+        continue
+    location_adjustment = SHELL_LOCATION_ADJUSTMENTS.get(label)
+    if location_adjustment is not None:
+        center_actor(actor, location_adjustment)
+        shell_adjusted.append(label)
+
 recolored = []
 scanner_pad_adjustments = []
 terminal_floor = next((actor for actor in actors_before if actor.get_actor_label() == "TL_ART_TerminalFloor"), None)
@@ -754,13 +814,12 @@ station_devices = []
 for spec in DEVICE_SPECS:
     station_devices.append(spawn_device(classes, *spec).get_actor_label())
 
-# The wired scan button was previously centered in the walk-through opening.
-# Keep it as the reliable interaction fallback, but mount it beside the arch so
-# the full scanner aperture is clear in both directions.
+# Mount the wired scan button outside the retained large detector's south
+# pillar so the full 740 cm aperture remains clear in both directions.
 scan_button_relocated = False
 for actor in all_actors():
     if actor.get_actor_label() == "TL_BTN_Scan":
-        actor.set_actor_location(unreal.Vector(1120.0, -1750.0, 145.0), False, False)
+        actor.set_actor_location(unreal.Vector(1050.0, -2010.0, 145.0), False, False)
         make_decorative_nonblocking(actor)
         scan_button_relocated = True
         break
@@ -770,8 +829,8 @@ for actor in all_actors():
 # reference and avoids a parallel/fake decision system. Their stock meshes stay
 # hidden beneath the modeled caps while normal Fortnite interaction remains.
 decision_button_placements = {
-    "TL_BTN_Clear": (1615.0, -1710.0, 295.0),
-    "TL_BTN_Secondary": (1385.0, -1710.0, 295.0),
+    "TL_BTN_Clear": (1615.0, -2200.0, 295.0),
+    "TL_BTN_Secondary": (1385.0, -2200.0, 295.0),
 }
 decision_buttons_relocated = []
 for actor in all_actors():
@@ -851,6 +910,7 @@ result = {
     "created": sum(1 for label in created if label not in existing_labels),
     "updated": sum(1 for label in created if label in existing_labels),
     "deleted_stale": len(stale),
+    "shell_adjusted": sorted(shell_adjusted),
     "recolored_art_actors": len(recolored),
     "scanner_pad_adjustments": scanner_pad_adjustments,
     "scan_button_relocated": scan_button_relocated,
