@@ -16,6 +16,7 @@ EXISTING = {}
 
 CLASSES = {
     "cube": "/Game/Creative/Sets/PropSets/Primitives/Rounds/Props/CP_Primitive_Cube.CP_Primitive_Cube_C",
+    "cylinder": "/Game/Creative/Sets/PropSets/Primitives/Rounds/Props/CP_Primitive_Cylinder_Small.CP_Primitive_Cylinder_Small_C",
     "beam": "/Game/Creative/Items/Building_Parts/MetalBeams/CP_Metal_I_Bar.CP_Metal_I_Bar_C",
     "bench": "/Game/Athena/Apollo/Environments/BuildingActors/Agency/Props/Apollo_Agency_Bench_01.Apollo_Agency_Bench_01_C",
     "planter": "/Game/Creative/BuildingActors/Props/CP_Agency_Planter_02.CP_Agency_Planter_02_C",
@@ -38,6 +39,7 @@ CLASSES = {
     "breaker": "/Game/Environments/Helios/Props/Coastal/Coastal_Breakers_A/Blueprints/BP_Coastal_Breaker_A.BP_Coastal_Breaker_A_C",
     "triple_seat": "/Game/Creative/Sets/ArtDeco_Bank/Props/CP_ArtDeco_Triple_Couch_B.CP_ArtDeco_Triple_Couch_B_C",
     "button": "/CreativeCoreDevices/Device_Button_V2.Device_Button_V2_C",
+    "billboard": "/CreativeCoreDevices/Device_Billboard_V2.Device_Billboard_V2_C",
 }
 
 
@@ -96,6 +98,31 @@ def spawn_box(classes, suffix, center, size, color, yaw=0.0):
     label = PREFIX + suffix
     actor = EXISTING.pop(label, None)
     actor_class = classes["cube"]
+    rotation = unreal.Rotator(pitch=0.0, yaw=yaw, roll=0.0)
+    if actor is not None and actor.get_class() != actor_class:
+        ACTORS.destroy_actor(actor)
+        actor = None
+    if actor is None:
+        actor = ACTORS.spawn_actor_from_class(actor_class, unreal.Vector(*center), rotation)
+    if actor is None:
+        raise RuntimeError("Failed to spawn " + label)
+    actor.set_actor_label(label)
+    actor.set_folder_path(FOLDER)
+    actor.set_actor_rotation(rotation, False)
+    actor.set_actor_scale3d(unreal.Vector(1.0, 1.0, 1.0))
+    _, extent = actor.get_actor_bounds(False)
+    base = (max(extent.x * 2.0, 1.0), max(extent.y * 2.0, 1.0), max(extent.z * 2.0, 1.0))
+    actor.set_actor_scale3d(unreal.Vector(size[0] / base[0], size[1] / base[1], size[2] / base[2]))
+    color_actor(actor, color)
+    center_actor(actor, center)
+    return actor
+
+
+def spawn_shape(classes, suffix, class_key, center, size, color, yaw=0.0):
+    """Spawn a sized primitive shape while preserving idempotent TL_PROD ownership."""
+    label = PREFIX + suffix
+    actor = EXISTING.pop(label, None)
+    actor_class = classes[class_key]
     rotation = unreal.Rotator(pitch=0.0, yaw=yaw, roll=0.0)
     if actor is not None and actor.get_class() != actor_class:
         ACTORS.destroy_actor(actor)
@@ -175,6 +202,28 @@ def spawn_device(classes, label, location, rotation=(0.0, 0.0, 0.0)):
         actor.set_editor_property("visible_during_game", False)
     except Exception as exc:
         unreal.log_warning("Could not hide backend device {0}: {1}".format(label, exc))
+    return actor
+
+
+def spawn_label(classes, suffix, location, text, scale=0.62):
+    """Add a concise physical-console label; gameplay remains on real buttons."""
+    label = PREFIX + suffix
+    actor = EXISTING.pop(label, None)
+    actor_class = classes["billboard"]
+    if actor is not None and actor.get_class() != actor_class:
+        ACTORS.destroy_actor(actor)
+        actor = None
+    if actor is None:
+        actor = ACTORS.spawn_actor_from_class(actor_class, unreal.Vector(*location), unreal.Rotator())
+    if actor is None:
+        raise RuntimeError("Failed to spawn station label " + label)
+    actor.set_actor_label(label)
+    actor.set_folder_path(FOLDER)
+    actor.set_actor_location(unreal.Vector(*location), False, False)
+    actor.set_actor_rotation(unreal.Rotator(pitch=0.0, yaw=0.0, roll=0.0), False)
+    actor.set_actor_scale3d(unreal.Vector(scale, scale, scale))
+    actor.set_editor_property("text", text)
+    make_decorative_nonblocking(actor)
     return actor
 
 
@@ -292,8 +341,8 @@ BILLBOARD_DEFAULTS = {
     "TL_BOARD_CellStatus": "DETENTION CELL | VACANT",
     "TL_BOARD_EmergencyStatus": "RESPONSE SUPPLY | STANDBY",
     "TL_BOARD_ResponseLoadout": "SECURITY RESPONSE KIT\nSIGNAL REMOTE A\nSTANDBY",
-    "TL_BOARD_ClearControl": "CLEAR\nLOCKED - COMPLETE CHECKS",
-    "TL_BOARD_SecondaryControl": "SECONDARY\nLOCKED - COMPLETE CHECKS",
+    "TL_BOARD_ClearControl": "PASS / CLEAR\nLOCKED - COMPLETE CHECKS",
+    "TL_BOARD_SecondaryControl": "NO PASS / SECONDARY\nLOCKED - COMPLETE CHECKS",
     "TL_BOARD_DetainControl": "DETAIN\nLOCKED - COMPLETE CHECKS",
 }
 
@@ -349,19 +398,21 @@ BOXES = [
     # the BagButton-derived entry, tunnel, and exit route at Y=-1325.
     ("BagConveyorIn", (2175, -1325, 108), (650, 240, 40), "BLACK"),
     ("BagConveyorOut", (2825, -1325, 108), (550, 240, 40), "BLACK"),
-    # Integrated green/amber/red decision consoles around the wired buttons.
-    ("ClearConsole", (4380, -760, 190), (760, 500, 300), "APPLE_GREEN"),
-    ("SecondaryConsole", (4380, 0, 190), (760, 500, 300), "GOLD"),
+    # The detector-side console is the primary two-choice checkpoint decision
+    # station. It remains outside the Y=-1300 passenger path while the passenger
+    # stops immediately beyond the centered arch, visible from both controls.
+    ("CheckpointDecisionBase", (1500, -1710, 165), (520, 260, 154), "MIDNIGHT_BLUE"),
+    ("CheckpointDecisionTop", (1500, -1710, 251), (520, 260, 18), "GRAY"),
+    ("CheckpointDecisionDivider", (1500, -1710, 276), (18, 210, 32), "SILVER"),
+    ("CheckpointNoPassSymbolA", (1385, -1710, 307), (70, 18, 12), "WHITE", 45.0),
+    ("CheckpointNoPassSymbolB", (1385, -1710, 307), (70, 18, 12), "WHITE", -45.0),
+    ("CheckpointPassSymbolA", (1592, -1715, 300), (50, 18, 12), "WHITE", -40.0),
+    ("CheckpointPassSymbolB", (1628, -1704, 313), (85, 18, 12), "WHITE", 42.0),
+    # Detain remains a later, explicit post-Secondary action at the custody desk.
     ("DetainConsole", (4380, 760, 190), (760, 500, 300), "RED_ORANGE"),
     ("DecisionDeskFront", (4800, 0, 320), (120, 2480, 520), "MIDNIGHT_BLUE"),
-    ("DecisionClearPad", (4380, -760, 108), (760, 520, 12), "APPLE_GREEN"),
-    ("DecisionSecondaryPad", (4380, 0, 108), (760, 520, 12), "GOLD"),
     ("DecisionDetainPad", (4380, 760, 108), (760, 520, 12), "RED_ORANGE"),
-    ("DecisionClearBackplate", (4260, -760, 700), (45, 640, 600), "APPLE_GREEN"),
-    ("DecisionSecondaryBackplate", (4260, 0, 700), (45, 640, 600), "GOLD"),
     ("DecisionDetainBackplate", (4260, 760, 700), (45, 640, 600), "RED_ORANGE"),
-    ("DecisionClearGuide", (3920, -760, 106), (780, 42, 8), "APPLE_GREEN"),
-    ("DecisionSecondaryGuide", (3920, 0, 106), (780, 42, 8), "GOLD"),
     ("DecisionDetainGuide", (3920, 760, 106), (780, 42, 8), "RED_ORANGE"),
     # Runway-facing lounge islands and a low media wall.
     ("WaitingRugA", (1550, 3000, 108), (2600, 1050, 10), "MIDNIGHT_BLUE"),
@@ -436,8 +487,6 @@ BOXES = [
     ("ApronEdgeStripe", (2500, 4200, 105), (7600, 38, 8), "WHITE"),
     # Physical actuation caps and cabinet indicators make the hidden device
     # backends read as deliberate airport controls at player eye height.
-    ("DecisionClearActuator", (4260, -760, 485), (150, 250, 95), "APPLE_GREEN"),
-    ("DecisionSecondaryActuator", (4260, 0, 485), (150, 250, 95), "GOLD"),
     ("DecisionDetainActuator", (4260, 760, 485), (150, 250, 95), "RED_ORANGE"),
     ("PowerMainIndicator", (3500, -2965, 520), (125, 24, 125), "RED_ORANGE"),
     ("PowerBackupIndicator", (3950, -2965, 520), (125, 24, 125), "GOLD"),
@@ -484,6 +533,23 @@ BOXES = [
 ]
 
 
+# Rounded, two-layer physical actuators avoid placeholder cubes and make the
+# red/green choice readable from the normal player position. Rims and caps are
+# separated vertically, so no coplanar color surfaces can flicker.
+SHAPES = [
+    ("CheckpointNoPassRim", "cylinder", (1385, -1710, 277), (150, 150, 36), "SILVER"),
+    ("CheckpointNoPassCap", "cylinder", (1385, -1710, 297), (122, 122, 44), "RED_ORANGE"),
+    ("CheckpointPassRim", "cylinder", (1615, -1710, 277), (150, 150, 36), "SILVER"),
+    ("CheckpointPassCap", "cylinder", (1615, -1710, 297), (122, 122, 44), "APPLE_GREEN"),
+]
+
+
+LABELS = [
+    ("CheckpointNoPassLabel", (1385, -1535, 405), "NO PASS\nSECONDARY"),
+    ("CheckpointPassLabel", (1615, -1535, 405), "PASS\nCLEAR"),
+]
+
+
 PROPS = [
     # Airport-style seating groups replacing the visual reliance on block benches.
     ("WaitingBench01", "bench", (350, 3100, 110), 430.0, 0.0),
@@ -505,8 +571,6 @@ PROPS = [
     ("BagOperatorConsole", "monitor", (2700, -940, 365), 260.0, 180.0),
     ("DocumentOperatorConsole", "monitor", (3300, -560, 365), 230.0, 180.0),
     ("BagMonitor", "monitor", (3040, -900, 390), 240.0, 180.0),
-    ("DecisionMonitorClear", "monitor", (4380, -760, 360), 220.0, 180.0),
-    ("DecisionMonitorSecondary", "monitor", (4380, 0, 360), 220.0, 180.0),
     ("DecisionMonitorDetain", "monitor", (4380, 760, 360), 220.0, 180.0),
     # Queue/back-of-house luggage density without touching active linked props.
     ("QueueBag01", "luggage_a", (-1850, -2570, 110), 115.0, 10.0),
@@ -586,7 +650,7 @@ DEVICE_SPECS = [
 NONBLOCKING_BOX_TOKENS = (
     "Flow", "Rug", "InfoScreen", "Hazard", "Accent", "Light",
     "Status", "Ready", "Apron", "Stripe", "RedLine", "Threshold", "Pad",
-    "Guide", "Backplate", "Roller", "Nameplate", "Divider", "Face",
+    "Guide", "Backplate", "Roller", "Nameplate", "Divider", "Face", "Symbol",
 )
 
 # Reference and earlier production passes layered two giant arches, two solid
@@ -677,6 +741,12 @@ for spec in BOXES:
     if any(token in spec[0] for token in NONBLOCKING_BOX_TOKENS):
         make_decorative_nonblocking(actor)
     created.append(actor.get_actor_label())
+for spec in SHAPES:
+    actor = spawn_shape(classes, *spec)
+    make_decorative_nonblocking(actor)
+    created.append(actor.get_actor_label())
+for spec in LABELS:
+    created.append(spawn_label(classes, *spec).get_actor_label())
 for spec in PROPS:
     created.append(spawn_prop(classes, *spec).get_actor_label())
 
@@ -694,6 +764,29 @@ for actor in all_actors():
         make_decorative_nonblocking(actor)
         scan_button_relocated = True
         break
+
+# Reuse the authoritative, already-bound CLEAR and SECONDARY Button devices as
+# PASS and NO PASS backends. Moving the existing actors preserves every Verse
+# reference and avoids a parallel/fake decision system. Their stock meshes stay
+# hidden beneath the modeled caps while normal Fortnite interaction remains.
+decision_button_placements = {
+    "TL_BTN_Clear": (1615.0, -1710.0, 295.0),
+    "TL_BTN_Secondary": (1385.0, -1710.0, 295.0),
+}
+decision_buttons_relocated = []
+for actor in all_actors():
+    location = decision_button_placements.get(actor.get_actor_label())
+    if location is None:
+        continue
+    actor.set_actor_location(unreal.Vector(*location), False, False)
+    actor.set_actor_rotation(unreal.Rotator(pitch=0.0, yaw=0.0, roll=0.0), False)
+    actor.set_actor_scale3d(unreal.Vector(0.72, 0.72, 0.72))
+    try:
+        actor.set_editor_property("visible_during_game", False)
+    except Exception:
+        pass
+    make_decorative_nonblocking(actor)
+    decision_buttons_relocated.append(actor.get_actor_label())
 
 # Main, backup-bus, and checkpoint-restart controls stay independently placed
 # at their matching physical cabinets. The latter two are newly wired below in
@@ -761,6 +854,7 @@ result = {
     "recolored_art_actors": len(recolored),
     "scanner_pad_adjustments": scanner_pad_adjustments,
     "scan_button_relocated": scan_button_relocated,
+    "decision_buttons_relocated": sorted(decision_buttons_relocated),
     "power_main_relocated": power_main_relocated,
     "station_devices": sorted(station_devices),
     "spawn_pads_relocated": sorted(spawn_pads_relocated),

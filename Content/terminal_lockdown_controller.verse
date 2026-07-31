@@ -687,10 +687,10 @@ terminal_lockdown_controller := class(creative_device):
         DocumentButton.SetInteractionText(TerminalMessage("CHECK DOCUMENTS"))
         DocumentButton.SetInteractionTime(0.5)
         DocumentButton.SetMaxTriggerCount(0)
-        ClearButton.SetInteractionText(TerminalMessage("GREEN | CLEAR PASSENGER"))
+        ClearButton.SetInteractionText(TerminalMessage("GREEN | PASS PASSENGER"))
         ClearButton.SetInteractionTime(0.25)
         ClearButton.SetMaxTriggerCount(0)
-        SecondaryButton.SetInteractionText(TerminalMessage("YELLOW | SECONDARY INSPECTION"))
+        SecondaryButton.SetInteractionText(TerminalMessage("RED | NO PASS | SEND TO SECONDARY"))
         SecondaryButton.SetInteractionTime(0.5)
         SecondaryButton.SetMaxTriggerCount(0)
         DetainButton.SetInteractionText(TerminalMessage("RED | DETAIN SUSPECT"))
@@ -2034,9 +2034,15 @@ terminal_lockdown_controller := class(creative_device):
             CloseDocumentInterface(Player)
 
     OnClearButton(Agent:agent):void=
+        # The detector-side green PASS control is the existing authoritative
+        # ClearButton. Reusing it preserves scoring, routing, and exactly-once
+        # resolution instead of creating a second decision path.
         ResolveDecision(Agent, terminal_decision.Clear)
 
     OnSecondaryButton(Agent:agent):void=
+        # The detector-side red NO PASS control preserves the project's staged
+        # rules: it routes the same active passenger to Secondary, where the
+        # later release/detain choice remains authoritative.
         Legal := IsCaseInteractionLegal(Agent)
         if (not Legal?):
             return
@@ -2046,6 +2052,9 @@ terminal_lockdown_controller := class(creative_device):
             return
         if (SecondaryChecked?):
             ShowAgent(Agent, "SECONDARY already completed for Case {CurrentCaseId}.", 4.0)
+            return
+        if (not IsAgentNear(Agent, SecondaryButton.GetTransform().Translation, 650.0)?):
+            ShowAgent(Agent, "MOVE TO THE RED NO PASS CONTROL BESIDE THE DETECTOR.", 4.0)
             return
         Claimed := TryClaim(Agent, terminal_claim_stage.Secondary)
         if (not Claimed?):
@@ -2099,7 +2108,7 @@ terminal_lockdown_controller := class(creative_device):
         ResolveDecision(Agent, terminal_decision.Detain)
 
     ResolveDecision(Agent:agent, Decision:terminal_decision):void=
-        DecisionEligible := CanUseDecisionStation(Agent)
+        DecisionEligible := CanUseDecisionStation(Agent, Decision)
         if (not DecisionEligible?):
             return
         if (ResolutionCommitted?):
@@ -2369,7 +2378,7 @@ terminal_lockdown_controller := class(creative_device):
         SecondaryRecordsButton.Disable()
         SetSecondaryFinalControls()
         SetBoard(CaseBoard, "CASE {CurrentCaseId} | SECONDARY OBSERVATIONS COMPLETE")
-        SetBoard(SecondaryBoard, "SECONDARY COMPLETE\nGREEN RELEASE OR RED DETAIN")
+        SetBoard(SecondaryBoard, "SECONDARY COMPLETE\nPASS AT DETECTOR OR DETAIN AT CUSTODY DESK")
         SyncActiveCase()
         ReleaseStationClaim(terminal_claim_stage.Secondary, "SECONDARY", "PHYSICAL HANDOFF COMPLETE")
         ShowAll("SECONDARY COMPLETE | Passenger and linked bag remain staged for final Release or Detain.", 7.0)
@@ -2421,9 +2430,9 @@ terminal_lockdown_controller := class(creative_device):
         CustodyButton.SetInteractionText(TerminalMessage("SECURE / JAIL INTAKE"))
         SetSecondaryFinalControls()
         SetBoard(CaseBoard, "CASE {CurrentCaseId} | SECONDARY RESULT | {SecondaryResultText(CurrentTemplate)}")
-        SetBoard(SecondaryBoard, "SECONDARY 2/2 COMPLETE\nRETURN TO DECISION DESK")
+        SetBoard(SecondaryBoard, "SECONDARY 2/2 COMPLETE\nPASS AT DETECTOR OR DETAIN")
         SyncActiveCase()
-        ShowAll("SECONDARY 2/2 COMPLETE | {SecondaryResultText(CurrentTemplate)} | Return to the decision desk and RELEASE or DETAIN.", 8.0)
+        ShowAll("SECONDARY 2/2 COMPLETE | {SecondaryResultText(CurrentTemplate)} | Use PASS at the detector console or DETAIN at the custody desk.", 8.0)
         TerminalLog(DebugEnabled, "[SECONDARY] Completed|CaseId={CurrentCaseId}|Template={CurrentTemplate}")
 
     RunnerEscape(ExpectedCaseId:int, ExpectedRun:int)<suspends>:void=
@@ -2669,7 +2678,7 @@ terminal_lockdown_controller := class(creative_device):
         CustodyButton.Disable()
         CustodyButton.SetInteractionText(TerminalMessage("SECURE / JAIL INTAKE"))
         RefreshDecisionControls()
-        SetBoard(SecondaryBoard, "SECONDARY ROUTE OFFLINE\nCOST REFUNDED | RETURN TO DECISION")
+        SetBoard(SecondaryBoard, "SECONDARY ROUTE OFFLINE\nCOST REFUNDED | RETURN TO DETECTOR")
         SetBoard(CaseBoard, "CASE {CurrentCaseId} | SECONDARY ABORTED | COST REFUNDED")
         SyncActiveCase()
         ShowAll("SECONDARY ABORTED | {Reason}. ${SecondaryScreeningCost} refunded; return to CLEAR or DETAIN.", 8.0)
@@ -2990,7 +2999,7 @@ terminal_lockdown_controller := class(creative_device):
         )
         if (ExpectedCaseId = CurrentCaseId and ExpectedRun = RunGeneration and Phase = terminal_game_phase.AwaitingDecision):
             if (MoveResult?):
-                SetBoard(CaseBoard, "CASE {CurrentCaseId} | PASSENGER AT DECISION DESK")
+                SetBoard(CaseBoard, "CASE {CurrentCaseId} | PASSENGER AT DETECTOR CONSOLE")
                 ReleaseCurrentInspectionClaim("DECISION ARRIVAL VERIFIED")
                 RefreshDecisionControls()
             else:
@@ -4130,7 +4139,10 @@ terminal_lockdown_controller := class(creative_device):
         OffsetPosition(DocumentButton.GetTransform().Translation, 0.0, -650.0, -310.0)
 
     DecisionPassengerPosition()<transacts>:vector3=
-        OffsetPosition(SecondaryButton.GetTransform().Translation, -450.0, 0.0, -310.0)
+        # Keep the decision passenger immediately beyond the detector instead
+        # of coupling movement to the old remote decision desk. The player can
+        # inspect the passenger and both physical choices from one position.
+        OffsetPosition(CheckpointBoard.GetTransform().Translation, 700.0, 0.0, -1050.0)
 
     SecurePadPosition()<transacts>:vector3=
         OffsetPosition(DetainButton.GetTransform().Translation, -150.0, 0.0, -310.0)
@@ -4533,7 +4545,7 @@ terminal_lockdown_controller := class(creative_device):
             return false
         true
 
-    CanUseDecisionStation(Agent:agent):logic=
+    CanUseDecisionStation(Agent:agent, Decision:terminal_decision):logic=
         if (Phase <> terminal_game_phase.CaseReady and Phase <> terminal_game_phase.AwaitingDecision):
             ShowAgent(Agent, "Decision unavailable during {PhaseLabel()}.", 4.0)
             return false
@@ -4543,8 +4555,13 @@ terminal_lockdown_controller := class(creative_device):
             else:
                 ShowAgent(Agent, "DECISION LOCKED | Evidence and physical arrival are incomplete.", 5.0)
             return false
-        if (not IsAgentNear(Agent, SecondaryButton.GetTransform().Translation, 900.0)?):
-            ShowAgent(Agent, "MOVE TO THE PHYSICAL DECISION CONSOLE.", 4.0)
+        var ControlLocation:vector3 = ClearButton.GetTransform().Translation
+        if (Decision = terminal_decision.Secondary):
+            set ControlLocation = SecondaryButton.GetTransform().Translation
+        else if (Decision = terminal_decision.Detain):
+            set ControlLocation = DetainButton.GetTransform().Translation
+        if (not IsAgentNear(Agent, ControlLocation, 700.0)?):
+            ShowAgent(Agent, "MOVE TO THE MATCHING PHYSICAL DECISION CONTROL.", 4.0)
             return false
         true
 
@@ -4562,8 +4579,8 @@ terminal_lockdown_controller := class(creative_device):
                 ClearButton.Disable()
                 SecondaryButton.Enable()
                 DetainButton.Disable()
-                SetBoard(ClearBoard, "CLEAR\nLOCKED - MANUAL SEARCH")
-                SetBoard(SecondaryBoard, "YELLOW | SECONDARY\nREQUIRED")
+                SetBoard(ClearBoard, "PASS / CLEAR\nLOCKED - MANUAL SEARCH")
+                SetBoard(SecondaryBoard, "RED | NO PASS\nSECONDARY REQUIRED")
                 SetBoard(DetainBoard, "DETAIN\nLOCKED - MANUAL SEARCH")
                 return
             Ready := ReadyForDecision()
@@ -4576,23 +4593,23 @@ terminal_lockdown_controller := class(creative_device):
             ClearButton.Enable()
             SecondaryButton.Enable()
             DetainButton.Enable()
-            SetBoard(ClearBoard, "GREEN | CLEAR\nAUTHORIZED")
-            SetBoard(SecondaryBoard, "YELLOW | SECONDARY\nAUTHORIZED")
+            SetBoard(ClearBoard, "GREEN | PASS / CLEAR\nAUTHORIZED")
+            SetBoard(SecondaryBoard, "RED | NO PASS\nSEND TO SECONDARY")
             SetBoard(DetainBoard, "RED | DETAIN\nAUTHORIZED")
             return
         ClearButton.Disable()
         SecondaryButton.Disable()
         DetainButton.Disable()
-        SetBoard(ClearBoard, "CLEAR\nLOCKED - COMPLETE CHECKS")
-        SetBoard(SecondaryBoard, "SECONDARY\nLOCKED - COMPLETE CHECKS")
+        SetBoard(ClearBoard, "PASS / CLEAR\nLOCKED - COMPLETE CHECKS")
+        SetBoard(SecondaryBoard, "NO PASS / SECONDARY\nLOCKED - COMPLETE CHECKS")
         SetBoard(DetainBoard, "DETAIN\nLOCKED - COMPLETE CHECKS")
 
     SetSecondaryFinalControls():void=
         ClearButton.Enable()
         SecondaryButton.Disable()
         DetainButton.Enable()
-        SetBoard(ClearBoard, "GREEN | RELEASE\nAUTHORIZED")
-        SetBoard(SecondaryBoard, "SECONDARY\nCHECK COMPLETE")
+        SetBoard(ClearBoard, "GREEN | PASS / RELEASE\nAUTHORIZED")
+        SetBoard(SecondaryBoard, "NO PASS / SECONDARY\nCHECK COMPLETE")
         SetBoard(DetainBoard, "RED | DETAIN\nAUTHORIZED")
 
     ShowDecisionSubmitted(Decision:terminal_decision):void=
@@ -4600,17 +4617,17 @@ terminal_lockdown_controller := class(creative_device):
         SecondaryButton.Disable()
         DetainButton.Disable()
         if (Decision = terminal_decision.Clear):
-            SetBoard(ClearBoard, "CLEAR\nSUBMITTED")
-            SetBoard(SecondaryBoard, "SECONDARY\nSTANDBY")
+            SetBoard(ClearBoard, "PASS / CLEAR\nSUBMITTED")
+            SetBoard(SecondaryBoard, "NO PASS / SECONDARY\nSTANDBY")
             SetBoard(DetainBoard, "DETAIN\nSTANDBY")
             return
         if (Decision = terminal_decision.Secondary):
-            SetBoard(ClearBoard, "CLEAR\nSTANDBY")
-            SetBoard(SecondaryBoard, "SECONDARY\nSUBMITTED")
+            SetBoard(ClearBoard, "PASS / CLEAR\nSTANDBY")
+            SetBoard(SecondaryBoard, "NO PASS / SECONDARY\nSUBMITTED")
             SetBoard(DetainBoard, "DETAIN\nSTANDBY")
             return
-        SetBoard(ClearBoard, "CLEAR\nSTANDBY")
-        SetBoard(SecondaryBoard, "SECONDARY\nSTANDBY")
+        SetBoard(ClearBoard, "PASS / CLEAR\nSTANDBY")
+        SetBoard(SecondaryBoard, "NO PASS / SECONDARY\nSTANDBY")
         SetBoard(DetainBoard, "DETAIN\nSUBMITTED")
 
     IsAgentNear(Agent:agent, Target:vector3, Radius:float)<transacts>:logic=
