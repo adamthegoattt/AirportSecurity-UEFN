@@ -450,6 +450,45 @@ BOXES = [
     ("PowerRestartIndicator", (4400, -2965, 520), (125, 24, 125), "AQUA"),
     ("ClosedLaneBarrier", (1120, -260, 300), (150, 980, 420), "RED_ORANGE"),
     ("ClosedLaneHeader", (1120, -260, 820), (150, 980, 170), "MIDNIGHT_BLUE"),
+    # Reference-facing checkpoint identity pass. These pieces frame the active
+    # queue, scanner, X-ray, and decision desk from the player's normal route
+    # while keeping every traversal opening and station approach unobstructed.
+    ("QueuePortalSouth", (-2200, -2540, 590), (110, 110, 980), "MIDNIGHT_BLUE"),
+    ("QueuePortalNorth", (-2200, -1760, 590), (110, 110, 980), "MIDNIGHT_BLUE"),
+    ("QueuePortalHeader", (-2200, -2150, 1060), (140, 900, 130), "PACIFIC_BLUE"),
+    ("QueuePortalStatus", (-2125, -2150, 940), (24, 610, 90), "APPLE_GREEN"),
+    ("QueueLaneGlow01", (-1750, -2460, 109), (520, 24, 9), "AQUA"),
+    ("QueueLaneGlow02", (-1150, -2460, 109), (520, 24, 9), "AQUA"),
+    ("QueueLaneGlow03", (-550, -2460, 109), (520, 24, 9), "AQUA"),
+    ("QueueLaneGlow04", (50, -2460, 109), (520, 24, 9), "AQUA"),
+    ("ScannerExitResultTower", (1510, -630, 455), (280, 170, 690), "MIDNIGHT_BLUE"),
+    ("ScannerExitResultFace", (1360, -630, 540), (26, 118, 300), "AQUA"),
+    ("ScannerSweepLight01", (1110, -1510, 690), (185, 22, 34), "AQUA"),
+    ("ScannerSweepLight02", (1110, -1370, 690), (185, 22, 34), "AQUA"),
+    ("ScannerSweepLight03", (1110, -1230, 690), (185, 22, 34), "AQUA"),
+    ("ScannerSweepLight04", (1110, -1090, 690), (185, 22, 34), "AQUA"),
+    ("XRayRollerInbound01", (1720, -1300, 230), (58, 430, 22), "SILVER"),
+    ("XRayRollerInbound02", (1830, -1300, 230), (58, 430, 22), "SILVER"),
+    ("XRayRollerInbound03", (1940, -1300, 230), (58, 430, 22), "SILVER"),
+    ("XRayRollerOutbound01", (3260, -1300, 230), (58, 430, 22), "SILVER"),
+    ("XRayRollerOutbound02", (3370, -1300, 230), (58, 430, 22), "SILVER"),
+    ("XRayRollerOutbound03", (3480, -1300, 230), (58, 430, 22), "SILVER"),
+    ("XRayOperatorBackplate", (2860, -815, 575), (560, 36, 470), "MIDNIGHT_BLUE"),
+    ("XRayOperatorStatus", (2860, -790, 690), (410, 20, 120), "AQUA"),
+    ("DecisionCanopy", (4450, 0, 1040), (980, 2450, 90), "MIDNIGHT_BLUE"),
+    ("DecisionEvidenceBand", (4260, 0, 890), (34, 2050, 95), "PACIFIC_BLUE"),
+    ("DecisionDividerClear", (4360, -380, 560), (390, 34, 540), "MIDNIGHT_BLUE"),
+    ("DecisionDividerDetain", (4360, 380, 560), (390, 34, 540), "MIDNIGHT_BLUE"),
+    ("SecondaryGlassHeader", (4680, 2240, 1030), (1200, 80, 120), "GOLD"),
+    ("SecondaryEntryLight", (4090, 1760, 730), (40, 640, 80), "GOLD"),
+    ("DetentionBookingBackplate", (5160, 1450, 680), (34, 720, 420), "MIDNIGHT_BLUE"),
+    ("DetentionBookingStatus", (5140, 1450, 760), (24, 500, 120), "RED_ORANGE"),
+    ("PowerMainNameplate", (3500, -2968, 700), (270, 20, 90), "RED_ORANGE"),
+    ("PowerBackupNameplate", (3950, -2968, 700), (270, 20, 90), "GOLD"),
+    ("PowerRestartNameplate", (4400, -2968, 700), (270, 20, 90), "AQUA"),
+    ("RestrictedCeilingGuide01", (2050, -3310, 1110), (500, 40, 50), "AQUA"),
+    ("RestrictedCeilingGuide02", (2700, -3310, 1110), (500, 40, 50), "AQUA"),
+    ("RestrictedCeilingGuide03", (3350, -3310, 1110), (500, 40, 50), "AQUA"),
 ]
 
 
@@ -534,6 +573,19 @@ PROPS = [
     ("EmergencyLightDecision", "emergency_light", (4300, 1100, 980), 180.0, 180.0),
     ("EmergencyLightSecondary", "emergency_light", (4650, 2180, 850), 180.0, 180.0),
     ("EmergencyLightPower", "emergency_light", (4200, -2900, 850), 180.0, 0.0),
+    # Additional native detail creates the prop density and operational read of
+    # the references without turning the route into another primitive blockout.
+    ("QueueInfoMonitor", "monitor", (-2180, -2150, 720), 210.0, 90.0),
+    ("ScannerResultMonitor", "monitor", (1510, -630, 680), 230.0, -90.0),
+    ("DecisionSupervisorChair", "chair", (4870, 0, 110), 150.0, -90.0),
+    ("DecisionEvidenceMonitor", "monitor", (4740, 0, 620), 270.0, 180.0),
+    ("WaitingCarryOnA", "luggage_b", (520, 3260, 110), 105.0, 12.0),
+    ("WaitingCarryOnB", "luggage_a", (2350, 3200, 110), 110.0, -18.0),
+    ("WaitingCarryOnC", "luggage_b", (4500, 2800, 110), 100.0, 5.0),
+    ("OfficeMonitorE", "monitor", (6200, -2940, 430), 220.0, -90.0),
+    ("RestrictedCorridorLightA", "ceiling_light", (2200, -3310, 1160), 280.0, 0.0),
+    ("RestrictedCorridorLightB", "ceiling_light", (3150, -3310, 1160), 280.0, 0.0),
+    ("PowerRoomEmergencyLightB", "emergency_light", (3700, -2900, 850), 180.0, 0.0),
 ]
 
 
@@ -549,7 +601,7 @@ DEVICE_SPECS = [
 NONBLOCKING_BOX_TOKENS = (
     "Flow", "Rug", "InfoScreen", "Hazard", "Accent", "Light",
     "Status", "Apron", "Stripe", "RedLine", "Threshold", "Pad",
-    "Guide", "Backplate",
+    "Guide", "Backplate", "Roller", "Nameplate", "Divider", "Face",
 )
 
 # The original reference-pass scanner mesh is a solid imaging panel. It was
@@ -732,3 +784,5 @@ result = {
     "level_saved": bool(saved_level),
     "dirty_packages_saved": bool(saved_packages),
 }
+unreal.log("AIRPORT_PRODUCTION_PASS|" + repr(result))
+print("AIRPORT_PRODUCTION_PASS|" + repr(result))
