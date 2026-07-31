@@ -46,6 +46,21 @@ terminal_lockdown_controller := class(creative_device):
     PowerButton:button_device = button_device{}
 
     @editable
+    PowerBackupButton:button_device = button_device{}
+
+    @editable
+    PowerRestartButton:button_device = button_device{}
+
+    @editable
+    SecondaryPassengerButton:button_device = button_device{}
+
+    @editable
+    SecondaryBagButton:button_device = button_device{}
+
+    @editable
+    SecondaryRecordsButton:button_device = button_device{}
+
+    @editable
     StatusHUD:hud_message_device = hud_message_device{}
 
     @editable
@@ -208,7 +223,13 @@ terminal_lockdown_controller := class(creative_device):
     var DocumentsChecked:logic = false
     var SecondaryChecked:logic = false
     var SecondaryCostPaid:logic = false
+    var SecondaryFeeAmount:int = 0
     var SecondaryActionStage:int = 0
+    var SecondaryPassengerChecked:logic = false
+    var SecondaryBagChecked:logic = false
+    var SecondaryRecordsChecked:logic = false
+    var SecondaryPassengerRegions:int = 0
+    var SecondaryBagHotspots:int = 0
     var PassengerReadyForScan:logic = false
     var ScanInProgress:logic = false
     var BagScanInProgress:logic = false
@@ -216,6 +237,20 @@ terminal_lockdown_controller := class(creative_device):
     var SecondaryBagReady:logic = false
     var PassengerAtIntake:logic = false
     var ActivePassengerMoveGeneration:int = 0
+    var PassengerGeneration:int = 0
+    var PassengerLocation:terminal_passenger_location = terminal_passenger_location.Hidden
+    var PassengerTarget:terminal_passenger_location = terminal_passenger_location.Hidden
+    var BagLocation:terminal_bag_location = terminal_bag_location.Hidden
+    var BodyObservation:terminal_body_observation = terminal_body_observation.None
+    var BagObservation:terminal_bag_observation = terminal_bag_observation.None
+    var DocumentObservation:terminal_document_observation = terminal_document_observation.None
+    var ManualSearchRequested:logic = false
+    var PassengerRouteRetries:int = 0
+    var PassengerTeleportRecoveries:int = 0
+    var PassengerHideRecoveries:int = 0
+    var BagRouteRetries:int = 0
+    var BagTeleportRecoveries:int = 0
+    var BagHideRecoveries:int = 0
     var ResolutionCommitted:logic = false
     var CaseCompletionCommitted:logic = false
     var CustodyCommitted:logic = false
@@ -231,7 +266,9 @@ terminal_lockdown_controller := class(creative_device):
     var CurrentCustodyMode:int = 0
     var ClaimOwner:?player = false
     var ClaimGeneration:int = 0
+    var ClaimStage:terminal_claim_stage = terminal_claim_stage.None
     var QueueFrontIndex:int = 0
+    var ActivePassengerSlot:int = 0
     var QueueGeneration:int = 0
     var ScannerGeneration:int = 0
     var BagGeneration:int = 0
@@ -242,6 +279,11 @@ terminal_lockdown_controller := class(creative_device):
     var ActiveCase:terminal_active_case = terminal_active_case{}
     var DocumentRootUI:[player]canvas = map{}
     var DocumentOpenCase:[player]int = map{}
+    var DocumentOpenGeneration:[player]int = map{}
+    var BodyScanRootUI:[player]canvas = map{}
+    var BodyScanOpenGeneration:[player]int = map{}
+    var XRayRootUI:[player]canvas = map{}
+    var XRayOpenGeneration:[player]int = map{}
     var PersistentHUDRoot:[player]canvas = map{}
     var PersistentHUDText:[player]text_block = map{}
     var UpgradeRootUI:[player]canvas = map{}
@@ -265,6 +307,11 @@ terminal_lockdown_controller := class(creative_device):
         UpgradeButton.InteractedWithEvent.Subscribe(OnUpgradeButton)
         CustodyButton.InteractedWithEvent.Subscribe(OnCustodyButton)
         PowerButton.InteractedWithEvent.Subscribe(OnPowerButton)
+        PowerBackupButton.InteractedWithEvent.Subscribe(OnPowerBackupButton)
+        PowerRestartButton.InteractedWithEvent.Subscribe(OnPowerRestartButton)
+        SecondaryPassengerButton.InteractedWithEvent.Subscribe(OnSecondaryPassengerButton)
+        SecondaryBagButton.InteractedWithEvent.Subscribe(OnSecondaryBagButton)
+        SecondaryRecordsButton.InteractedWithEvent.Subscribe(OnSecondaryRecordsButton)
         GetPlayspace().PlayerAddedEvent().Subscribe(OnPlayerAdded)
         GetPlayspace().PlayerRemovedEvent().Subscribe(OnPlayerRemoved)
 
@@ -661,6 +708,21 @@ terminal_lockdown_controller := class(creative_device):
         PowerButton.SetInteractionText(TerminalMessage("RESTORE TERMINAL POWER"))
         PowerButton.SetInteractionTime(1.5)
         PowerButton.SetMaxTriggerCount(0)
+        PowerBackupButton.SetInteractionText(TerminalMessage("REROUTE BACKUP BUS"))
+        PowerBackupButton.SetInteractionTime(1.5)
+        PowerBackupButton.SetMaxTriggerCount(0)
+        PowerRestartButton.SetInteractionText(TerminalMessage("RESTART CHECKPOINT"))
+        PowerRestartButton.SetInteractionTime(1.5)
+        PowerRestartButton.SetMaxTriggerCount(0)
+        SecondaryPassengerButton.SetInteractionText(TerminalMessage("SECONDARY | PASSENGER REGIONS"))
+        SecondaryPassengerButton.SetInteractionTime(0.75)
+        SecondaryPassengerButton.SetMaxTriggerCount(0)
+        SecondaryBagButton.SetInteractionText(TerminalMessage("SECONDARY | BAG COMPARTMENTS"))
+        SecondaryBagButton.SetInteractionTime(0.75)
+        SecondaryBagButton.SetMaxTriggerCount(0)
+        SecondaryRecordsButton.SetInteractionText(TerminalMessage("SECONDARY | RECORDS REVIEW"))
+        SecondaryRecordsButton.SetInteractionTime(0.75)
+        SecondaryRecordsButton.SetMaxTriggerCount(0)
 
     ConfigurePhysicalPresentation():void=
         PassengerQueue1.Show()
@@ -708,6 +770,11 @@ terminal_lockdown_controller := class(creative_device):
         JailOccupant.Hide()
         CustodyButton.Disable()
         PowerButton.Disable()
+        PowerBackupButton.Disable()
+        PowerRestartButton.Disable()
+        SecondaryPassengerButton.Disable()
+        SecondaryBagButton.Disable()
+        SecondaryRecordsButton.Disable()
         ResponseButton.Disable()
         ResponseGranter.Disable()
         ResponseRemover.Enable()
@@ -723,17 +790,20 @@ terminal_lockdown_controller := class(creative_device):
         EnsurePersistentHUD(Player)
         RefreshPersistentHUD(Player)
         StatusHUD.Show(Player, TerminalMessage(CurrentStatus()), ?DisplayTime := 8.0)
-        if (Phase = terminal_game_phase.HostileResponse):
+        if (Phase = terminal_game_phase.Runner or Phase = terminal_game_phase.HostileResponse or Phase = terminal_game_phase.BossBreach or Phase = terminal_game_phase.BossVulnerable):
             ResponseGranter.GrantItem(Player)
         TerminalLog(DebugEnabled, "[PLAYER] Joined during phase {PhaseLabel()}")
 
     OnPlayerRemoved(Player:player):void=
+        CloseBodyScanInterface(Player)
+        CloseXRayInterface(Player)
         CloseDocumentInterface(Player)
         CloseUpgradeInterface(Player)
         if (Owner := ClaimOwner?, Owner = Player):
             set ClaimOwner = false
+            set ClaimStage = terminal_claim_stage.None
             set ClaimGeneration += 1
-            if (Phase = terminal_game_phase.Inspecting):
+            if (Phase = terminal_game_phase.Inspecting and not ScanInProgress? and not BagScanInProgress?):
                 set Phase = terminal_game_phase.CaseReady
             SyncActiveCase()
             ShowAll("Case claim released. Any officer may continue Case {CurrentCaseId}.", 5.0)
@@ -901,22 +971,51 @@ terminal_lockdown_controller := class(creative_device):
         set PassengerReadyForScan = false
         set ScanInProgress = false
         set BagScanInProgress = false
+        CloseAllBodyScanInterfaces()
+        CloseAllXRayInterfaces()
+        CloseAllDocumentInterfaces()
         set SecondaryPassengerReady = false
         set SecondaryBagReady = false
         set SecondaryCostPaid = false
+        set SecondaryFeeAmount = 0
         set SecondaryActionStage = 0
+        set SecondaryPassengerChecked = false
+        set SecondaryBagChecked = false
+        set SecondaryRecordsChecked = false
+        set SecondaryPassengerRegions = 0
+        set SecondaryBagHotspots = 0
         set PassengerAtIntake = false
+        set PassengerGeneration = 0
+        set PassengerLocation = terminal_passenger_location.QueueFront
+        set PassengerTarget = terminal_passenger_location.QueueFront
+        set BagLocation = terminal_bag_location.Hidden
+        set BodyObservation = terminal_body_observation.None
+        set BagObservation = terminal_bag_observation.None
+        set DocumentObservation = terminal_document_observation.None
+        set ManualSearchRequested = false
+        set PassengerRouteRetries = 0
+        set PassengerTeleportRecoveries = 0
+        set PassengerHideRecoveries = 0
+        set BagRouteRetries = 0
+        set BagTeleportRecoveries = 0
+        set BagHideRecoveries = 0
         set CaseCompletionCommitted = false
         set FinalCaseAccountingCommitted = false
         set QueueFrontIndex = 0
         set QueueGeneration += 1
         set ClaimGeneration += 1
+        set ClaimStage = terminal_claim_stage.None
         set CurrentDestination = terminal_case_destination.Queue
         set BagGeneration += 1
         HideAllBags()
         ScanButton.Enable()
         CustodyButton.Disable()
         PowerButton.Disable()
+        PowerBackupButton.Disable()
+        PowerRestartButton.Disable()
+        SecondaryPassengerButton.Disable()
+        SecondaryBagButton.Disable()
+        SecondaryRecordsButton.Disable()
         SetBoard(PowerBoard, "POWER ONLINE")
         SetBoard(EmergencyBoard, "RESPONSE SUPPLY | STANDBY")
         set Phase = terminal_game_phase.Briefing
@@ -926,23 +1025,23 @@ terminal_lockdown_controller := class(creative_device):
         PrepareNextCase()
 
     OnScanButton(Agent:agent):void=
-        if (not PowerOnline?):
-            ShowAgent(Agent, "BODY SCANNER OFFLINE | Restore power in the staff utility room.", 5.0)
-            SetBoard(CheckpointBoard, "CHECKPOINT CLOSED | POWER OFFLINE")
+        if (PassengerLocation = terminal_passenger_location.ScannerExit and not BodyChecked? and not ScanInProgress?):
+            LegalRecovery := IsCaseInteractionLegal(Agent)
+            if (not LegalRecovery?):
+                return
+            RecoveryClaim := TryClaim(Agent, terminal_claim_stage.Body)
+            if (not RecoveryClaim?):
+                return
+            if (Player := player[Agent]):
+                OpenBodyScanInterface(Player, CurrentCaseId, ScannerGeneration, CurrentTemplate)
             return
-        if (ScanInProgress?):
-            ShowAgent(Agent, "BODY SCAN IN PROGRESS | Hold the lane.", 3.0)
-            return
-        if (not PassengerReadyForScan?):
-            ShowAgent(Agent, "WAIT FOR PASSENGER | Scanner unlocks when the traveler reaches the marked position.", 4.0)
-            return
-        Legal := IsCaseInteractionLegal(Agent)
-        if (not Legal?):
+        ScannerEligible := CanUseBodyScanner(Agent)
+        if (not ScannerEligible?):
             return
         if (BodyChecked?):
             ShowAgent(Agent, "BODY already checked | {BodyEvidence(CurrentTemplate)}", 4.0)
             return
-        Claimed := TryClaim(Agent)
+        Claimed := TryClaim(Agent, terminal_claim_stage.Body)
         if (not Claimed?):
             return
         set Phase = terminal_game_phase.Inspecting
@@ -963,6 +1062,7 @@ terminal_lockdown_controller := class(creative_device):
             0.8,
             ExpectedCaseId,
             ExpectedRun,
+            terminal_passenger_location.ScannerCenter,
             "scanner-enter"
         )
         if (ExpectedCaseId <> CurrentCaseId or ExpectedRun <> RunGeneration or ExpectedScannerGeneration <> ScannerGeneration):
@@ -971,12 +1071,12 @@ terminal_lockdown_controller := class(creative_device):
             set ScanInProgress = false
             set Phase = terminal_game_phase.CaseReady
             SetBoard(CheckpointBoard, "SCANNER ROUTE RESET | RETRY BODY SCAN")
-            ReleaseStationClaim("BODY SCANNER", "ROUTE RESET")
+            ReleaseStationClaim(terminal_claim_stage.Body, "BODY SCANNER", "ROUTE RESET")
             return
         if (not PowerOnline?):
             set ScanInProgress = false
             SetBoard(CheckpointBoard, "SCANNER OFFLINE | RESTORE POWER")
-            ReleaseStationClaim("BODY SCANNER", "POWER INTERRUPTED")
+            ReleaseStationClaim(terminal_claim_stage.Body, "BODY SCANNER", "POWER INTERRUPTED")
             return
         SetBoard(CheckpointBoard, "SCANNER ACTIVE | AMBER SWEEP | 25%")
         Sleep(0.35)
@@ -989,7 +1089,7 @@ terminal_lockdown_controller := class(creative_device):
         if (not PowerOnline?):
             set ScanInProgress = false
             SetBoard(CheckpointBoard, "SCANNER OFFLINE | RESTORE POWER")
-            ReleaseStationClaim("BODY SCANNER", "POWER INTERRUPTED")
+            ReleaseStationClaim(terminal_claim_stage.Body, "BODY SCANNER", "POWER INTERRUPTED")
             return
         ExitedScanner := MoveActivePassengerChecked(
             ScannerExitPosition(),
@@ -997,6 +1097,7 @@ terminal_lockdown_controller := class(creative_device):
             0.8,
             ExpectedCaseId,
             ExpectedRun,
+            terminal_passenger_location.ScannerExit,
             "scanner-exit"
         )
         if (ExpectedCaseId <> CurrentCaseId or ExpectedRun <> RunGeneration or ExpectedScannerGeneration <> ScannerGeneration):
@@ -1005,44 +1106,243 @@ terminal_lockdown_controller := class(creative_device):
             set ScanInProgress = false
             set Phase = terminal_game_phase.CaseReady
             SetBoard(CheckpointBoard, "SCANNER EXIT RESET | RETRY BODY SCAN")
-            ReleaseStationClaim("BODY SCANNER", "EXIT RESET")
+            ReleaseStationClaim(terminal_claim_stage.Body, "BODY SCANNER", "EXIT RESET")
             return
-        set BodyChecked = true
         set ScanInProgress = false
-        set Phase = terminal_game_phase.AwaitingDecision
+        set Phase = terminal_game_phase.Inspecting
         SyncActiveCase()
-        RefreshDecisionControls()
         ScannerResultAudio.Play()
-        SetBoard(CheckpointBoard, "SCANNER RESULT | {ScannerResultText(Template)} | {BodyEvidence(Template)}")
-        ReleaseStationClaim("BODY SCANNER", "EVIDENCE COMPLETE")
-        ShowAll("SCANNER RESULT | {ScannerResultText(Template)} | {BodyEvidence(Template)}", 5.0)
-        TerminalLog(DebugEnabled, "[SCAN] Completed|CaseId={CurrentCaseId}|Template={Template}|CheckedOnce=True")
+        SetBoard(CheckpointBoard, "SCANNER DISPLAY READY | SELECT OBSERVED BODY REGION")
+        if (Owner := ClaimOwner?):
+            OpenBodyScanInterface(Owner, ExpectedCaseId, ExpectedScannerGeneration, Template)
+            ShowAgent(Owner, "SCANNER DISPLAY READY | Inspect the silhouette and record your observation.", 5.0)
+        TerminalLog(DebugEnabled, "[SCAN] Sweep complete; awaiting operator observation|CaseId={CurrentCaseId}|Template={Template}")
+
+    OpenBodyScanInterface(Player:player, CaseId:int, ExpectedScannerGeneration:int, Template:int):void=
+        if (CaseId <> CurrentCaseId or ExpectedScannerGeneration <> ScannerGeneration or PassengerLocation <> terminal_passenger_location.ScannerExit):
+            return
+        CloseBodyScanInterface(Player)
+
+        Header := text_block:
+            DefaultText := TerminalMessage("BODY SCAN | CASE {CaseId} | OPERATOR INTERPRETATION")
+            DefaultTextColor := NamedColors.White
+            DefaultTextSize := 25.0
+        Instruction := text_block:
+            DefaultText := TerminalMessage("Compare signal strength and select the region you believe needs follow-up. Amber may be harmless noise; red is a stronger return.")
+            DefaultTextColor := NamedColors.LightCyan
+            DefaultTextSize := 15.0
+            AutoWrap := true
+            WrapWidth := 650.0
+        HeadShape := color_block:
+            DefaultColor := BodyRegionColor(Template, 0)
+            DefaultOpacity := 0.96
+            DefaultDesiredSize := vector2{X := 105.0, Y := 80.0}
+        LeftArmShape := color_block:
+            DefaultColor := BodyRegionColor(Template, 3)
+            DefaultOpacity := 0.96
+            DefaultDesiredSize := vector2{X := 52.0, Y := 180.0}
+        TorsoShape := color_block:
+            DefaultColor := BodyRegionColor(Template, 1)
+            DefaultOpacity := 0.96
+            DefaultDesiredSize := vector2{X := 170.0, Y := 180.0}
+        RightArmShape := color_block:
+            DefaultColor := BodyRegionColor(Template, 4)
+            DefaultOpacity := 0.96
+            DefaultDesiredSize := vector2{X := 52.0, Y := 180.0}
+        LowerTorsoShape := color_block:
+            DefaultColor := BodyRegionColor(Template, 2)
+            DefaultOpacity := 0.96
+            DefaultDesiredSize := vector2{X := 150.0, Y := 95.0}
+        LeftLegShape := color_block:
+            DefaultColor := BodyRegionColor(Template, 5)
+            DefaultOpacity := 0.96
+            DefaultDesiredSize := vector2{X := 68.0, Y := 190.0}
+        RightLegShape := color_block:
+            DefaultColor := BodyRegionColor(Template, 6)
+            DefaultOpacity := 0.96
+            DefaultDesiredSize := vector2{X := 68.0, Y := 190.0}
+        TorsoRow := stack_box:
+            Orientation := orientation.Horizontal
+            Slots := array:
+                stack_box_slot{Widget := LeftArmShape, Padding := margin{Right := 10.0}}
+                stack_box_slot{Widget := TorsoShape, Padding := margin{Right := 10.0}}
+                stack_box_slot{Widget := RightArmShape}
+        LegsRow := stack_box:
+            Orientation := orientation.Horizontal
+            Slots := array:
+                stack_box_slot{Widget := LeftLegShape, Padding := margin{Right := 14.0}}
+                stack_box_slot{Widget := RightLegShape}
+        Silhouette := stack_box:
+            Orientation := orientation.Vertical
+            Slots := array:
+                stack_box_slot{Widget := HeadShape, HorizontalAlignment := horizontal_alignment.Center, Padding := margin{Bottom := 10.0}}
+                stack_box_slot{Widget := TorsoRow, HorizontalAlignment := horizontal_alignment.Center, Padding := margin{Bottom := 10.0}}
+                stack_box_slot{Widget := LowerTorsoShape, HorizontalAlignment := horizontal_alignment.Center, Padding := margin{Bottom := 10.0}}
+                stack_box_slot{Widget := LegsRow, HorizontalAlignment := horizontal_alignment.Center}
+
+        HeadButton := button_regular{DefaultText := TerminalMessage("HEAD")}
+        UpperButton := button_regular{DefaultText := TerminalMessage("UPPER TORSO")}
+        LowerButton := button_regular{DefaultText := TerminalMessage("LOWER TORSO")}
+        LeftArmButton := button_regular{DefaultText := TerminalMessage("LEFT ARM")}
+        RightArmButton := button_regular{DefaultText := TerminalMessage("RIGHT ARM")}
+        LeftLegButton := button_regular{DefaultText := TerminalMessage("LEFT LEG")}
+        RightLegButton := button_regular{DefaultText := TerminalMessage("RIGHT LEG")}
+        NoAnomalyButton := button_loud{DefaultText := TerminalMessage("NO ANOMALY OBSERVED")}
+        UncertainButton := button_quiet{DefaultText := TerminalMessage("UNCERTAIN | RECOMMEND SECONDARY")}
+        HeadButton.OnClick().Subscribe(OnBodyHead)
+        UpperButton.OnClick().Subscribe(OnBodyUpperTorso)
+        LowerButton.OnClick().Subscribe(OnBodyLowerTorso)
+        LeftArmButton.OnClick().Subscribe(OnBodyLeftArm)
+        RightArmButton.OnClick().Subscribe(OnBodyRightArm)
+        LeftLegButton.OnClick().Subscribe(OnBodyLeftLeg)
+        RightLegButton.OnClick().Subscribe(OnBodyRightLeg)
+        NoAnomalyButton.OnClick().Subscribe(OnBodyNoAnomaly)
+        UncertainButton.OnClick().Subscribe(OnBodyUncertain)
+        ChoiceColumn := stack_box:
+            Orientation := orientation.Vertical
+            Slots := array:
+                stack_box_slot{Widget := HeadButton, Padding := margin{Bottom := 7.0}}
+                stack_box_slot{Widget := UpperButton, Padding := margin{Bottom := 7.0}}
+                stack_box_slot{Widget := LowerButton, Padding := margin{Bottom := 7.0}}
+                stack_box_slot{Widget := LeftArmButton, Padding := margin{Bottom := 7.0}}
+                stack_box_slot{Widget := RightArmButton, Padding := margin{Bottom := 7.0}}
+                stack_box_slot{Widget := LeftLegButton, Padding := margin{Bottom := 7.0}}
+                stack_box_slot{Widget := RightLegButton, Padding := margin{Bottom := 12.0}}
+                stack_box_slot{Widget := NoAnomalyButton, Padding := margin{Bottom := 7.0}}
+                stack_box_slot{Widget := UncertainButton}
+        InspectionRow := stack_box:
+            Orientation := orientation.Horizontal
+            Slots := array:
+                stack_box_slot{Widget := Silhouette, Padding := margin{Right := 42.0}}
+                stack_box_slot{Widget := ChoiceColumn}
+        Content := stack_box:
+            Orientation := orientation.Vertical
+            Slots := array:
+                stack_box_slot{Widget := Header, Padding := margin{Bottom := 8.0}}
+                stack_box_slot{Widget := Instruction, Padding := margin{Bottom := 20.0}}
+                stack_box_slot{Widget := InspectionRow}
+        Panel := overlay:
+            Slots := array:
+                overlay_slot:
+                    Widget := color_block:
+                        DefaultColor := MakeColorFromSRGBValues(4, 17, 31)
+                        DefaultOpacity := 0.98
+                        DefaultDesiredSize := vector2{X := 760.0, Y := 720.0}
+                overlay_slot:
+                    Widget := Content
+                    Padding := margin{Left := 30.0, Top := 28.0, Right := 30.0, Bottom := 28.0}
+        Root := canvas:
+            Slots := array:
+                canvas_slot:
+                    Anchors := anchors{Minimum := vector2{X := 0.5, Y := 0.5}, Maximum := vector2{X := 0.5, Y := 0.5}}
+                    Offsets := margin{Right := 760.0, Bottom := 720.0}
+                    Alignment := vector2{X := 0.5, Y := 0.5}
+                    SizeToContent := false
+                    Widget := Panel
+        if (set BodyScanRootUI[Player] = Root) {}
+        if (set BodyScanOpenGeneration[Player] = ExpectedScannerGeneration) {}
+        if (PlayerUI := GetPlayerUI[Player]):
+            PlayerUI.AddWidget(Root, player_ui_slot{InputMode := ui_input_mode.All, ZOrder := 125})
+
+    BodyRegionColor(Template:int, Region:int):color=
+        if (Template = 2 and (Region = 2 or Region = 6)):
+            return NamedColors.Red
+        if (Template = 8 and Region = 1):
+            return MakeColorFromSRGBValues(255, 88, 46)
+        if (Template = 9 and Region = 1):
+            return NamedColors.Yellow
+        if ((Template = 3 or Template = 6 or Template = 10) and Region = 3):
+            return MakeColorFromSRGBValues(186, 142, 42)
+        MakeColorFromSRGBValues(31, 147, 173)
+
+    OnBodyHead(Message:widget_message):void=
+        CommitBodyObservation(Message.Player, terminal_body_observation.Head)
+    OnBodyUpperTorso(Message:widget_message):void=
+        CommitBodyObservation(Message.Player, terminal_body_observation.UpperTorso)
+    OnBodyLowerTorso(Message:widget_message):void=
+        CommitBodyObservation(Message.Player, terminal_body_observation.LowerTorso)
+    OnBodyLeftArm(Message:widget_message):void=
+        CommitBodyObservation(Message.Player, terminal_body_observation.LeftArm)
+    OnBodyRightArm(Message:widget_message):void=
+        CommitBodyObservation(Message.Player, terminal_body_observation.RightArm)
+    OnBodyLeftLeg(Message:widget_message):void=
+        CommitBodyObservation(Message.Player, terminal_body_observation.LeftLeg)
+    OnBodyRightLeg(Message:widget_message):void=
+        CommitBodyObservation(Message.Player, terminal_body_observation.RightLeg)
+    OnBodyNoAnomaly(Message:widget_message):void=
+        CommitBodyObservation(Message.Player, terminal_body_observation.NoAnomaly)
+    OnBodyUncertain(Message:widget_message):void=
+        CommitBodyObservation(Message.Player, terminal_body_observation.Uncertain)
+
+    CommitBodyObservation(Player:player, Observation:terminal_body_observation):void=
+        if (OpenGeneration := BodyScanOpenGeneration[Player], OpenGeneration <> ScannerGeneration):
+            CloseBodyScanInterface(Player)
+            return
+        if (Phase <> terminal_game_phase.Inspecting or BodyChecked? or PassengerLocation <> terminal_passenger_location.ScannerExit or not PowerOnline?):
+            CloseBodyScanInterface(Player)
+            return
+        if (Owner := ClaimOwner?, Owner <> Player):
+            CloseBodyScanInterface(Player)
+            return
+        set BodyObservation = Observation
+        set BodyChecked = true
+        set Phase = terminal_game_phase.AwaitingDecision
+        CloseBodyScanInterface(Player)
+        SyncActiveCase()
+        SetBoard(CheckpointBoard, "BODY OBSERVATION RECORDED | {BodyObservationLabel(Observation)}")
+        ShowAll("BODY OBSERVATION RECORDED | Continue the physical handoff to the next station.", 4.0)
+        TerminalLog(DebugEnabled, "[SCAN] Operator observation committed|CaseId={CurrentCaseId}|Observation={BodyObservationLabel(Observation)}")
         if (Shift >= 2):
-            spawn{MovePassengerToBaggage(ExpectedCaseId, ExpectedRun)}
+            spawn{MovePassengerToBaggage(CurrentCaseId, RunGeneration)}
         else:
-            spawn{MovePassengerToDecision(ExpectedCaseId, ExpectedRun)}
+            spawn{MovePassengerToDecision(CurrentCaseId, RunGeneration)}
+
+    BodyObservationLabel(Observation:terminal_body_observation):string=
+        if (Observation = terminal_body_observation.NoAnomaly):
+            return "NO ANOMALY"
+        if (Observation = terminal_body_observation.Head):
+            return "HEAD"
+        if (Observation = terminal_body_observation.UpperTorso):
+            return "UPPER TORSO"
+        if (Observation = terminal_body_observation.LowerTorso):
+            return "LOWER TORSO"
+        if (Observation = terminal_body_observation.LeftArm):
+            return "LEFT ARM"
+        if (Observation = terminal_body_observation.RightArm):
+            return "RIGHT ARM"
+        if (Observation = terminal_body_observation.LeftLeg):
+            return "LEFT LEG"
+        if (Observation = terminal_body_observation.RightLeg):
+            return "RIGHT LEG"
+        "UNCERTAIN"
+
+    CloseBodyScanInterface(Player:player):void=
+        if (Root := BodyScanRootUI[Player], PlayerUI := GetPlayerUI[Player]):
+            PlayerUI.RemoveWidget(Root)
+        if (set BodyScanOpenGeneration[Player] = -1) {}
+
+    CloseAllBodyScanInterfaces():void=
+        for (Player : GetPlayspace().GetPlayers()):
+            CloseBodyScanInterface(Player)
 
     OnBagButton(Agent:agent):void=
-        if (not PowerOnline?):
-            ShowAgent(Agent, "BAGGAGE X-RAY OFFLINE | Restore terminal power before inspecting luggage.", 5.0)
-            SetBoard(BagBoard, "X-RAY OFFLINE | POWER ROOM REQUIRED")
+        if (BagLocation = terminal_bag_location.XRayTunnel and not BagChecked?):
+            LegalRecovery := IsCaseInteractionLegal(Agent)
+            if (not LegalRecovery?):
+                return
+            RecoveryClaim := TryClaim(Agent, terminal_claim_stage.Baggage)
+            if (not RecoveryClaim?):
+                return
+            if (Player := player[Agent]):
+                OpenXRayInterface(Player, CurrentCaseId, BagGeneration, CurrentTemplate)
             return
-        if (Shift < 2):
-            ShowAgent(Agent, "Baggage Control unlocks in Shift 2.", 4.0)
-            return
-        if (not BodyChecked?):
-            ShowAgent(Agent, "BODY SCAN REQUIRED | Complete the passenger scan before opening the linked bag.", 4.0)
-            return
-        if (BagScanInProgress?):
-            ShowAgent(Agent, "BAG X-RAY IN PROGRESS | Wait for the conveyor result.", 3.0)
-            return
-        Legal := IsCaseInteractionLegal(Agent)
-        if (not Legal?):
+        BaggageEligible := CanUseBaggageStation(Agent)
+        if (not BaggageEligible?):
             return
         if (BagChecked?):
             ShowAgent(Agent, "BAG already checked | {BagEvidence(CurrentTemplate)}", 4.0)
             return
-        Claimed := TryClaim(Agent)
+        Claimed := TryClaim(Agent, terminal_claim_stage.Baggage)
         if (not Claimed?):
             return
         set Phase = terminal_game_phase.Inspecting
@@ -1099,12 +1399,20 @@ terminal_lockdown_controller := class(creative_device):
             set Phase = terminal_game_phase.AwaitingDecision
             SyncActiveCase()
             SetBoard(BagBoard, "X-RAY ROUTE FAULT | RETRY BAG INSPECTION")
-            ReleaseStationClaim("BAG X-RAY", "ROUTE RESET")
+            ReleaseStationClaim(terminal_claim_stage.Baggage, "BAG X-RAY", "ROUTE RESET")
             ShowAll("BAG ROUTE RESET | The linked bag was safely removed. Retry the X-ray station.", 6.0)
             return
-        SetBoard(BagBoard, "X-RAY ANALYZING | CASE {CurrentCaseId} | AMBER SWEEP")
-        Sleep(0.8)
-        if (ExpectedCaseId <> CurrentCaseId or ExpectedRun <> RunGeneration or ExpectedBagGeneration <> BagGeneration):
+        set BagLocation = terminal_bag_location.XRayTunnel
+        SyncActiveCase()
+        SetBoard(BagBoard, "X-RAY IMAGE READY | CASE {CurrentCaseId} | OPERATOR INTERPRETATION")
+        if (Owner := ClaimOwner?):
+            OpenXRayInterface(Owner, ExpectedCaseId, ExpectedBagGeneration, Template)
+            ShowAgent(Owner, "X-RAY IMAGE READY | Select a suspicious region, clear the image, or request manual search.", 5.0)
+        TerminalLog(DebugEnabled, "[BAG] Linked bag paused in tunnel; awaiting operator observation|CaseId={CurrentCaseId}")
+        return
+
+    FinishBagInspectionAfterObservation(ExpectedCaseId:int, ExpectedRun:int, ExpectedBagGeneration:int, BagIndex:int)<suspends>:void=
+        if (ExpectedCaseId <> CurrentCaseId or ExpectedRun <> RunGeneration or ExpectedBagGeneration <> BagGeneration or not BagChecked?):
             return
         var ExitReached:logic = false
         if (BagIndex = 0):
@@ -1147,72 +1455,235 @@ terminal_lockdown_controller := class(creative_device):
             set Phase = terminal_game_phase.AwaitingDecision
             SyncActiveCase()
             SetBoard(BagBoard, "X-RAY EXIT FAULT | RETRY BAG INSPECTION")
-            ReleaseStationClaim("BAG X-RAY", "EXIT RESET")
+            ReleaseStationClaim(terminal_claim_stage.Baggage, "BAG X-RAY", "EXIT RESET")
             ShowAll("BAG EXIT RESET | The linked bag was safely removed. Retry the X-ray station.", 6.0)
             return
         set BagChecked = true
         set BagScanInProgress = false
+        set BagLocation = terminal_bag_location.ConveyorExit
         set Phase = terminal_game_phase.AwaitingDecision
         SyncActiveCase()
         RefreshDecisionControls()
-        SetBoard(BagBoard, "X-RAY RESULT | CASE {CurrentCaseId} | {BagResultText(Template)} | {BagEvidence(Template)}")
-        ReleaseStationClaim("BAG X-RAY", "EVIDENCE COMPLETE")
-        ShowAll("X-RAY RESULT | {BagResultText(Template)} | {BagEvidence(Template)} | {EvidencePrompt()}", 6.0)
-        TerminalLog(DebugEnabled, "[BAG] Completed|CaseId={CurrentCaseId}|Template={Template}|CheckedOnce=True")
+        SetBoard(BagBoard, "X-RAY OBSERVATION | CASE {CurrentCaseId} | {BagObservationLabel(BagObservation)}")
+        ShowAll("X-RAY OBSERVATION RECORDED | Linked bag exited the tunnel.", 5.0)
+        TerminalLog(DebugEnabled, "[BAG] Observation complete|CaseId={CurrentCaseId}|Observation={BagObservationLabel(BagObservation)}")
         if (Shift >= 3):
             spawn{MovePassengerToDocumentDesk(ExpectedCaseId, ExpectedRun)}
         else:
             spawn{MovePassengerToDecision(ExpectedCaseId, ExpectedRun)}
 
+    OpenXRayInterface(Player:player, CaseId:int, ExpectedBagGeneration:int, Template:int):void=
+        if (CaseId <> CurrentCaseId or ExpectedBagGeneration <> BagGeneration or BagLocation <> terminal_bag_location.XRayTunnel):
+            return
+        CloseXRayInterface(Player)
+        Header := text_block:
+            DefaultText := TerminalMessage("BAG X-RAY | CASE {CaseId} | DUAL-ENERGY VIEW")
+            DefaultTextColor := NamedColors.White
+            DefaultTextSize := 25.0
+        Instruction := text_block:
+            DefaultText := TerminalMessage("Orange suggests organic material, blue suggests dense inorganic material, and green suggests overlap. Select the region you want to flag; not every dense object is prohibited.")
+            DefaultTextColor := NamedColors.LightCyan
+            DefaultTextSize := 15.0
+            AutoWrap := true
+            WrapWidth := 720.0
+        UpperLeftShape := color_block:
+            DefaultColor := XRayDensityColor(Template, 0)
+            DefaultOpacity := 0.88
+            DefaultDesiredSize := vector2{X := 210.0, Y := 130.0}
+        UpperRightShape := color_block:
+            DefaultColor := XRayDensityColor(Template, 1)
+            DefaultOpacity := 0.88
+            DefaultDesiredSize := vector2{X := 210.0, Y := 130.0}
+        LowerLeftShape := color_block:
+            DefaultColor := XRayDensityColor(Template, 2)
+            DefaultOpacity := 0.88
+            DefaultDesiredSize := vector2{X := 210.0, Y := 130.0}
+        LowerRightShape := color_block:
+            DefaultColor := XRayDensityColor(Template, 3)
+            DefaultOpacity := 0.88
+            DefaultDesiredSize := vector2{X := 210.0, Y := 130.0}
+        CenterShape := color_block:
+            DefaultColor := XRayDensityColor(Template, 4)
+            DefaultOpacity := 0.92
+            DefaultDesiredSize := vector2{X := 120.0, Y := 70.0}
+        UpperRow := stack_box:
+            Orientation := orientation.Horizontal
+            Slots := array:
+                stack_box_slot{Widget := UpperLeftShape, Padding := margin{Right := 14.0}}
+                stack_box_slot{Widget := UpperRightShape}
+        LowerRow := stack_box:
+            Orientation := orientation.Horizontal
+            Slots := array:
+                stack_box_slot{Widget := LowerLeftShape, Padding := margin{Right := 14.0}}
+                stack_box_slot{Widget := LowerRightShape}
+        BagLayers := stack_box:
+            Orientation := orientation.Vertical
+            Slots := array:
+                stack_box_slot{Widget := UpperRow, Padding := margin{Bottom := 12.0}}
+                stack_box_slot{Widget := CenterShape, HorizontalAlignment := horizontal_alignment.Center, Padding := margin{Bottom := 12.0}}
+                stack_box_slot{Widget := LowerRow}
+        BagBoundary := overlay:
+            Slots := array:
+                overlay_slot:
+                    Widget := color_block:
+                        DefaultColor := MakeColorFromSRGBValues(10, 20, 28)
+                        DefaultOpacity := 1.0
+                        DefaultDesiredSize := vector2{X := 500.0, Y := 390.0}
+                overlay_slot:
+                    Widget := BagLayers
+                    Padding := margin{Left := 30.0, Top := 30.0, Right := 30.0, Bottom := 30.0}
+        UpperLeftButton := button_regular{DefaultText := TerminalMessage("FLAG UPPER LEFT")}
+        UpperRightButton := button_regular{DefaultText := TerminalMessage("FLAG UPPER RIGHT")}
+        LowerLeftButton := button_regular{DefaultText := TerminalMessage("FLAG LOWER LEFT")}
+        LowerRightButton := button_regular{DefaultText := TerminalMessage("FLAG LOWER RIGHT")}
+        CenterButton := button_regular{DefaultText := TerminalMessage("FLAG CENTER DENSITY")}
+        ClearButtonUI := button_loud{DefaultText := TerminalMessage("CLEAR IMAGE")}
+        ManualButton := button_quiet{DefaultText := TerminalMessage("ROUTE TO MANUAL SEARCH")}
+        UpperLeftButton.OnClick().Subscribe(OnXRayUpperLeft)
+        UpperRightButton.OnClick().Subscribe(OnXRayUpperRight)
+        LowerLeftButton.OnClick().Subscribe(OnXRayLowerLeft)
+        LowerRightButton.OnClick().Subscribe(OnXRayLowerRight)
+        CenterButton.OnClick().Subscribe(OnXRayCenter)
+        ClearButtonUI.OnClick().Subscribe(OnXRayClear)
+        ManualButton.OnClick().Subscribe(OnXRayManual)
+        Choices := stack_box:
+            Orientation := orientation.Vertical
+            Slots := array:
+                stack_box_slot{Widget := UpperLeftButton, Padding := margin{Bottom := 8.0}}
+                stack_box_slot{Widget := UpperRightButton, Padding := margin{Bottom := 8.0}}
+                stack_box_slot{Widget := LowerLeftButton, Padding := margin{Bottom := 8.0}}
+                stack_box_slot{Widget := LowerRightButton, Padding := margin{Bottom := 8.0}}
+                stack_box_slot{Widget := CenterButton, Padding := margin{Bottom := 14.0}}
+                stack_box_slot{Widget := ClearButtonUI, Padding := margin{Bottom := 8.0}}
+                stack_box_slot{Widget := ManualButton}
+        InspectionRow := stack_box:
+            Orientation := orientation.Horizontal
+            Slots := array:
+                stack_box_slot{Widget := BagBoundary, Padding := margin{Right := 30.0}}
+                stack_box_slot{Widget := Choices}
+        Content := stack_box:
+            Orientation := orientation.Vertical
+            Slots := array:
+                stack_box_slot{Widget := Header, Padding := margin{Bottom := 8.0}}
+                stack_box_slot{Widget := Instruction, Padding := margin{Bottom := 20.0}}
+                stack_box_slot{Widget := InspectionRow}
+        Panel := overlay:
+            Slots := array:
+                overlay_slot:
+                    Widget := color_block:
+                        DefaultColor := MakeColorFromSRGBValues(3, 13, 24)
+                        DefaultOpacity := 0.98
+                        DefaultDesiredSize := vector2{X := 980.0, Y := 610.0}
+                overlay_slot:
+                    Widget := Content
+                    Padding := margin{Left := 30.0, Top := 26.0, Right := 30.0, Bottom := 26.0}
+        Root := canvas:
+            Slots := array:
+                canvas_slot:
+                    Anchors := anchors{Minimum := vector2{X := 0.5, Y := 0.5}, Maximum := vector2{X := 0.5, Y := 0.5}}
+                    Offsets := margin{Right := 980.0, Bottom := 610.0}
+                    Alignment := vector2{X := 0.5, Y := 0.5}
+                    SizeToContent := false
+                    Widget := Panel
+        if (set XRayRootUI[Player] = Root) {}
+        if (set XRayOpenGeneration[Player] = ExpectedBagGeneration) {}
+        if (PlayerUI := GetPlayerUI[Player]):
+            PlayerUI.AddWidget(Root, player_ui_slot{InputMode := ui_input_mode.All, ZOrder := 125})
+
+    XRayDensityColor(Template:int, Region:int):color=
+        if ((Template = 4 or Template = 8 or Template = 12) and Region = 4):
+            return MakeColorFromSRGBValues(23, 92, 255)
+        if (Template = 7 and (Region = 1 or Region = 4)):
+            return MakeColorFromSRGBValues(28, 180, 92)
+        if ((Template = 2 or Template = 5 or Template = 11) and Region = 2):
+            return MakeColorFromSRGBValues(18, 105, 220)
+        if (Region = 0 or Region = 3):
+            return MakeColorFromSRGBValues(238, 126, 36)
+        MakeColorFromSRGBValues(28, 165, 105)
+
+    OnXRayUpperLeft(Message:widget_message):void=
+        CommitBagObservation(Message.Player, terminal_bag_observation.UpperLeft)
+    OnXRayUpperRight(Message:widget_message):void=
+        CommitBagObservation(Message.Player, terminal_bag_observation.UpperRight)
+    OnXRayLowerLeft(Message:widget_message):void=
+        CommitBagObservation(Message.Player, terminal_bag_observation.LowerLeft)
+    OnXRayLowerRight(Message:widget_message):void=
+        CommitBagObservation(Message.Player, terminal_bag_observation.LowerRight)
+    OnXRayCenter(Message:widget_message):void=
+        CommitBagObservation(Message.Player, terminal_bag_observation.CenterDense)
+    OnXRayClear(Message:widget_message):void=
+        CommitBagObservation(Message.Player, terminal_bag_observation.ClearImage)
+    OnXRayManual(Message:widget_message):void=
+        CommitBagObservation(Message.Player, terminal_bag_observation.ManualSearch)
+
+    CommitBagObservation(Player:player, Observation:terminal_bag_observation):void=
+        if (OpenGeneration := XRayOpenGeneration[Player], OpenGeneration <> BagGeneration):
+            CloseXRayInterface(Player)
+            return
+        if (Phase <> terminal_game_phase.Inspecting or BagChecked? or BagLocation <> terminal_bag_location.XRayTunnel or not PowerOnline?):
+            CloseXRayInterface(Player)
+            return
+        if (Owner := ClaimOwner?, Owner <> Player):
+            CloseXRayInterface(Player)
+            return
+        set BagObservation = Observation
+        if (Observation = terminal_bag_observation.ManualSearch):
+            set ManualSearchRequested = true
+        set BagChecked = true
+        CloseXRayInterface(Player)
+        SyncActiveCase()
+        spawn{FinishBagInspectionAfterObservation(CurrentCaseId, RunGeneration, BagGeneration, ActiveBagIndex)}
+
+    BagObservationLabel(Observation:terminal_bag_observation):string=
+        if (Observation = terminal_bag_observation.ClearImage):
+            return "CLEARED BY OPERATOR"
+        if (Observation = terminal_bag_observation.UpperLeft):
+            return "UPPER LEFT FLAGGED"
+        if (Observation = terminal_bag_observation.UpperRight):
+            return "UPPER RIGHT FLAGGED"
+        if (Observation = terminal_bag_observation.LowerLeft):
+            return "LOWER LEFT FLAGGED"
+        if (Observation = terminal_bag_observation.LowerRight):
+            return "LOWER RIGHT FLAGGED"
+        if (Observation = terminal_bag_observation.CenterDense):
+            return "CENTER DENSITY FLAGGED"
+        if (Observation = terminal_bag_observation.ManualSearch):
+            return "MANUAL SEARCH REQUESTED"
+        "PENDING"
+
+    CloseXRayInterface(Player:player):void=
+        if (Root := XRayRootUI[Player], PlayerUI := GetPlayerUI[Player]):
+            PlayerUI.RemoveWidget(Root)
+        if (set XRayOpenGeneration[Player] = -1) {}
+
+    CloseAllXRayInterfaces():void=
+        for (Player : GetPlayspace().GetPlayers()):
+            CloseXRayInterface(Player)
+
     OnDocumentButton(Agent:agent):void=
-        if (not PowerOnline?):
-            ShowAgent(Agent, "DOCUMENT READER OFFLINE | Restore terminal power before reviewing credentials.", 5.0)
-            SetBoard(DocumentBoard, "DOCUMENT READER OFFLINE | POWER ROOM REQUIRED")
-            return
-        if (Shift < 3):
-            ShowAgent(Agent, "Identity Desk unlocks in Shift 3.", 4.0)
-            return
-        if (not BodyChecked?):
-            ShowAgent(Agent, "BODY SCAN REQUIRED | Complete the passenger scan before reviewing documents.", 4.0)
-            return
-        if (Shift >= 2, not BagChecked?):
-            ShowAgent(Agent, "BAG X-RAY REQUIRED | Resolve the linked luggage before reviewing documents.", 4.0)
-            return
-        if (ScanInProgress? or BagScanInProgress?):
-            ShowAgent(Agent, "INSPECTION STATION BUSY | Finish the active scan first.", 4.0)
-            return
-        Legal := IsCaseInteractionLegal(Agent)
-        if (not Legal?):
+        DocumentEligible := CanUseDocumentStation(Agent)
+        if (not DocumentEligible?):
             return
         if (Player := player[Agent]):
             if (OpenCase := DocumentOpenCase[Player], OpenCase = CurrentCaseId):
                 ShowAgent(Agent, "Document interface is already open for Case {CurrentCaseId}.", 3.0)
                 return
         if (DocumentsChecked?):
-            ClaimedExisting := TryClaim(Agent)
-            if (not ClaimedExisting?):
-                return
-            if (Player := player[Agent]):
-                OpenDocumentInterface(Player, CurrentCaseId, CurrentTemplate, DocumentGeneration)
-            ShowAgent(Agent, "DOCUMENTS already checked | Reopened Case {CurrentCaseId} record.", 4.0)
+            ShowAgent(Agent, "DOCUMENT OBSERVATION already recorded | {DocumentObservationLabel(DocumentObservation)}", 4.0)
             return
-        Claimed := TryClaim(Agent)
+        Claimed := TryClaim(Agent, terminal_claim_stage.Documents)
         if (not Claimed?):
             return
         set Phase = terminal_game_phase.Inspecting
-        set DocumentsChecked = true
-        set Phase = terminal_game_phase.AwaitingDecision
         SyncActiveCase()
-        RefreshDecisionControls()
         SetBoard(
             DocumentBoard,
-            "TRAVEL ID {CurrentCaseId} | {IdentityName(CurrentTemplate)} | {Destination(CurrentTemplate)} | {DocumentEvidence(CurrentTemplate)}"
+            "TRAVEL ID {CurrentCaseId} | RAW RECORDS OPEN | OPERATOR COMPARISON REQUIRED"
         )
         if (Player := player[Agent]):
             OpenDocumentInterface(Player, CurrentCaseId, CurrentTemplate, DocumentGeneration)
         ShowAgent(Agent, "DOCUMENT READER | Compare portrait, expiry, route, seal, and access fields.", 5.0)
-        TerminalLog(DebugEnabled, "[DOC] CaseId={CurrentCaseId}|Template={CurrentTemplate}|CheckedOnce=True")
-        spawn{MovePassengerToDecision(CurrentCaseId, RunGeneration)}
+        TerminalLog(DebugEnabled, "[DOC] Raw record opened|CaseId={CurrentCaseId}|Template={CurrentTemplate}")
 
     OpenDocumentInterface(Player:player, CaseId:int, Template:int, ExpectedDocumentGeneration:int):void=
         if (CaseId <> CurrentCaseId or ExpectedDocumentGeneration <> DocumentGeneration):
@@ -1228,18 +1699,36 @@ terminal_lockdown_controller := class(creative_device):
             DefaultTextColor := NamedColors.LightCyan
             DefaultTextSize := 14.0
         PortraitLabel := text_block:
-            DefaultText := TerminalMessage("PORTRAIT\n\n[ FACE SAMPLE ]\n\n{PortraitCheck(Template)}")
+            DefaultText := TerminalMessage("ID PORTRAIT\n\n\n\n\nVARIANT {PassengerVariantCode(Template)}")
             DefaultTextColor := NamedColors.White
-            DefaultTextSize := 18.0
+            DefaultTextSize := 16.0
             AutoWrap := true
             WrapWidth := 205.0
         PortraitPanel := overlay:
             Slots := array:
                 overlay_slot:
                     Widget := color_block:
-                        DefaultColor := MakeColorFromSRGBValues(23, 43, 68)
+                        DefaultColor := PortraitBackgroundColor(Template)
                         DefaultOpacity := 1.0
                         DefaultDesiredSize := vector2{X := 220.0, Y := 280.0}
+                overlay_slot:
+                    Widget := color_block:
+                        DefaultColor := PortraitClothingColor(Template)
+                        DefaultOpacity := 1.0
+                        DefaultDesiredSize := vector2{X := 150.0, Y := 105.0}
+                    Padding := margin{Left := 35.0, Top := 142.0, Right := 35.0, Bottom := 33.0}
+                overlay_slot:
+                    Widget := color_block:
+                        DefaultColor := PortraitSkinColor(Template)
+                        DefaultOpacity := 1.0
+                        DefaultDesiredSize := vector2{X := 92.0, Y := 94.0}
+                    Padding := margin{Left := 64.0, Top := 55.0, Right := 64.0, Bottom := 131.0}
+                overlay_slot:
+                    Widget := color_block:
+                        DefaultColor := PortraitHairColor(Template)
+                        DefaultOpacity := 1.0
+                        DefaultDesiredSize := vector2{X := 96.0, Y := 31.0}
+                    Padding := margin{Left := 62.0, Top := 48.0, Right := 62.0, Bottom := 201.0}
                 overlay_slot:
                     Widget := PortraitLabel
                     Padding := margin{Left := 18.0, Top := 22.0, Right := 18.0, Bottom := 18.0}
@@ -1255,11 +1744,43 @@ terminal_lockdown_controller := class(creative_device):
                 stack_box_slot{Widget := PortraitPanel, Padding := margin{Right := 24.0}}
                 stack_box_slot{Widget := IdentityFields}
         Checks := text_block:
-            DefaultText := TerminalMessage("CONSISTENCY CHECKS\n{ExpiryCheck(Template)}\n{SealCheck(Template)}\n{GateCheck(Template)}\n{AccessCheck(Template)}\n\nEVIDENCE STATUS\n{DocumentEvidence(Template)}")
-            DefaultTextColor := DocumentStatusColor(Template)
-            DefaultTextSize := 17.0
+            DefaultText := TerminalMessage("SHIFT DATE  {CurrentShiftDate()}\nISSUING AUTHORITY  ASTRA CIVIL TRAVEL OFFICE\nSEAL / CHECKSUM  {IssuingSeal(Template)}\n\nFLIGHT MANIFEST\nNAME  {ManifestName(Template)}\nFLIGHT / ACTIVE GATE  {ManifestFlightAndGate(Template)}\nACCESS RULE  {ManifestAccess(Template)}\n\nCompare the ID portrait with the passenger standing at the desk, then record only the issue you personally observe.")
+            DefaultTextColor := NamedColors.LightCyan
+            DefaultTextSize := 16.0
             AutoWrap := true
             WrapWidth := 650.0
+        NoIssueButton := button_loud{DefaultText := TerminalMessage("NO VISIBLE ISSUE")}
+        ExpiredButton := button_regular{DefaultText := TerminalMessage("EXPIRED")}
+        NameButton := button_regular{DefaultText := TerminalMessage("NAME MISMATCH")}
+        PortraitButton := button_regular{DefaultText := TerminalMessage("PORTRAIT MISMATCH")}
+        FlightButton := button_regular{DefaultText := TerminalMessage("WRONG FLIGHT")}
+        GateButton := button_regular{DefaultText := TerminalMessage("WRONG GATE")}
+        AccessButton := button_regular{DefaultText := TerminalMessage("RESTRICTED ACCESS")}
+        SealButton := button_regular{DefaultText := TerminalMessage("SUSPICIOUS SEAL")}
+        NeedsSecondaryButton := button_quiet{DefaultText := TerminalMessage("NEEDS SECONDARY")}
+        NoIssueButton.OnClick().Subscribe(OnDocumentNoIssue)
+        ExpiredButton.OnClick().Subscribe(OnDocumentExpired)
+        NameButton.OnClick().Subscribe(OnDocumentNameMismatch)
+        PortraitButton.OnClick().Subscribe(OnDocumentPortraitMismatch)
+        FlightButton.OnClick().Subscribe(OnDocumentWrongFlight)
+        GateButton.OnClick().Subscribe(OnDocumentWrongGate)
+        AccessButton.OnClick().Subscribe(OnDocumentRestrictedAccess)
+        SealButton.OnClick().Subscribe(OnDocumentSuspiciousSeal)
+        NeedsSecondaryButton.OnClick().Subscribe(OnDocumentNeedsSecondary)
+        ChoiceRowA := stack_box:
+            Orientation := orientation.Horizontal
+            Slots := array:
+                stack_box_slot{Widget := NoIssueButton, Padding := margin{Right := 6.0}}
+                stack_box_slot{Widget := ExpiredButton, Padding := margin{Right := 6.0}}
+                stack_box_slot{Widget := NameButton, Padding := margin{Right := 6.0}}
+                stack_box_slot{Widget := PortraitButton}
+        ChoiceRowB := stack_box:
+            Orientation := orientation.Horizontal
+            Slots := array:
+                stack_box_slot{Widget := FlightButton, Padding := margin{Right := 6.0}}
+                stack_box_slot{Widget := GateButton, Padding := margin{Right := 6.0}}
+                stack_box_slot{Widget := AccessButton, Padding := margin{Right := 6.0}}
+                stack_box_slot{Widget := SealButton}
         ReturnButton := button_loud{DefaultText := TerminalMessage("RETURN TO CHECKPOINT")}
         ReturnButton.OnClick().Subscribe(OnCloseDocument)
         Content := stack_box:
@@ -1268,7 +1789,10 @@ terminal_lockdown_controller := class(creative_device):
                 stack_box_slot{Widget := Header, Padding := margin{Bottom := 5.0}}
                 stack_box_slot{Widget := Subheader, Padding := margin{Bottom := 20.0}}
                 stack_box_slot{Widget := IdentityRow, Padding := margin{Bottom := 20.0}}
-                stack_box_slot{Widget := Checks, Padding := margin{Bottom := 20.0}}
+                stack_box_slot{Widget := Checks, Padding := margin{Bottom := 16.0}}
+                stack_box_slot{Widget := ChoiceRowA, Padding := margin{Bottom := 7.0}}
+                stack_box_slot{Widget := ChoiceRowB, Padding := margin{Bottom := 7.0}}
+                stack_box_slot{Widget := NeedsSecondaryButton, Padding := margin{Bottom := 10.0}}
                 stack_box_slot{Widget := ReturnButton}
         Panel := overlay:
             Slots := array:
@@ -1276,7 +1800,7 @@ terminal_lockdown_controller := class(creative_device):
                     Widget := color_block:
                         DefaultColor := MakeColorFromSRGBValues(7, 16, 28)
                         DefaultOpacity := 0.97
-                        DefaultDesiredSize := vector2{X := 720.0, Y := 760.0}
+                        DefaultDesiredSize := vector2{X := 860.0, Y := 900.0}
                 overlay_slot:
                     Widget := Content
                     Padding := margin{Left := 30.0, Top := 26.0, Right := 30.0, Bottom := 26.0}
@@ -1284,7 +1808,7 @@ terminal_lockdown_controller := class(creative_device):
             Slots := array:
                 canvas_slot:
                     Anchors := anchors{Minimum := vector2{X := 0.5, Y := 0.5}, Maximum := vector2{X := 0.5, Y := 0.5}}
-                    Offsets := margin{Right := 720.0, Bottom := 760.0}
+                    Offsets := margin{Right := 860.0, Bottom := 900.0}
                     Alignment := vector2{X := 0.5, Y := 0.5}
                     SizeToContent := false
                     Widget := Panel
@@ -1293,15 +1817,143 @@ terminal_lockdown_controller := class(creative_device):
             return
         if (set DocumentRootUI[Player] = Root) {}
         if (set DocumentOpenCase[Player] = CaseId) {}
+        if (set DocumentOpenGeneration[Player] = ExpectedDocumentGeneration) {}
         if (PlayerUI := GetPlayerUI[Player]):
             PlayerUI.AddWidget(Root, player_ui_slot{InputMode := ui_input_mode.All, ZOrder := 120})
+
+    OnDocumentNoIssue(Message:widget_message):void=
+        CommitDocumentObservation(Message.Player, terminal_document_observation.NoVisibleIssue)
+    OnDocumentExpired(Message:widget_message):void=
+        CommitDocumentObservation(Message.Player, terminal_document_observation.Expired)
+    OnDocumentNameMismatch(Message:widget_message):void=
+        CommitDocumentObservation(Message.Player, terminal_document_observation.NameMismatch)
+    OnDocumentPortraitMismatch(Message:widget_message):void=
+        CommitDocumentObservation(Message.Player, terminal_document_observation.PortraitMismatch)
+    OnDocumentWrongFlight(Message:widget_message):void=
+        CommitDocumentObservation(Message.Player, terminal_document_observation.WrongFlight)
+    OnDocumentWrongGate(Message:widget_message):void=
+        CommitDocumentObservation(Message.Player, terminal_document_observation.WrongGate)
+    OnDocumentRestrictedAccess(Message:widget_message):void=
+        CommitDocumentObservation(Message.Player, terminal_document_observation.RestrictedAccess)
+    OnDocumentSuspiciousSeal(Message:widget_message):void=
+        CommitDocumentObservation(Message.Player, terminal_document_observation.SuspiciousSeal)
+    OnDocumentNeedsSecondary(Message:widget_message):void=
+        CommitDocumentObservation(Message.Player, terminal_document_observation.NeedsSecondary)
+
+    CommitDocumentObservation(Player:player, Observation:terminal_document_observation):void=
+        if (OpenCase := DocumentOpenCase[Player], OpenCase <> CurrentCaseId):
+            CloseDocumentInterface(Player)
+            return
+        if (OpenGeneration := DocumentOpenGeneration[Player], OpenGeneration <> DocumentGeneration):
+            CloseDocumentInterface(Player)
+            return
+        if (Phase <> terminal_game_phase.Inspecting or DocumentsChecked? or PassengerLocation <> terminal_passenger_location.Documents or not PowerOnline?):
+            CloseDocumentInterface(Player)
+            return
+        if (Owner := ClaimOwner?, Owner <> Player):
+            CloseDocumentInterface(Player)
+            return
+        set DocumentObservation = Observation
+        if (Observation = terminal_document_observation.NeedsSecondary):
+            set ManualSearchRequested = true
+        set DocumentsChecked = true
+        set Phase = terminal_game_phase.AwaitingDecision
+        CloseDocumentInterface(Player)
+        SyncActiveCase()
+        SetBoard(DocumentBoard, "DOCUMENT OBSERVATION | CASE {CurrentCaseId} | {DocumentObservationLabel(Observation)}")
+        ShowAll("DOCUMENT OBSERVATION RECORDED | Passenger proceeding to the decision position.", 5.0)
+        spawn{MovePassengerToDecision(CurrentCaseId, RunGeneration)}
+
+    DocumentObservationLabel(Observation:terminal_document_observation):string=
+        if (Observation = terminal_document_observation.NoVisibleIssue):
+            return "NO VISIBLE ISSUE"
+        if (Observation = terminal_document_observation.Expired):
+            return "EXPIRED"
+        if (Observation = terminal_document_observation.NameMismatch):
+            return "NAME MISMATCH"
+        if (Observation = terminal_document_observation.PortraitMismatch):
+            return "PORTRAIT MISMATCH"
+        if (Observation = terminal_document_observation.WrongFlight):
+            return "WRONG FLIGHT"
+        if (Observation = terminal_document_observation.WrongGate):
+            return "WRONG GATE"
+        if (Observation = terminal_document_observation.RestrictedAccess):
+            return "RESTRICTED ACCESS"
+        if (Observation = terminal_document_observation.SuspiciousSeal):
+            return "SUSPICIOUS SEAL"
+        if (Observation = terminal_document_observation.NeedsSecondary):
+            return "NEEDS SECONDARY"
+        "PENDING"
+
+    PassengerVariantCode(Template:int)<computes>:string=
+        if (Template = 2 or Template = 5 or Template = 8 or Template = 11):
+            return "B"
+        if (Template = 3 or Template = 6 or Template = 9 or Template = 12):
+            return "C"
+        "A"
+
+    PortraitBackgroundColor(Template:int):color=
+        if (Template = 2 or Template = 5 or Template = 8 or Template = 11):
+            return MakeColorFromSRGBValues(48, 69, 102)
+        if (Template = 3 or Template = 6 or Template = 9 or Template = 12):
+            return MakeColorFromSRGBValues(36, 86, 83)
+        MakeColorFromSRGBValues(38, 54, 76)
+
+    PortraitSkinColor(Template:int):color=
+        if (Template = 2 or Template = 4 or Template = 7 or Template = 10):
+            return MakeColorFromSRGBValues(112, 72, 49)
+        if (Template = 3 or Template = 6 or Template = 9 or Template = 12):
+            return MakeColorFromSRGBValues(198, 143, 101)
+        MakeColorFromSRGBValues(224, 181, 142)
+
+    PortraitHairColor(Template:int):color=
+        if (Template = 2 or Template = 5 or Template = 8 or Template = 11):
+            return MakeColorFromSRGBValues(188, 122, 42)
+        if (Template = 3 or Template = 6 or Template = 9 or Template = 12):
+            return MakeColorFromSRGBValues(18, 21, 29)
+        MakeColorFromSRGBValues(82, 45, 31)
+
+    PortraitClothingColor(Template:int):color=
+        if (Template = 2 or Template = 5 or Template = 8 or Template = 11):
+            return MakeColorFromSRGBValues(155, 54, 61)
+        if (Template = 3 or Template = 6 or Template = 9 or Template = 12):
+            return MakeColorFromSRGBValues(45, 141, 118)
+        MakeColorFromSRGBValues(48, 96, 173)
+
+    CurrentShiftDate()<computes>:string=
+        "2026-07-30"
+
+    IssuingSeal(Template:int)<computes>:string=
+        if (Template = 4):
+            return "ASTRA / 41-AX / 39"
+        if (Template = 12):
+            return "ASTRA / VEIL-44 / VEIL-44"
+        "ASTRA / 41-AX / 41"
+
+    ManifestName(Template:int)<computes>:string=
+        if (Template = 5):
+            return "PAX MERIDIAN-S"
+        IdentityName(Template)
+
+    ManifestFlightAndGate(Template:int)<computes>:string=
+        if (Template = 10):
+            return "AT-310 / A5 | A3 CLOSED"
+        FlightAndGate(Template)
+
+    ManifestAccess(Template:int)<computes>:string=
+        if (Template = 9):
+            return "SECURE TIER 2"
+        AccessLevel(Template)
 
     OnCloseDocument(Message:widget_message):void=
         Player := Message.Player
         CloseDocumentInterface(Player)
-        if (Owner := ClaimOwner?, Owner = Player, not ResolutionCommitted?):
+        if (Owner := ClaimOwner?, Owner = Player, ClaimStage = terminal_claim_stage.Documents, not ResolutionCommitted?):
             set ClaimOwner = false
+            set ClaimStage = terminal_claim_stage.None
             set ClaimGeneration += 1
+            if (Phase = terminal_game_phase.Inspecting):
+                set Phase = terminal_game_phase.AwaitingDecision
             SyncActiveCase()
             ShowAll("Document desk released for Case {CurrentCaseId}.", 3.0)
 
@@ -1309,6 +1961,7 @@ terminal_lockdown_controller := class(creative_device):
         if (Root := DocumentRootUI[Player], PlayerUI := GetPlayerUI[Player]):
             PlayerUI.RemoveWidget(Root)
         if (set DocumentOpenCase[Player] = -1) {}
+        if (set DocumentOpenGeneration[Player] = -1) {}
 
     CloseAllDocumentInterfaces():void=
         for (Player : GetPlayspace().GetPlayers()):
@@ -1321,47 +1974,66 @@ terminal_lockdown_controller := class(creative_device):
         Legal := IsCaseInteractionLegal(Agent)
         if (not Legal?):
             return
-        Ready := ReadyForDecision()
-        if (not Ready?):
+        Ready := BaseEvidenceComplete()
+        if (not Ready? or PassengerLocation <> terminal_passenger_location.Decision):
             ShowAgent(Agent, "Complete the required checks before Secondary.", 4.0)
             return
-        if (SecondaryChecked? or Phase = terminal_game_phase.SecondaryScreening):
+        if (SecondaryChecked?):
             ShowAgent(Agent, "SECONDARY already completed for Case {CurrentCaseId}.", 4.0)
             return
-        if (TeamCash < SecondaryScreeningCost):
-            ShowAgent(
-                Agent,
-                "SECONDARY requires ${SecondaryScreeningCost}. Team cash: ${TeamCash}. Complete another legal decision or choose CLEAR / DETAIN.",
-                6.0
-            )
-            return
-        Claimed := TryClaim(Agent)
+        Claimed := TryClaim(Agent, terminal_claim_stage.Secondary)
         if (not Claimed?):
             return
 
-        set TeamCash -= SecondaryScreeningCost
-        set SecondaryCostPaid = true
-        set SecondaryActionStage = 0
+        var Mandatory:logic = false
+        RequiredDisposition := RequiredDecision(CurrentTemplate)
+        if (RequiredDisposition = terminal_decision.Secondary):
+            set Mandatory = true
+        else if (ManualSearchRequested?):
+            set Mandatory = true
+        var ChargeMessage:string = "SECONDARY AUTHORIZED"
+        if (not SecondaryCostPaid?):
+            if (Mandatory? and TeamCash < SecondaryScreeningCost):
+                set SecondaryCostPaid = true
+                set SecondaryFeeAmount = 0
+                set ChargeMessage = "MANDATORY SECONDARY AUTHORIZED | FEE WAIVED"
+            else:
+                if (TeamCash < SecondaryScreeningCost):
+                    ReleaseStationClaim(terminal_claim_stage.Secondary, "SECONDARY", "INSUFFICIENT OPTIONAL FUNDS")
+                    ShowAgent(Agent, "OPTIONAL SECONDARY requires ${SecondaryScreeningCost}. Team cash: ${TeamCash}.", 6.0)
+                    return
+                set TeamCash -= SecondaryScreeningCost
+                set SecondaryCostPaid = true
+                set SecondaryFeeAmount = SecondaryScreeningCost
+                set ChargeMessage = "SECONDARY AUTHORIZED | ${SecondaryScreeningCost} CHARGED"
         set Phase = terminal_game_phase.SecondaryScreening
         set CurrentDestination = terminal_case_destination.Secondary
+        CloseAllBodyScanInterfaces()
+        CloseAllXRayInterfaces()
         CloseAllDocumentInterfaces()
-        set SecondaryPassengerReady = false
-        set SecondaryBagReady = false
+        if (PassengerLocation <> terminal_passenger_location.SecondaryPassenger):
+            set SecondaryPassengerReady = false
+        if (BagLocation <> terminal_bag_location.SecondaryTable):
+            set SecondaryBagReady = false
         set CurrentCustodyMode = 4
         SetDecisionControlsAvailable(false)
-        CustodyButton.SetInteractionText(TerminalMessage("PERFORM SECONDARY CHECK"))
-        CustodyButton.Enable()
+        CustodyButton.Disable()
+        SecondaryPassengerButton.Disable()
+        SecondaryBagButton.Disable()
+        SecondaryRecordsButton.Disable()
         SyncActiveCase()
         SetBoard(CaseBoard, "CASE {CurrentCaseId} | ROUTING TO SECONDARY")
-        SetBoard(SecondaryBoard, "SECONDARY\nPASSENGER + BAG IN TRANSIT")
-        ShowAll("SECONDARY AUTHORIZED | ${SecondaryScreeningCost} charged. Follow the passenger and linked bag, then complete both controlled-room checks.", 8.0)
+        SetBoard(SecondaryBoard, "SECONDARY\nPASSENGER + LINKED BAG IN TRANSIT")
+        ShowAll("{ChargeMessage} | Follow the passenger and linked bag to the three physical stations.", 8.0)
         TerminalLog(DebugEnabled, "[SECONDARY] Routed|CaseId={CurrentCaseId}|Template={CurrentTemplate}")
-        spawn{MovePassengerToSecondary(CurrentCaseId, RunGeneration)}
-        if (Shift >= 2):
+        if (PassengerLocation <> terminal_passenger_location.SecondaryPassenger):
+            spawn{MovePassengerToSecondary(CurrentCaseId, RunGeneration)}
+        if (Shift >= 2 and BagLocation <> terminal_bag_location.SecondaryTable):
             set BagGeneration += 1
             spawn{MoveActiveBagToSecondary(CurrentCaseId, RunGeneration, BagGeneration, ActiveBagIndex)}
         else:
             set SecondaryBagReady = true
+            SecondaryBagButton.Enable()
 
     OnDetainButton(Agent:agent):void=
         if (Phase = terminal_game_phase.Runner):
@@ -1373,21 +2045,19 @@ terminal_lockdown_controller := class(creative_device):
         ResolveDecision(Agent, terminal_decision.Detain)
 
     ResolveDecision(Agent:agent, Decision:terminal_decision):void=
-        if (Phase <> terminal_game_phase.CaseReady and Phase <> terminal_game_phase.AwaitingDecision):
-            ShowAgent(Agent, "Decision unavailable during {PhaseLabel()}.", 4.0)
-            return
-        Ready := ReadyForDecision()
-        if (not Ready?):
-            ShowAgent(Agent, "Evidence incomplete | {EvidencePrompt()}", 5.0)
+        DecisionEligible := CanUseDecisionStation(Agent)
+        if (not DecisionEligible?):
             return
         if (ResolutionCommitted?):
             TerminalLog(DebugEnabled, "[DECISION] Duplicate rejected for CaseId={CurrentCaseId}")
             return
-        Claimed := TryClaim(Agent)
+        Claimed := TryClaim(Agent, terminal_claim_stage.Decision)
         if (not Claimed?):
             return
 
         set ResolutionCommitted = true
+        CloseAllBodyScanInterfaces()
+        CloseAllXRayInterfaces()
         CloseAllDocumentInterfaces()
         set Phase = terminal_game_phase.Resolving
         SyncActiveCase()
@@ -1482,7 +2152,7 @@ terminal_lockdown_controller := class(creative_device):
             ShowAgent(Agent, "TOO FAR TO SECURE | Move beside the suspect at the red pad.", 4.0)
             TerminalLog(DebugEnabled, "[CUSTODY] Remote secure rejected for CaseId={CurrentCaseId}")
             return
-        Claimed := TryClaim(Agent)
+        Claimed := TryClaim(Agent, terminal_claim_stage.Custody)
         if (not Claimed?):
             return
         set CurrentCustodyMode = 5
@@ -1500,7 +2170,7 @@ terminal_lockdown_controller := class(creative_device):
             ShowAgent(Agent, "RUNNER TOO FAR | Chase until the suspect is inside capture range.", 5.0)
             TerminalLog(DebugEnabled, "[CUSTODY] Remote runner capture rejected for CaseId={CurrentCaseId}")
             return
-        Claimed := TryClaim(Agent)
+        Claimed := TryClaim(Agent, terminal_claim_stage.Response)
         if (not Claimed?):
             return
         CleanupResponseEquipment()
@@ -1513,9 +2183,6 @@ terminal_lockdown_controller := class(creative_device):
         spawn{MovePassengerToIntake(CurrentCaseId, RunGeneration)}
 
     OnCustodyButton(Agent:agent):void=
-        if (Phase = terminal_game_phase.SecondaryScreening):
-            CompleteSecondaryCheck(Agent)
-            return
         if (Phase = terminal_game_phase.BossSecure):
             CompleteBossCustody(Agent)
             return
@@ -1533,7 +2200,7 @@ terminal_lockdown_controller := class(creative_device):
         if (CustodyCommitted?):
             TerminalLog(DebugEnabled, "[CUSTODY] Duplicate intake rejected for CaseId={CurrentCaseId}")
             return
-        Claimed := TryClaim(Agent)
+        Claimed := TryClaim(Agent, terminal_claim_stage.Custody)
         if (not Claimed?):
             return
         set CustodyCommitted = true
@@ -1552,6 +2219,115 @@ terminal_lockdown_controller := class(creative_device):
         PositiveAudio.Play()
         spawn{MovePassengerIntoCellAndFinish(CurrentCaseId, RunGeneration)}
 
+    OnSecondaryPassengerButton(Agent:agent):void=
+        if (Phase <> terminal_game_phase.SecondaryScreening or not SecondaryPassengerReady? or PassengerLocation <> terminal_passenger_location.SecondaryPassenger):
+            ShowAgent(Agent, "SECONDARY PASSENGER STATION LOCKED | Wait for physical arrival.", 4.0)
+            return
+        if (not IsAgentNear(Agent, SecondaryPassengerButton.GetTransform().Translation, 650.0)?):
+            ShowAgent(Agent, "MOVE TO THE PASSENGER INSPECTION MARKER.", 4.0)
+            return
+        if (SecondaryPassengerChecked?):
+            ShowAgent(Agent, "PASSENGER REGIONS already inspected.", 3.0)
+            return
+        Claimed := TryClaim(Agent, terminal_claim_stage.Secondary)
+        if (not Claimed?):
+            return
+        set SecondaryPassengerRegions += 1
+        ScannerStartAudio.Play()
+        if (SecondaryPassengerRegions < 2):
+            SetBoard(SecondaryBoard, "PASSENGER CHECK 1/2 | UPPER REGION COMPLETE\nINSPECT LOWER REGION")
+            ShowAgent(Agent, "HAND-WAND PASS 1/2 | Upper region sampled. Reposition for the lower-region pass.", 5.0)
+            return
+        set SecondaryPassengerChecked = true
+        SecondaryPassengerButton.Disable()
+        SetBoard(SecondaryBoard, "PASSENGER CHECK COMPLETE | TWO REGIONS SAMPLED\nBAG + RECORDS PENDING")
+        ShowAll("SECONDARY PASSENGER CHECK COMPLETE | Two physical regions recorded.", 4.0)
+        TryCompleteSecondary()
+
+    OnSecondaryBagButton(Agent:agent):void=
+        if (Phase <> terminal_game_phase.SecondaryScreening or not SecondaryBagReady? or BagLocation <> terminal_bag_location.SecondaryTable):
+            ShowAgent(Agent, "SECONDARY BAG STATION LOCKED | Wait for the linked bag at the search table.", 4.0)
+            return
+        if (not IsAgentNear(Agent, SecondaryBagButton.GetTransform().Translation, 650.0)?):
+            ShowAgent(Agent, "MOVE TO THE MANUAL-SEARCH TABLE.", 4.0)
+            return
+        if (SecondaryBagChecked?):
+            ShowAgent(Agent, "LINKED BAG compartments already searched.", 3.0)
+            return
+        Claimed := TryClaim(Agent, terminal_claim_stage.Secondary)
+        if (not Claimed?):
+            return
+        set SecondaryBagHotspots += 1
+        BagScanAudio.Play()
+        if (SecondaryBagHotspots = 1):
+            SetBoard(SecondaryBoard, "BAG SEARCH 1/3 | OUTER POCKET OPEN\nMAIN COMPARTMENT PENDING")
+            ShowAgent(Agent, "BAG HOTSPOT 1/3 | Outer pocket inspected. Move along the table to continue.", 5.0)
+            return
+        if (SecondaryBagHotspots = 2):
+            SetBoard(SecondaryBoard, "BAG SEARCH 2/3 | MAIN COMPARTMENT OPEN\nLINING CHECK PENDING")
+            ShowAgent(Agent, "BAG HOTSPOT 2/3 | Main compartment inspected. Check the lining next.", 5.0)
+            return
+        set SecondaryBagChecked = true
+        SecondaryBagButton.Disable()
+        SetBoard(SecondaryBoard, "BAG SEARCH COMPLETE | THREE COMPARTMENTS\n{SecondaryBagVisualResult(CurrentTemplate)}")
+        ShowAll("SECONDARY BAG SEARCH COMPLETE | Three physical compartments recorded.", 4.0)
+        TryCompleteSecondary()
+
+    OnSecondaryRecordsButton(Agent:agent):void=
+        if (Phase <> terminal_game_phase.SecondaryScreening or not SecondaryPassengerReady?):
+            ShowAgent(Agent, "SECONDARY RECORDS TERMINAL LOCKED | Stage the passenger first.", 4.0)
+            return
+        if (not IsAgentNear(Agent, SecondaryRecordsButton.GetTransform().Translation, 650.0)?):
+            ShowAgent(Agent, "MOVE TO THE RECORDS TERMINAL.", 4.0)
+            return
+        if (SecondaryRecordsChecked?):
+            ShowAgent(Agent, "RECORDS REVIEW already completed.", 3.0)
+            return
+        Claimed := TryClaim(Agent, terminal_claim_stage.Secondary)
+        if (not Claimed?):
+            return
+        set SecondaryRecordsChecked = true
+        SecondaryRecordsButton.Disable()
+        SetBoard(SecondaryBoard, "RECORDS REVIEW COMPLETE\n{SecondaryPassengerClue(CurrentTemplate)}")
+        ShowAgent(Agent, "RECORDS REVIEW COMPLETE | Compare this source with your earlier document observation.", 5.0)
+        TryCompleteSecondary()
+
+    SecondaryRecordsRequired()<transacts>:logic=
+        if (CurrentTemplate = 3 or CurrentTemplate = 5 or CurrentTemplate = 9 or CurrentTemplate = 10 or CurrentTemplate = 12):
+            return true
+        if (DocumentObservation = terminal_document_observation.NeedsSecondary):
+            return true
+        false
+
+    TryCompleteSecondary():void=
+        if (SecondaryChecked? or not SecondaryPassengerChecked? or not SecondaryBagChecked?):
+            return
+        if (SecondaryRecordsRequired()? and not SecondaryRecordsChecked?):
+            SetBoard(SecondaryBoard, "PASSENGER + BAG COMPLETE\nRECORDS TERMINAL REQUIRED")
+            return
+        set SecondaryChecked = true
+        set SecondaryActionStage = 3
+        set CurrentCustodyMode = 0
+        set Phase = terminal_game_phase.AwaitingDecision
+        set CurrentDestination = terminal_case_destination.Secondary
+        SecondaryPassengerButton.Disable()
+        SecondaryBagButton.Disable()
+        SecondaryRecordsButton.Disable()
+        SetSecondaryFinalControls()
+        SetBoard(CaseBoard, "CASE {CurrentCaseId} | SECONDARY OBSERVATIONS COMPLETE")
+        SetBoard(SecondaryBoard, "SECONDARY COMPLETE\nGREEN RELEASE OR RED DETAIN")
+        SyncActiveCase()
+        ReleaseStationClaim(terminal_claim_stage.Secondary, "SECONDARY", "PHYSICAL HANDOFF COMPLETE")
+        ShowAll("SECONDARY COMPLETE | Passenger and linked bag remain staged for final Release or Detain.", 7.0)
+        TerminalLog(DebugEnabled, "[SECONDARY] Physical stations complete|CaseId={CurrentCaseId}|PassengerRegions={SecondaryPassengerRegions}|BagHotspots={SecondaryBagHotspots}")
+
+    SecondaryBagVisualResult(Template:int)<computes>:string=
+        if (Template = 7):
+            return "DENSE CELL ARRAY VISIBLE"
+        if (Template = 4 or Template = 8 or Template = 12):
+            return "SHIELDED MODULE VISIBLE"
+        "ROUTINE PERSONAL ITEMS VISIBLE"
+
     CompleteSecondaryCheck(Agent:agent):void=
         if (Phase <> terminal_game_phase.SecondaryScreening or CurrentCustodyMode <> 4):
             return
@@ -1567,7 +2343,7 @@ terminal_lockdown_controller := class(creative_device):
         if (SecondaryChecked?):
             TerminalLog(DebugEnabled, "[SECONDARY] Duplicate check rejected for CaseId={CurrentCaseId}")
             return
-        Claimed := TryClaim(Agent)
+        Claimed := TryClaim(Agent, terminal_claim_stage.Secondary)
         if (not Claimed?):
             return
         if (SecondaryActionStage = 0):
@@ -1583,6 +2359,7 @@ terminal_lockdown_controller := class(creative_device):
         set SecondaryBagReady = false
         set CurrentCustodyMode = 0
         set SecondaryCostPaid = false
+        set SecondaryFeeAmount = 0
         set SecondaryActionStage = 2
         set Phase = terminal_game_phase.AwaitingDecision
         set CurrentDestination = terminal_case_destination.Decision
@@ -1606,6 +2383,7 @@ terminal_lockdown_controller := class(creative_device):
                 4.0,
                 ExpectedCaseId,
                 ExpectedRun,
+                terminal_passenger_location.Transit,
                 "runner-route-a"
             )
             if (ExpectedCaseId <> CurrentCaseId or ExpectedRun <> RunGeneration or Phase <> terminal_game_phase.Runner):
@@ -1616,6 +2394,7 @@ terminal_lockdown_controller := class(creative_device):
                 6.0,
                 ExpectedCaseId,
                 ExpectedRun,
+                terminal_passenger_location.Departure,
                 "runner-exit-a"
             )
             if (RouteA? and ExitA?):
@@ -1627,6 +2406,7 @@ terminal_lockdown_controller := class(creative_device):
                 4.0,
                 ExpectedCaseId,
                 ExpectedRun,
+                terminal_passenger_location.Transit,
                 "runner-route-b"
             )
             if (ExpectedCaseId <> CurrentCaseId or ExpectedRun <> RunGeneration or Phase <> terminal_game_phase.Runner):
@@ -1637,6 +2417,7 @@ terminal_lockdown_controller := class(creative_device):
                 6.0,
                 ExpectedCaseId,
                 ExpectedRun,
+                terminal_passenger_location.Departure,
                 "runner-exit-b"
             )
             if (RouteB? and ExitB?):
@@ -1644,7 +2425,7 @@ terminal_lockdown_controller := class(creative_device):
         if (ExpectedCaseId = CurrentCaseId and ExpectedRun = RunGeneration and Phase = terminal_game_phase.Runner):
             set Phase = terminal_game_phase.Resolving
             CleanupResponseEquipment()
-            PassengerActive.Hide()
+            ActivePassengerDevice().Hide()
             if (not EscapeReached?):
                 SetBoard(CaseBoard, "CASE {CurrentCaseId} | RUNNER ROUTE FAILED | SAFE CONTAINMENT")
                 SetBoard(CustodyBoard, "DETENTION INTAKE | ROUTE FAILURE | NO ESCAPE PENALTY")
@@ -1663,6 +2444,7 @@ terminal_lockdown_controller := class(creative_device):
 
     MovePassengerToDepartureAndFinish(ExpectedCaseId:int, ExpectedRun:int)<suspends>:void=
         set CurrentDestination = terminal_case_destination.Departure
+        set BagLocation = terminal_bag_location.ClearedExit
         SyncActiveCase()
         MoveReached := MoveActivePassengerChecked(
             DeparturePosition(),
@@ -1670,12 +2452,13 @@ terminal_lockdown_controller := class(creative_device):
             3.0,
             ExpectedCaseId,
             ExpectedRun,
+            terminal_passenger_location.Departure,
             "departure"
         )
         if (ExpectedCaseId = CurrentCaseId and ExpectedRun = RunGeneration and Phase = terminal_game_phase.Resolving):
             if (not MoveReached?):
                 SetBoard(CaseBoard, "CASE {CurrentCaseId} | DEPARTURE ROUTE RESET")
-            PassengerActive.Hide()
+            ActivePassengerDevice().Hide()
             FinishCase()
 
     MovePassengerToIntake(ExpectedCaseId:int, ExpectedRun:int)<suspends>:void=
@@ -1687,6 +2470,7 @@ terminal_lockdown_controller := class(creative_device):
             4.0,
             ExpectedCaseId,
             ExpectedRun,
+            terminal_passenger_location.DetentionIntake,
             "detention-intake"
         )
         var VerifiedArrival:logic = false
@@ -1725,6 +2509,7 @@ terminal_lockdown_controller := class(creative_device):
             1.5,
             ExpectedCaseId,
             ExpectedRun,
+            terminal_passenger_location.SecurePad,
             "secure-pad"
         )
         if (ExpectedCaseId = CurrentCaseId and ExpectedRun = RunGeneration and Phase = terminal_game_phase.Custody and CurrentCustodyMode = 1):
@@ -1745,11 +2530,14 @@ terminal_lockdown_controller := class(creative_device):
             4.0,
             ExpectedCaseId,
             ExpectedRun,
+            terminal_passenger_location.SecondaryPassenger,
             "secondary"
         )
         if (ExpectedCaseId = CurrentCaseId and ExpectedRun = RunGeneration and Phase = terminal_game_phase.SecondaryScreening and CurrentCustodyMode = 4):
             if (MoveReached?):
                 set SecondaryPassengerReady = true
+                SecondaryPassengerButton.Enable()
+                SecondaryRecordsButton.Enable()
                 if (Shift < 2 or SecondaryBagReady?):
                     SetBoard(SecondaryBoard, "SECONDARY READY\nPASSENGER + BAG PRESENT")
                 else:
@@ -1798,9 +2586,12 @@ terminal_lockdown_controller := class(creative_device):
             return
         if (BagReached?):
             set SecondaryBagReady = true
+            set BagLocation = terminal_bag_location.SecondaryTable
+            SecondaryBagButton.Enable()
             SetBoard(BagBoard, "LINKED BAG {CurrentCaseId} | SECONDARY TABLE READY")
             if (SecondaryPassengerReady?):
                 SetBoard(SecondaryBoard, "SECONDARY READY\nPASSENGER + BAG PRESENT")
+            SyncActiveCase()
         else:
             SetBoard(BagBoard, "LINKED BAG {CurrentCaseId} | SECONDARY ROUTE FAULT")
             AbortSecondaryRouting("Linked bag could not reach the inspection table")
@@ -1809,8 +2600,9 @@ terminal_lockdown_controller := class(creative_device):
         if (Phase <> terminal_game_phase.SecondaryScreening):
             return
         if (SecondaryCostPaid?):
-            set TeamCash += SecondaryScreeningCost
+            set TeamCash += SecondaryFeeAmount
         set SecondaryCostPaid = false
+        set SecondaryFeeAmount = 0
         set SecondaryActionStage = 0
         set SecondaryPassengerReady = false
         set SecondaryBagReady = false
@@ -1818,6 +2610,7 @@ terminal_lockdown_controller := class(creative_device):
         set Phase = terminal_game_phase.AwaitingDecision
         set CurrentDestination = terminal_case_destination.Decision
         set ClaimOwner = false
+        set ClaimStage = terminal_claim_stage.None
         set ClaimGeneration += 1
         CustodyButton.Disable()
         CustodyButton.SetInteractionText(TerminalMessage("SECURE / JAIL INTAKE"))
@@ -1837,6 +2630,7 @@ terminal_lockdown_controller := class(creative_device):
             4.0,
             ExpectedCaseId,
             ExpectedRun,
+            terminal_passenger_location.Response,
             "response"
         )
         if (ExpectedCaseId = CurrentCaseId and ExpectedRun = RunGeneration and Phase = terminal_game_phase.HostileResponse):
@@ -1859,11 +2653,12 @@ terminal_lockdown_controller := class(creative_device):
             2.0,
             ExpectedCaseId,
             ExpectedRun,
+            terminal_passenger_location.Cell,
             "cell"
         )
         if (ExpectedCaseId = CurrentCaseId and ExpectedRun = RunGeneration and Phase = terminal_game_phase.Resolving):
             Sleep(0.5)
-            PassengerActive.Hide()
+            ActivePassengerDevice().Hide()
             JailOccupant.Show()
             if (MoveReached?):
                 SetBoard(CellBoard, "CELL SECURED | OCCUPIED | CASE {CurrentCaseId}")
@@ -1876,10 +2671,13 @@ terminal_lockdown_controller := class(creative_device):
             TerminalLog(DebugEnabled, "[CASE] Duplicate completion rejected|CaseId={CurrentCaseId}|Run={RunGeneration}")
             return
         set CaseCompletionCommitted = true
+        CloseAllBodyScanInterfaces()
+        CloseAllXRayInterfaces()
         CloseAllDocumentInterfaces()
         set TotalCasesResolved += 1
         set CasesInShift += 1
         set ClaimOwner = false
+        set ClaimStage = terminal_claim_stage.None
         set ClaimGeneration += 1
         SyncActiveCase()
         TerminalLog(DebugEnabled, "[CASE] Complete|CaseId={CurrentCaseId}|Shift={Shift}|CasesInShift={CasesInShift}|Cash={TeamCash}|Integrity={TeamIntegrity}|Risk={TeamRisk}")
@@ -1896,23 +2694,40 @@ terminal_lockdown_controller := class(creative_device):
         set ResponseGeneration += 1
         CleanupResponseEquipment()
         ResponseButton.Disable()
+        CloseAllBodyScanInterfaces()
+        CloseAllXRayInterfaces()
         set DocumentGeneration += 1
         CloseAllDocumentInterfaces()
         set CurrentCaseId += 1
         set CurrentTemplate = SelectTemplate(Shift, CasesInShift)
+        set ActivePassengerSlot = QueueFrontIndex
+        set PassengerGeneration += 1
+        set PassengerLocation = terminal_passenger_location.QueueFront
+        set PassengerTarget = terminal_passenger_location.QueueFront
         set BodyChecked = false
+        set BodyObservation = terminal_body_observation.None
         set PassengerReadyForScan = false
         set ScanInProgress = false
         set ScannerGeneration += 1
         set BagGeneration += 1
         set BagChecked = false
+        set BagObservation = terminal_bag_observation.None
+        set BagLocation = terminal_bag_location.Queue
         set BagScanInProgress = false
         set DocumentsChecked = false
+        set DocumentObservation = terminal_document_observation.None
+        set ManualSearchRequested = false
         set SecondaryChecked = false
         set SecondaryPassengerReady = false
         set SecondaryBagReady = false
         set SecondaryCostPaid = false
+        set SecondaryFeeAmount = 0
         set SecondaryActionStage = 0
+        set SecondaryPassengerChecked = false
+        set SecondaryBagChecked = false
+        set SecondaryRecordsChecked = false
+        set SecondaryPassengerRegions = 0
+        set SecondaryBagHotspots = 0
         set PassengerAtIntake = false
         set ResolutionCommitted = false
         set CaseCompletionCommitted = false
@@ -1920,6 +2735,7 @@ terminal_lockdown_controller := class(creative_device):
         set FinalCaseAccountingCommitted = false
         set CurrentCustodyMode = 0
         set ClaimOwner = false
+        set ClaimStage = terminal_claim_stage.None
         set ClaimGeneration += 1
         set Phase = terminal_game_phase.CaseReady
         set CurrentDestination = terminal_case_destination.Scanner
@@ -1928,6 +2744,9 @@ terminal_lockdown_controller := class(creative_device):
         DetainButton.SetInteractionText(TerminalMessage("RED | DETAIN SUSPECT"))
         CustodyButton.SetInteractionText(TerminalMessage("SECURE / JAIL INTAKE"))
         CustodyButton.Disable()
+        SecondaryPassengerButton.Disable()
+        SecondaryBagButton.Disable()
+        SecondaryRecordsButton.Disable()
         SetBoard(CheckpointBoard, "SECURITY CHECKPOINT | CASE {CurrentCaseId} READY")
         SetBoard(CaseBoard, "SHIFT {Shift} | CASE {CurrentCaseId} | {TemplateName(CurrentTemplate)}")
         SetBoard(BagBoard, "LINKED BAG {CurrentCaseId} | CONVEYOR INBOUND")
@@ -2025,12 +2844,15 @@ terminal_lockdown_controller := class(creative_device):
             if (not ArrivalReached?):
                 return
         if (ExpectedCaseId = CurrentCaseId and ExpectedRun = RunGeneration and ExpectedBagGeneration = BagGeneration):
+            set BagLocation = terminal_bag_location.ConveyorEntry
+            SyncActiveCase()
             SetBoard(BagBoard, "LINKED BAG {CurrentCaseId} | AT X-RAY | SCAN PENDING")
 
     HideAllBags():void=
         BagPropSmall.Hide()
         BagPropMedium.Hide()
         BagPropHardShell.Hide()
+        set BagLocation = terminal_bag_location.Hidden
 
     BagIndexForTemplate(Template:int)<computes>:int=
         if (Template = 1 or Template = 4 or Template = 7 or Template = 10):
@@ -2039,29 +2861,38 @@ terminal_lockdown_controller := class(creative_device):
             return 1
         2
 
+    ActivePassengerDevice()<transacts>:character_device=
+        if (ActivePassengerSlot = 0):
+            return PassengerQueue1
+        if (ActivePassengerSlot = 1):
+            return PassengerQueue2
+        PassengerQueue3
+
     StagePassenger(ExpectedCaseId:int, ExpectedRun:int)<suspends>:void=
         set PassengerReadyForScan = false
         set CurrentDestination = terminal_case_destination.Scanner
         SyncActiveCase()
-        PassengerActive.Hide()
+        ActivePassenger := ActivePassengerDevice()
+        ActivePassenger.Show()
         MoveResult0 := MoveActivePassengerChecked(
             QueuePassengerStagePosition(),
             OffsetPosition(QueuePassengerStagePosition(), 0.0, -300.0, 0.0),
-            0.1,
+            0.6,
             ExpectedCaseId,
             ExpectedRun,
+            terminal_passenger_location.Transit,
             "scanner-stage"
         )
         if (not MoveResult0? or ExpectedCaseId <> CurrentCaseId or ExpectedRun <> RunGeneration or Phase <> terminal_game_phase.CaseReady):
             SetBoard(CheckpointBoard, "PASSENGER ROUTE RESET | CASE {CurrentCaseId}")
             return
-        PassengerActive.Show()
         MoveResult1 := MoveActivePassengerChecked(
             OffsetPosition(QueuePassengerStagePosition(), 550.0, 0.0, 0.0),
             QueuePassengerStagePosition(),
             1.0,
             ExpectedCaseId,
             ExpectedRun,
+            terminal_passenger_location.Transit,
             "scanner-approach-a"
         )
         if (not MoveResult1? or ExpectedCaseId <> CurrentCaseId or ExpectedRun <> RunGeneration):
@@ -2072,6 +2903,7 @@ terminal_lockdown_controller := class(creative_device):
             1.0,
             ExpectedCaseId,
             ExpectedRun,
+            terminal_passenger_location.Transit,
             "scanner-approach-b"
         )
         if (not MoveResult2? or ExpectedCaseId <> CurrentCaseId or ExpectedRun <> RunGeneration):
@@ -2082,6 +2914,7 @@ terminal_lockdown_controller := class(creative_device):
             1.0,
             ExpectedCaseId,
             ExpectedRun,
+            terminal_passenger_location.ScannerEntry,
             "scanner-position"
         )
         if (MoveResult3? and ExpectedCaseId = CurrentCaseId and ExpectedRun = RunGeneration):
@@ -2098,11 +2931,14 @@ terminal_lockdown_controller := class(creative_device):
             3.0,
             ExpectedCaseId,
             ExpectedRun,
+            terminal_passenger_location.Decision,
             "decision"
         )
         if (ExpectedCaseId = CurrentCaseId and ExpectedRun = RunGeneration and Phase = terminal_game_phase.AwaitingDecision):
             if (MoveResult?):
                 SetBoard(CaseBoard, "CASE {CurrentCaseId} | PASSENGER AT DECISION DESK")
+                ReleaseCurrentInspectionClaim("DECISION ARRIVAL VERIFIED")
+                RefreshDecisionControls()
             else:
                 SetBoard(CaseBoard, "CASE {CurrentCaseId} | DECISION ROUTE FALLBACK")
 
@@ -2115,12 +2951,14 @@ terminal_lockdown_controller := class(creative_device):
             2.0,
             ExpectedCaseId,
             ExpectedRun,
+            terminal_passenger_location.Baggage,
             "baggage"
         )
         if (ExpectedCaseId = CurrentCaseId and ExpectedRun = RunGeneration and Phase = terminal_game_phase.AwaitingDecision):
             if (MoveResult?):
                 SetBoard(CaseBoard, "CASE {CurrentCaseId} | PASSENGER AT BAGGAGE CONTROL")
                 SetBoard(BagBoard, "LINKED BAG {CurrentCaseId} | X-RAY READY")
+                ReleaseStationClaim(terminal_claim_stage.Body, "BODY SCANNER", "BAGGAGE HANDOFF ARRIVED")
             else:
                 SetBoard(CaseBoard, "CASE {CurrentCaseId} | BAGGAGE ROUTE FALLBACK")
 
@@ -2133,12 +2971,14 @@ terminal_lockdown_controller := class(creative_device):
             1.5,
             ExpectedCaseId,
             ExpectedRun,
+            terminal_passenger_location.Documents,
             "documents"
         )
         if (ExpectedCaseId = CurrentCaseId and ExpectedRun = RunGeneration and Phase = terminal_game_phase.AwaitingDecision):
             if (MoveResult?):
                 SetBoard(CaseBoard, "CASE {CurrentCaseId} | PASSENGER AT IDENTITY DESK")
                 SetBoard(DocumentBoard, "TRAVEL ID {CurrentCaseId} | READER READY")
+                ReleaseStationClaim(terminal_claim_stage.Baggage, "BAG X-RAY", "DOCUMENT HANDOFF ARRIVED")
             else:
                 SetBoard(CaseBoard, "CASE {CurrentCaseId} | IDENTITY ROUTE FALLBACK")
 
@@ -2329,12 +3169,15 @@ terminal_lockdown_controller := class(creative_device):
         CleanupResponseEquipment()
         CloseAllUpgradeInterfaces()
         ResponseButton.Disable()
+        CloseAllBodyScanInterfaces()
+        CloseAllXRayInterfaces()
         set DocumentGeneration += 1
         CloseAllDocumentInterfaces()
         set Phase = terminal_game_phase.UpgradeBreak
         set CurrentDestination = terminal_case_destination.None
         SetDecisionControlsAvailable(false)
         set ClaimOwner = false
+        set ClaimStage = terminal_claim_stage.None
         set ClaimGeneration += 1
         set PowerOnline = true
         set PassengerReadyForScan = false
@@ -2343,17 +3186,32 @@ terminal_lockdown_controller := class(creative_device):
         set SecondaryPassengerReady = false
         set SecondaryBagReady = false
         set SecondaryCostPaid = false
+        set SecondaryFeeAmount = 0
         set SecondaryActionStage = 0
+        set SecondaryPassengerChecked = false
+        set SecondaryBagChecked = false
+        set SecondaryRecordsChecked = false
+        set SecondaryPassengerRegions = 0
+        set SecondaryBagHotspots = 0
         set PassengerAtIntake = false
+        set PassengerLocation = terminal_passenger_location.QueueFront
+        set PassengerTarget = terminal_passenger_location.QueueFront
+        set BodyObservation = terminal_body_observation.None
+        set BagObservation = terminal_bag_observation.None
+        set DocumentObservation = terminal_document_observation.None
+        set ManualSearchRequested = false
         set UpgradeBreakResolved = false
         set PowerRepairStage = 0
         set PowerRepairCommitted = false
         ScanButton.Enable()
         CustodyButton.Disable()
+        SecondaryPassengerButton.Disable()
+        SecondaryBagButton.Disable()
+        SecondaryRecordsButton.Disable()
         CustodyButton.SetInteractionText(TerminalMessage("SECURE / JAIL INTAKE"))
         DetainButton.SetInteractionText(TerminalMessage("RED | DETAIN SUSPECT"))
         PowerButton.Disable()
-        PassengerActive.Hide()
+        ActivePassengerDevice().Hide()
         set BagGeneration += 1
         HideAllBags()
         SetBoard(PowerBoard, "POWER ONLINE")
@@ -2520,7 +3378,7 @@ terminal_lockdown_controller := class(creative_device):
         set Shift += 1
         set CasesInShift = 0
         set ShiftElapsedSeconds = 0
-        PrepareNextCase()
+        spawn{AdvanceQueueAndPrepare(CurrentCaseId, RunGeneration, QueueGeneration)}
 
     CloseUpgradeInterface(Player:player):void=
         if (Root := UpgradeRootUI[Player], PlayerUI := GetPlayerUI[Player]):
@@ -2539,13 +3397,14 @@ terminal_lockdown_controller := class(creative_device):
         set CurrentDestination = terminal_case_destination.Response
         SetDecisionControlsAvailable(false)
         set ClaimOwner = false
+        set ClaimStage = terminal_claim_stage.None
         set ClaimGeneration += 1
         set ScanInProgress = false
         set BagScanInProgress = false
         set SecondaryPassengerReady = false
         set SecondaryBagReady = false
         set PassengerAtIntake = false
-        PassengerActive.Hide()
+        ActivePassengerDevice().Hide()
         set BagGeneration += 1
         HideAllBags()
         CustodyButton.Disable()
@@ -2564,8 +3423,9 @@ terminal_lockdown_controller := class(creative_device):
             BagButton.Disable()
             DocumentButton.Disable()
             ResponseButton.Disable()
-            MovePowerControl(PowerStage1Position(), "main-breaker")
             PowerButton.Enable()
+            PowerBackupButton.Disable()
+            PowerRestartButton.Disable()
             PowerButton.SetInteractionText(TerminalMessage("STEP 1 | RESET MAIN BREAKER"))
             ResponseAlarm.Enable()
             ResponseAlarm.Play()
@@ -2622,23 +3482,38 @@ terminal_lockdown_controller := class(creative_device):
             return
         if (PowerRepairStage = 0):
             set PowerRepairStage = 1
-            MovePowerControl(PowerStage2Position(), "backup-bus")
-            PowerButton.SetInteractionText(TerminalMessage("STEP 2 | REROUTE BACKUP BUS"))
+            PowerButton.Disable()
+            PowerBackupButton.Enable()
             SetBoard(PowerBoard, "POWER OFFLINE | REPAIR 1/3 | BREAKER RESET")
             SetBoard(ResponseLoadoutBoard, "BACKUP LIGHTING ACTIVE\nBREAKER RESET\nMOVE TO EAST CABINET | REPAIR 1/3")
             ShowAll("POWER REPAIR 1/3 | Main breaker reset. Move to the east cabinet and reroute the backup bus.", 6.0)
             BagScanAudio.Play()
             TerminalLog(DebugEnabled, "[EMERGENCY] Power repair stage 1|Shift={Shift}")
             return
-        if (PowerRepairStage = 1):
-            set PowerRepairStage = 2
-            MovePowerControl(PowerStage3Position(), "checkpoint-restart")
-            PowerButton.SetInteractionText(TerminalMessage("STEP 3 | RESTART CHECKPOINT"))
-            SetBoard(PowerBoard, "POWER OFFLINE | REPAIR 2/3 | BACKUP BUS ROUTED")
-            SetBoard(ResponseLoadoutBoard, "BACKUP LIGHTING ACTIVE\nBUS REROUTED\nMOVE TO WEST CABINET | REPAIR 2/3")
-            ShowAll("POWER REPAIR 2/3 | Backup bus routed. Move to the west cabinet and restart checkpoint systems.", 6.0)
-            ScannerStartAudio.Play()
-            TerminalLog(DebugEnabled, "[EMERGENCY] Power repair stage 2|Shift={Shift}")
+        ShowAgent(Agent, "MAIN BREAKER already reset. Use the independently mounted BACKUP BUS cabinet.", 4.0)
+
+    OnPowerBackupButton(Agent:agent):void=
+        if (Phase <> terminal_game_phase.Emergency or Shift <> 5 or PowerOnline? or PowerRepairStage <> 1):
+            ShowAgent(Agent, "BACKUP BUS LOCKED | Reset the main breaker first.", 4.0)
+            return
+        if (not IsAgentNear(Agent, PowerBackupButton.GetTransform().Translation, 650.0)?):
+            ShowAgent(Agent, "MOVE TO THE BACKUP BUS CABINET.", 4.0)
+            return
+        set PowerRepairStage = 2
+        PowerBackupButton.Disable()
+        PowerRestartButton.Enable()
+        SetBoard(PowerBoard, "POWER OFFLINE | REPAIR 2/3 | BACKUP BUS ROUTED")
+        SetBoard(ResponseLoadoutBoard, "BACKUP LIGHTING ACTIVE\nBUS REROUTED\nMOVE TO CHECKPOINT RESTART | REPAIR 2/3")
+        ShowAll("POWER REPAIR 2/3 | Backup bus routed. Use the third physical cabinet to restart checkpoint systems.", 6.0)
+        ScannerStartAudio.Play()
+        TerminalLog(DebugEnabled, "[EMERGENCY] Power repair stage 2|Shift={Shift}")
+
+    OnPowerRestartButton(Agent:agent):void=
+        if (Phase <> terminal_game_phase.Emergency or Shift <> 5 or PowerOnline? or PowerRepairStage <> 2 or PowerRepairCommitted?):
+            ShowAgent(Agent, "CHECKPOINT RESTART LOCKED | Complete the first two breakers in order.", 4.0)
+            return
+        if (not IsAgentNear(Agent, PowerRestartButton.GetTransform().Translation, 650.0)?):
+            ShowAgent(Agent, "MOVE TO THE CHECKPOINT RESTART CABINET.", 4.0)
             return
         set PowerRepairCommitted = true
         set PowerRepairStage = 3
@@ -2649,7 +3524,7 @@ terminal_lockdown_controller := class(creative_device):
         SetBoard(EmergencyBoard, "POWER RESTORED | TERMINAL NORMAL")
         ShowAll("POWER REPAIR 3/3 | Scanner, baggage, displays, and checkpoint systems online | +200 cash.", 7.0)
         PositiveAudio.Play()
-        TerminalLog(DebugEnabled, "[EMERGENCY] Power restored after staged repair|Shift={Shift}")
+        TerminalLog(DebugEnabled, "[EMERGENCY] Power restored after three independent breakers|Shift={Shift}")
         BeginUpgradeBreak()
 
     RestoreNormalPower():void=
@@ -2657,8 +3532,9 @@ terminal_lockdown_controller := class(creative_device):
         ScanButton.Enable()
         BagButton.Enable()
         DocumentButton.Enable()
-        MovePowerControl(PowerStage1Position(), "standby")
         PowerButton.Disable()
+        PowerBackupButton.Disable()
+        PowerRestartButton.Disable()
         PowerButton.SetInteractionText(TerminalMessage("RESTORE TERMINAL POWER"))
         ResponseAlarm.Stop()
         ResponseLightA.TurnOff()
@@ -2700,6 +3576,7 @@ terminal_lockdown_controller := class(creative_device):
             3.0,
             ExpectedCaseId,
             ExpectedRun,
+            terminal_passenger_location.Response,
             "response-arrival"
         )
         if (not IsResponseEventCurrent(ExpectedCaseId, ExpectedRun, ExpectedResponseGeneration)?):
@@ -2715,6 +3592,7 @@ terminal_lockdown_controller := class(creative_device):
                 2.2,
                 ExpectedCaseId,
                 ExpectedRun,
+                terminal_passenger_location.Response,
                 "response-patrol-a"
             )
             if (not IsResponseEventCurrent(ExpectedCaseId, ExpectedRun, ExpectedResponseGeneration)?):
@@ -2727,6 +3605,7 @@ terminal_lockdown_controller := class(creative_device):
                 2.2,
                 ExpectedCaseId,
                 ExpectedRun,
+                terminal_passenger_location.Response,
                 "response-patrol-b"
             )
             if (not IsResponseEventCurrent(ExpectedCaseId, ExpectedRun, ExpectedResponseGeneration)?):
@@ -2739,6 +3618,7 @@ terminal_lockdown_controller := class(creative_device):
                 2.2,
                 ExpectedCaseId,
                 ExpectedRun,
+                terminal_passenger_location.Response,
                 "response-patrol-c"
             )
             if (not IsResponseEventCurrent(ExpectedCaseId, ExpectedRun, ExpectedResponseGeneration)?):
@@ -2754,7 +3634,7 @@ terminal_lockdown_controller := class(creative_device):
         set ResponseGeneration += 1
         CleanupResponseEquipment()
         ResponseButton.Disable()
-        PassengerActive.Hide()
+        ActivePassengerDevice().Hide()
         set CurrentCustodyMode = 0
         RaiseRisk(10)
         DamageIntegrity(8, "Response event timeout")
@@ -2788,14 +3668,17 @@ terminal_lockdown_controller := class(creative_device):
             return
         if (Phase <> terminal_game_phase.HostileResponse):
             return
-        if (not IsAgentNear(Agent, ResponseCenterPosition(), ResponseProximityRadius)?):
-            ShowAgent(Agent, "REMOTE OUT OF RANGE | Enter the contained response room.", 5.0)
-            TerminalLog(DebugEnabled, "[RESPONSE] Out-of-range remote signal rejected for CaseId={CurrentCaseId}")
+        if (PassengerLocation <> terminal_passenger_location.Response or not IsAgentNearActivePassenger(Agent, ResponseProximityRadius)?):
+            ShowAgent(Agent, "REMOTE OUT OF RANGE | Aim and fire near the visible moving suspect.", 5.0)
+            TerminalLog(DebugEnabled, "[RESPONSE] Target-specific remote signal rejected for CaseId={CurrentCaseId}")
             return
         SecureResponseThreat(Agent)
 
     SecureResponseThreat(Agent:agent):void=
         if (Phase <> terminal_game_phase.HostileResponse):
+            return
+        Claimed := TryClaim(Agent, terminal_claim_stage.Response)
+        if (not Claimed?):
             return
         set Phase = terminal_game_phase.Custody
         set ResponseGeneration += 1
@@ -2892,6 +3775,7 @@ terminal_lockdown_controller := class(creative_device):
         set PassengerAtIntake = false
         set CurrentCustodyMode = 6
         set ClaimOwner = false
+        set ClaimStage = terminal_claim_stage.None
         set ClaimGeneration += 1
         set CurrentDestination = terminal_case_destination.Response
         ResponseAlarm.Enable()
@@ -2958,10 +3842,11 @@ terminal_lockdown_controller := class(creative_device):
             2.0,
             ExpectedCaseId,
             ExpectedRun,
+            terminal_passenger_location.Cell,
             "boss-cell"
         )
         if (ExpectedCaseId = CurrentCaseId and ExpectedRun = RunGeneration and Phase = terminal_game_phase.BossSecure):
-            PassengerActive.Hide()
+            ActivePassengerDevice().Hide()
             JailOccupant.Show()
             if (MoveResult?):
                 SetBoard(CellBoard, "CELL SECURED | FINAL THREAT IN CUSTODY")
@@ -2980,7 +3865,7 @@ terminal_lockdown_controller := class(creative_device):
         set Phase = terminal_game_phase.Results
         set CurrentDestination = terminal_case_destination.None
         set TeamCash += 500
-        PassengerActive.Hide()
+        ActivePassengerDevice().Hide()
         set BagGeneration += 1
         HideAllBags()
         JailOccupant.Hide()
@@ -3002,10 +3887,11 @@ terminal_lockdown_controller := class(creative_device):
         CustodyButton.SetInteractionText(TerminalMessage("SECURE / JAIL INTAKE"))
         set Phase = terminal_game_phase.Results
         set ClaimOwner = false
+        set ClaimStage = terminal_claim_stage.None
         set ClaimGeneration += 1
         set CurrentDestination = terminal_case_destination.None
         set EmergencyGeneration += 1
-        PassengerActive.Hide()
+        ActivePassengerDevice().Hide()
         set BagGeneration += 1
         HideAllBags()
         JailOccupant.Hide()
@@ -3022,6 +3908,8 @@ terminal_lockdown_controller := class(creative_device):
         CleanupResponseEquipment()
         CloseAllUpgradeInterfaces()
         ResponseButton.Disable()
+        CloseAllBodyScanInterfaces()
+        CloseAllXRayInterfaces()
         set DocumentGeneration += 1
         CloseAllDocumentInterfaces()
         set RunGeneration += 1
@@ -3033,6 +3921,7 @@ terminal_lockdown_controller := class(creative_device):
         set CasesInShift = 0
         set ShiftElapsedSeconds = 0
         set ClaimOwner = false
+        set ClaimStage = terminal_claim_stage.None
         set ClaimGeneration += 1
         set ResolutionCommitted = false
         set CaseCompletionCommitted = false
@@ -3060,7 +3949,7 @@ terminal_lockdown_controller := class(creative_device):
         set BagGeneration += 1
         set CurrentDestination = terminal_case_destination.Queue
         SyncActiveCase()
-        PassengerActive.Hide()
+        ActivePassengerDevice().Hide()
         HideAllBags()
         JailOccupant.Hide()
         spawn{ResetPassengerQueue(RunGeneration)}
@@ -3102,11 +3991,21 @@ terminal_lockdown_controller := class(creative_device):
             Shift := Shift
             Template := CurrentTemplate
             ClaimOwner := ClaimOwner
-            PassengerSlot := QueueFrontIndex
+            PassengerSlot := ActivePassengerSlot
             BagSlot := ActiveBagIndex
+            PassengerGeneration := PassengerGeneration
+            MovementGeneration := ActivePassengerMoveGeneration
             RequiredEvidence := RequiredEvidenceMask()
             CompletedEvidence := CompletedEvidenceMask()
             Destination := CurrentDestination
+            PassengerLocation := PassengerLocation
+            PassengerTarget := PassengerTarget
+            BagLocation := BagLocation
+            ClaimStage := ClaimStage
+            BodyObservation := BodyObservation
+            BagObservation := BagObservation
+            DocumentObservation := DocumentObservation
+            ManualSearchRequested := ManualSearchRequested
             Phase := Phase
             PassengerAtIntake := PassengerAtIntake
             ResolutionCommitted := ResolutionCommitted
@@ -3251,47 +4150,83 @@ terminal_lockdown_controller := class(creative_device):
         OverTime:float,
         ExpectedCaseId:int,
         ExpectedRun:int,
+        ArrivalLocation:terminal_passenger_location,
         Label:string
     )<suspends>:logic=
         set ActivePassengerMoveGeneration += 1
         ExpectedMoveGeneration := ActivePassengerMoveGeneration
-        TerminalLog(DebugEnabled, "[MOVE] Start|Route={Label}|CaseId={ExpectedCaseId}|Run={ExpectedRun}|MoveGeneration={ExpectedMoveGeneration}")
-        PrimaryResult := PassengerActive.MoveTo(Target, IdentityRotation(), OverTime)
-        if (ExpectedMoveGeneration <> ActivePassengerMoveGeneration):
+        ExpectedPassengerGeneration := PassengerGeneration
+        set PassengerTarget = ArrivalLocation
+        set PassengerLocation = terminal_passenger_location.Transit
+        SyncActiveCase()
+        ActivePassenger := ActivePassengerDevice()
+        TerminalLog(DebugEnabled, "[MOVE] Start|Route={Label}|CaseId={ExpectedCaseId}|Run={ExpectedRun}|PassengerGeneration={ExpectedPassengerGeneration}|MoveGeneration={ExpectedMoveGeneration}")
+        PrimaryResult := ActivePassenger.MoveTo(Target, IdentityRotation(), OverTime)
+        if (ExpectedMoveGeneration <> ActivePassengerMoveGeneration or ExpectedPassengerGeneration <> PassengerGeneration or PassengerTarget <> ArrivalLocation):
             TerminalLog(DebugEnabled, "[MOVE] Superseded|Route={Label}|CaseId={ExpectedCaseId}|Run={ExpectedRun}|MoveGeneration={ExpectedMoveGeneration}")
             return false
         if (not CaseIdentityMatches(ExpectedCaseId, ExpectedRun)?):
             TerminalLog(DebugEnabled, "[MOVE] Stale rejected|Route={Label}|CaseId={ExpectedCaseId}|Run={ExpectedRun}")
             return false
-        if (PrimaryResult = move_to_result.DestinationReached):
-            TerminalLog(DebugEnabled, "[MOVE] Reached|Route={Label}|CaseId={ExpectedCaseId}|Run={ExpectedRun}")
+        if (PrimaryResult = move_to_result.DestinationReached and IsCharacterNear(ActivePassenger, Target, 180.0)?):
+            CommitPassengerArrival(ArrivalLocation, ExpectedCaseId, ExpectedRun, ExpectedPassengerGeneration, ExpectedMoveGeneration)
+            TerminalLog(DebugEnabled, "[MOVE] Arrival committed|Route={Label}|CaseId={ExpectedCaseId}|Run={ExpectedRun}")
             return true
 
+        set PassengerRouteRetries += 1
         TerminalLog(DebugEnabled, "[MOVE] Primary blocked|Route={Label}|CaseId={ExpectedCaseId}|Run={ExpectedRun}")
-        RetryClear := PassengerActive.MoveTo(RetryWaypoint, IdentityRotation(), 0.75)
-        if (ExpectedMoveGeneration <> ActivePassengerMoveGeneration):
+        RetryClear := ActivePassenger.MoveTo(RetryWaypoint, IdentityRotation(), 0.75)
+        if (ExpectedMoveGeneration <> ActivePassengerMoveGeneration or ExpectedPassengerGeneration <> PassengerGeneration or PassengerTarget <> ArrivalLocation):
             TerminalLog(DebugEnabled, "[MOVE] Retry superseded|Route={Label}|CaseId={ExpectedCaseId}|Run={ExpectedRun}|MoveGeneration={ExpectedMoveGeneration}")
             return false
         if (not CaseIdentityMatches(ExpectedCaseId, ExpectedRun)?):
             TerminalLog(DebugEnabled, "[MOVE] Retry stale rejected|Route={Label}|CaseId={ExpectedCaseId}|Run={ExpectedRun}")
             return false
         if (RetryClear = move_to_result.DestinationReached):
-            RetryTarget := PassengerActive.MoveTo(Target, IdentityRotation(), 1.0)
-            if (ExpectedMoveGeneration <> ActivePassengerMoveGeneration):
+            RetryTarget := ActivePassenger.MoveTo(Target, IdentityRotation(), 1.0)
+            if (ExpectedMoveGeneration <> ActivePassengerMoveGeneration or ExpectedPassengerGeneration <> PassengerGeneration or PassengerTarget <> ArrivalLocation):
                 TerminalLog(DebugEnabled, "[MOVE] Retry target superseded|Route={Label}|CaseId={ExpectedCaseId}|Run={ExpectedRun}|MoveGeneration={ExpectedMoveGeneration}")
                 return false
             if (not CaseIdentityMatches(ExpectedCaseId, ExpectedRun)?):
                 TerminalLog(DebugEnabled, "[MOVE] Retry target stale rejected|Route={Label}|CaseId={ExpectedCaseId}|Run={ExpectedRun}")
                 return false
-            if (RetryTarget = move_to_result.DestinationReached):
+            if (RetryTarget = move_to_result.DestinationReached and IsCharacterNear(ActivePassenger, Target, 180.0)?):
+                CommitPassengerArrival(ArrivalLocation, ExpectedCaseId, ExpectedRun, ExpectedPassengerGeneration, ExpectedMoveGeneration)
                 TerminalLog(DebugEnabled, "[MOVE] Retry reached|Route={Label}|CaseId={ExpectedCaseId}|Run={ExpectedRun}")
                 return true
 
-        if (PassengerActive.TeleportTo[Target, IdentityRotation()]):
-            TerminalLog(DebugEnabled, "[MOVE] Teleport fallback|Route={Label}|CaseId={ExpectedCaseId}|Run={ExpectedRun}")
-            return true
-        PassengerActive.Hide()
+        if (ActivePassenger.TeleportTo[Target, IdentityRotation()]):
+            if (IsCharacterNear(ActivePassenger, Target, 180.0)?):
+                set PassengerTeleportRecoveries += 1
+                CommitPassengerArrival(ArrivalLocation, ExpectedCaseId, ExpectedRun, ExpectedPassengerGeneration, ExpectedMoveGeneration)
+                ShowAll("VISIBLE ROUTE RECOVERY | {Label} | Passenger placed at the guarded destination.", 5.0)
+                TerminalLog(true, "[MOVE RECOVERY] Teleport|Route={Label}|CaseId={ExpectedCaseId}|Run={ExpectedRun}|Count={PassengerTeleportRecoveries}")
+                return true
+        set PassengerHideRecoveries += 1
+        ActivePassenger.Hide()
         TerminalLog(DebugEnabled, "[MOVE] Final fallback failed; actor hidden|Route={Label}|CaseId={ExpectedCaseId}|Run={ExpectedRun}")
+        false
+
+    CommitPassengerArrival(
+        ArrivalLocation:terminal_passenger_location,
+        ExpectedCaseId:int,
+        ExpectedRun:int,
+        ExpectedPassengerGeneration:int,
+        ExpectedMoveGeneration:int
+    ):void=
+        if (not CaseIdentityMatches(ExpectedCaseId, ExpectedRun)? or ExpectedPassengerGeneration <> PassengerGeneration or ExpectedMoveGeneration <> ActivePassengerMoveGeneration or PassengerTarget <> ArrivalLocation):
+            return
+        set PassengerLocation = ArrivalLocation
+        SyncActiveCase()
+
+    IsCharacterNear(Character:character_device, Target:vector3, Radius:float)<transacts>:logic=
+        CharacterLocation := Character.GetTransform().Translation
+        DeltaX := CharacterLocation.X - Target.X
+        DeltaY := CharacterLocation.Y - Target.Y
+        DeltaZ := CharacterLocation.Z - Target.Z
+        MeasuredDistanceSquared := DeltaX * DeltaX + DeltaY * DeltaY + DeltaZ * DeltaZ
+        if (MeasuredDistanceSquared <= Radius * Radius):
+            return true
         false
 
     MoveCharacterChecked(
@@ -3352,6 +4287,7 @@ terminal_lockdown_controller := class(creative_device):
             TerminalLog(DebugEnabled, "[BAG MOVE] Reached|Route={Label}|CaseId={ExpectedCaseId}|Run={ExpectedRun}")
             return true
 
+        set BagRouteRetries += 1
         RetryClear := Prop.MoveTo(RetryWaypoint, IdentityRotation(), 0.5)
         if (not CaseIdentityMatches(ExpectedCaseId, ExpectedRun)? or ExpectedBagGeneration <> BagGeneration):
             return false
@@ -3364,8 +4300,11 @@ terminal_lockdown_controller := class(creative_device):
                 return true
 
         if (Prop.TeleportTo[Target, IdentityRotation()]):
-            TerminalLog(DebugEnabled, "[BAG MOVE] Teleport fallback|Route={Label}|CaseId={ExpectedCaseId}|Run={ExpectedRun}")
+            set BagTeleportRecoveries += 1
+            ShowAll("VISIBLE BAG ROUTE RECOVERY | {Label} | Linked bag placed at the guarded destination.", 5.0)
+            TerminalLog(true, "[BAG MOVE RECOVERY] Teleport|Route={Label}|CaseId={ExpectedCaseId}|Run={ExpectedRun}|Count={BagTeleportRecoveries}")
             return true
+        set BagHideRecoveries += 1
         Prop.Hide()
         TerminalLog(DebugEnabled, "[BAG MOVE] Final fallback failed; prop hidden|Route={Label}|CaseId={ExpectedCaseId}|Run={ExpectedRun}")
         false
@@ -3395,37 +4334,49 @@ terminal_lockdown_controller := class(creative_device):
         Sleep(ClaimInactivitySeconds)
         if (ExpectedClaimGeneration <> ClaimGeneration or not CaseIdentityMatches(ExpectedCaseId, ExpectedRun)?):
             return
-        if (ScanInProgress? or BagScanInProgress? or Phase = terminal_game_phase.Inspecting or Phase = terminal_game_phase.SecondaryScreening):
-            spawn{ClaimInactivityTimeout(Player, ExpectedCaseId, ExpectedRun, ExpectedClaimGeneration)}
-            return
         if (Owner := ClaimOwner?, Owner = Player):
+            CloseBodyScanInterface(Player)
+            CloseXRayInterface(Player)
+            CloseDocumentInterface(Player)
             set ClaimOwner = false
+            set ClaimStage = terminal_claim_stage.None
             set ClaimGeneration += 1
             SyncActiveCase()
-            ShowAll("Case {CurrentCaseId} claim released after inactivity.", 5.0)
-            TerminalLog(DebugEnabled, "[RECOVERY] Inactive claim released|CaseId={CurrentCaseId}")
+            ShowAll("Case {CurrentCaseId} station lease released after inactivity; completed observations are preserved.", 5.0)
+            TerminalLog(DebugEnabled, "[RECOVERY] Inactive stage lease released|CaseId={CurrentCaseId}")
 
-    TryClaim(Agent:agent):logic=
+    TryClaim(Agent:agent, Stage:terminal_claim_stage):logic=
         if (Player := player[Agent]):
             if (Owner := ClaimOwner?):
                 if (Owner = Player):
+                    set ClaimStage = Stage
                     RefreshClaimLease(Player)
                     return true
                 ShowAgent(Agent, "Another officer owns Case {CurrentCaseId}. Wait for handoff or claim release.", 4.0)
                 return false
             set ClaimOwner = option{Player}
+            set ClaimStage = Stage
             RefreshClaimLease(Player)
-            TerminalLog(DebugEnabled, "[CASE] Claimed|CaseId={CurrentCaseId}")
+            TerminalLog(DebugEnabled, "[CASE] Stage claimed|CaseId={CurrentCaseId}|Stage={ClaimStageLabel(Stage)}")
             return true
         false
 
-    ReleaseStationClaim(Station:string, Outcome:string):void=
-        if (Owner := ClaimOwner?):
+    ReleaseStationClaim(Stage:terminal_claim_stage, Station:string, Outcome:string):void=
+        if (Owner := ClaimOwner?, ClaimStage = Stage):
             set ClaimOwner = false
+            set ClaimStage = terminal_claim_stage.None
             set ClaimGeneration += 1
             SyncActiveCase()
             ShowAll("{Station} | {Outcome} | Case {CurrentCaseId} available for officer handoff.", 3.0)
             TerminalLog(DebugEnabled, "[CASE] Station claim released|CaseId={CurrentCaseId}|Station={Station}|Outcome={Outcome}")
+
+    ReleaseCurrentInspectionClaim(Outcome:string):void=
+        if (ClaimStage = terminal_claim_stage.Body):
+            ReleaseStationClaim(terminal_claim_stage.Body, "BODY SCANNER", Outcome)
+        else if (ClaimStage = terminal_claim_stage.Baggage):
+            ReleaseStationClaim(terminal_claim_stage.Baggage, "BAG X-RAY", Outcome)
+        else if (ClaimStage = terminal_claim_stage.Documents):
+            ReleaseStationClaim(terminal_claim_stage.Documents, "DOCUMENT DESK", Outcome)
 
     IsCaseInteractionLegal(Agent:agent):logic=
         if (CurrentCaseId <= 0 or CurrentTemplate <= 0):
@@ -3440,12 +4391,107 @@ terminal_lockdown_controller := class(creative_device):
         ShowAgent(Agent, "Inspection unavailable during {PhaseLabel()}.", 4.0)
         false
 
-    ReadyForDecision()<transacts>:logic=
+    CanUseBodyScanner(Agent:agent):logic=
+        if (not PowerOnline?):
+            ShowAgent(Agent, "BODY SCANNER OFFLINE | Restore power in the staff utility room.", 5.0)
+            return false
+        if (ScanInProgress?):
+            ShowAgent(Agent, "BODY SCAN IN PROGRESS | Hold the lane.", 3.0)
+            return false
+        if (BodyChecked?):
+            ShowAgent(Agent, "BODY observation already recorded.", 3.0)
+            return false
+        Legal := IsCaseInteractionLegal(Agent)
+        if (not Legal?):
+            return false
+        if (not PassengerReadyForScan? or PassengerLocation <> terminal_passenger_location.ScannerEntry):
+            ShowAgent(Agent, "WAIT FOR PASSENGER | Scanner unlocks only after verified scanner-entry arrival.", 4.0)
+            return false
+        if (not IsAgentNear(Agent, ScanButton.GetTransform().Translation, 700.0)?):
+            ShowAgent(Agent, "MOVE TO THE SCANNER CONTROL PANEL.", 4.0)
+            return false
+        true
+
+    CanUseBaggageStation(Agent:agent):logic=
+        if (not PowerOnline?):
+            ShowAgent(Agent, "BAGGAGE X-RAY OFFLINE | Restore terminal power.", 5.0)
+            return false
+        if (Shift < 2 or not BodyChecked?):
+            ShowAgent(Agent, "BODY SCAN REQUIRED before baggage inspection.", 4.0)
+            return false
+        if (BagScanInProgress? or BagChecked?):
+            ShowAgent(Agent, "BAG X-RAY already active or complete.", 3.0)
+            return false
+        Legal := IsCaseInteractionLegal(Agent)
+        if (not Legal?):
+            return false
+        if (PassengerLocation <> terminal_passenger_location.Baggage or BagLocation <> terminal_bag_location.ConveyorEntry):
+            ShowAgent(Agent, "WAIT FOR BOTH ARRIVALS | Passenger and linked bag must be physically staged.", 5.0)
+            return false
+        if (not IsAgentNear(Agent, BagButton.GetTransform().Translation, 700.0)?):
+            ShowAgent(Agent, "MOVE TO THE X-RAY OPERATOR CONSOLE.", 4.0)
+            return false
+        true
+
+    CanUseDocumentStation(Agent:agent):logic=
+        if (not PowerOnline?):
+            ShowAgent(Agent, "DOCUMENT READER OFFLINE | Restore terminal power.", 5.0)
+            return false
+        if (Shift < 3 or not BodyChecked? or (Shift >= 2 and not BagChecked?)):
+            ShowAgent(Agent, "PRIOR EVIDENCE REQUIRED | Complete body and linked-bag inspection.", 4.0)
+            return false
+        if (ScanInProgress? or BagScanInProgress?):
+            ShowAgent(Agent, "INSPECTION STATION BUSY.", 3.0)
+            return false
+        Legal := IsCaseInteractionLegal(Agent)
+        if (not Legal?):
+            return false
+        if (PassengerLocation <> terminal_passenger_location.Documents):
+            ShowAgent(Agent, "WAIT FOR PASSENGER | Document desk unlocks after verified arrival.", 4.0)
+            return false
+        if (not IsAgentNear(Agent, DocumentButton.GetTransform().Translation, 700.0)?):
+            ShowAgent(Agent, "MOVE TO THE DOCUMENT TERMINAL.", 4.0)
+            return false
+        true
+
+    BaseEvidenceComplete()<transacts>:logic=
         if (not BodyChecked?):
             return false
         if (Shift >= 2, not BagChecked?):
             return false
         if (Shift >= 3, not DocumentsChecked?):
+            return false
+        true
+
+    ReadyForDecision()<transacts>:logic=
+        if (not BaseEvidenceComplete()? or ScanInProgress? or BagScanInProgress? or ResolutionCommitted? or not PowerOnline?):
+            return false
+        if (ManualSearchRequested? and not SecondaryChecked?):
+            return false
+        if (SecondaryChecked?):
+            if (PassengerLocation <> terminal_passenger_location.SecondaryPassenger):
+                return false
+            if (Shift >= 2, BagLocation <> terminal_bag_location.SecondaryTable):
+                return false
+            return true
+        if (PassengerLocation <> terminal_passenger_location.Decision):
+            return false
+        if (Shift >= 2, BagLocation <> terminal_bag_location.ConveyorExit):
+            return false
+        true
+
+    CanUseDecisionStation(Agent:agent):logic=
+        if (Phase <> terminal_game_phase.CaseReady and Phase <> terminal_game_phase.AwaitingDecision):
+            ShowAgent(Agent, "Decision unavailable during {PhaseLabel()}.", 4.0)
+            return false
+        if (not ReadyForDecision()?):
+            if (ManualSearchRequested? and not SecondaryChecked?):
+                ShowAgent(Agent, "MANUAL SEARCH REQUIRED | Use the yellow Secondary control.", 5.0)
+            else:
+                ShowAgent(Agent, "DECISION LOCKED | Evidence and physical arrival are incomplete.", 5.0)
+            return false
+        if (not IsAgentNear(Agent, SecondaryButton.GetTransform().Translation, 900.0)?):
+            ShowAgent(Agent, "MOVE TO THE PHYSICAL DECISION CONSOLE.", 4.0)
             return false
         true
 
@@ -3459,6 +4505,14 @@ terminal_lockdown_controller := class(creative_device):
 
     RefreshDecisionControls():void=
         if (Phase = terminal_game_phase.CaseReady or Phase = terminal_game_phase.AwaitingDecision):
+            if (ManualSearchRequested? and not SecondaryChecked? and BaseEvidenceComplete()? and PassengerLocation = terminal_passenger_location.Decision):
+                ClearButton.Disable()
+                SecondaryButton.Enable()
+                DetainButton.Disable()
+                SetBoard(ClearBoard, "CLEAR\nLOCKED - MANUAL SEARCH")
+                SetBoard(SecondaryBoard, "YELLOW | SECONDARY\nREQUIRED")
+                SetBoard(DetainBoard, "DETAIN\nLOCKED - MANUAL SEARCH")
+                return
             Ready := ReadyForDecision()
             SetDecisionControlsAvailable(Ready)
             return
@@ -3520,14 +4574,14 @@ terminal_lockdown_controller := class(creative_device):
         false
 
     IsAgentNearActivePassenger(Agent:agent, Radius:float)<transacts>:logic=
-        PassengerLocation := PassengerActive.GetTransform().Translation
-        IsAgentNear(Agent, PassengerLocation, Radius)
+        ActiveLocation := ActivePassengerDevice().GetTransform().Translation
+        IsAgentNear(Agent, ActiveLocation, Radius)
 
     IsActivePassengerNear(Target:vector3, Radius:float)<transacts>:logic=
-        PassengerLocation := PassengerActive.GetTransform().Translation
-        DeltaX := PassengerLocation.X - Target.X
-        DeltaY := PassengerLocation.Y - Target.Y
-        DeltaZ := PassengerLocation.Z - Target.Z
+        ActiveLocation := ActivePassengerDevice().GetTransform().Translation
+        DeltaX := ActiveLocation.X - Target.X
+        DeltaY := ActiveLocation.Y - Target.Y
+        DeltaZ := ActiveLocation.Z - Target.Z
         RangeDistanceSquared := DeltaX * DeltaX + DeltaY * DeltaY + DeltaZ * DeltaZ
         if (RangeDistanceSquared <= Radius * Radius):
             return true
@@ -3924,6 +4978,23 @@ terminal_lockdown_controller := class(creative_device):
         if (CurrentShift = 5):
             return "POWER OUTAGE"
         "COORDINATED BREACH"
+
+    ClaimStageLabel(Stage:terminal_claim_stage):string=
+        if (Stage = terminal_claim_stage.Body):
+            return "BODY"
+        if (Stage = terminal_claim_stage.Baggage):
+            return "BAGGAGE"
+        if (Stage = terminal_claim_stage.Documents):
+            return "DOCUMENTS"
+        if (Stage = terminal_claim_stage.Secondary):
+            return "SECONDARY"
+        if (Stage = terminal_claim_stage.Decision):
+            return "DECISION"
+        if (Stage = terminal_claim_stage.Custody):
+            return "CUSTODY"
+        if (Stage = terminal_claim_stage.Response):
+            return "RESPONSE"
+        "NONE"
 
     DecisionLabel(Decision:terminal_decision):string=
         if (Decision = terminal_decision.Clear):
