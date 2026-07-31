@@ -800,14 +800,80 @@ terminal_lockdown_controller := class(creative_device):
         CloseDocumentInterface(Player)
         CloseUpgradeInterface(Player)
         if (Owner := ClaimOwner?, Owner = Player):
+            InterruptedCaseId := CurrentCaseId
+            InterruptedRun := RunGeneration
+            var RecoveryBagGeneration:int = BagGeneration
+            if (ScanInProgress?):
+                set ScannerGeneration += 1
+                set ActivePassengerMoveGeneration += 1
+                set ScanInProgress = false
+                set PassengerReadyForScan = false
+            if (BagScanInProgress?):
+                set BagGeneration += 1
+                set RecoveryBagGeneration = BagGeneration
+                set BagScanInProgress = false
+            set DocumentGeneration += 1
             set ClaimOwner = false
             set ClaimStage = terminal_claim_stage.None
             set ClaimGeneration += 1
-            if (Phase = terminal_game_phase.Inspecting and not ScanInProgress? and not BagScanInProgress?):
+            if (Phase = terminal_game_phase.Inspecting):
                 set Phase = terminal_game_phase.CaseReady
             SyncActiveCase()
-            ShowAll("Case claim released. Any officer may continue Case {CurrentCaseId}.", 5.0)
-            TerminalLog(DebugEnabled, "[RECOVERY] Claim released for CaseId={CurrentCaseId}")
+            spawn{RecoverCaseAfterOwnerDisconnect(InterruptedCaseId, InterruptedRun, RecoveryBagGeneration, ActiveBagIndex)}
+            ShowAll("Case owner disconnected. Case {CurrentCaseId} is being returned to a safe resumable station.", 5.0)
+            TerminalLog(DebugEnabled, "[RECOVERY] Owner disconnected; generations invalidated|CaseId={CurrentCaseId}|ScannerGeneration={ScannerGeneration}|BagGeneration={BagGeneration}|DocumentGeneration={DocumentGeneration}")
+
+    RecoverCaseAfterOwnerDisconnect(ExpectedCaseId:int, ExpectedRun:int, ExpectedBagGeneration:int, BagIndex:int)<suspends>:void=
+        if (not CaseIdentityMatches(ExpectedCaseId, ExpectedRun)? or ResolutionCommitted?):
+            return
+        if (Phase = terminal_game_phase.SecondaryScreening):
+            if (not SecondaryPassengerReady? or PassengerLocation <> terminal_passenger_location.SecondaryPassenger):
+                MovePassengerToSecondary(ExpectedCaseId, ExpectedRun)
+            if (Shift >= 2 and (not SecondaryBagReady? or BagLocation <> terminal_bag_location.SecondaryTable)):
+                MoveActiveBagToSecondary(ExpectedCaseId, ExpectedRun, ExpectedBagGeneration, BagIndex)
+            return
+        if (not BodyChecked?):
+            ReturnedToScanner := MoveActivePassengerChecked(
+                ScannerEntryPosition(),
+                ScannerCenterPosition(),
+                0.8,
+                ExpectedCaseId,
+                ExpectedRun,
+                terminal_passenger_location.ScannerEntry,
+                "disconnect-scanner-reset"
+            )
+            if (CaseIdentityMatches(ExpectedCaseId, ExpectedRun)? and ReturnedToScanner?):
+                set PassengerReadyForScan = true
+                set Phase = terminal_game_phase.CaseReady
+                SetBoard(CheckpointBoard, "CASE {CurrentCaseId} | BODY SCAN READY | NEW OFFICER MAY CLAIM")
+                SyncActiveCase()
+            return
+        if (Shift >= 2 and not BagChecked?):
+            var BagReturned:logic = false
+            if (BagIndex = 0):
+                set BagReturned = MovePropChecked(BagPropSmall, BagEntryPosition(), BagXRayPosition(), 0.75, ExpectedCaseId, ExpectedRun, ExpectedBagGeneration, "disconnect-bag-reset-small")
+            else if (BagIndex = 1):
+                set BagReturned = MovePropChecked(BagPropMedium, BagEntryPosition(), BagXRayPosition(), 0.75, ExpectedCaseId, ExpectedRun, ExpectedBagGeneration, "disconnect-bag-reset-medium")
+            else:
+                set BagReturned = MovePropChecked(BagPropHardShell, BagEntryPosition(), BagXRayPosition(), 0.75, ExpectedCaseId, ExpectedRun, ExpectedBagGeneration, "disconnect-bag-reset-hard-shell")
+            if (CaseIdentityMatches(ExpectedCaseId, ExpectedRun)? and ExpectedBagGeneration = BagGeneration and BagReturned?):
+                set BagLocation = terminal_bag_location.ConveyorEntry
+                set Phase = terminal_game_phase.AwaitingDecision
+                SetBoard(BagBoard, "LINKED BAG {CurrentCaseId} | X-RAY READY | NEW OFFICER MAY CLAIM")
+                SyncActiveCase()
+            return
+        if (Shift >= 3 and not DocumentsChecked?):
+            set Phase = terminal_game_phase.AwaitingDecision
+            if (PassengerLocation <> terminal_passenger_location.Documents):
+                MovePassengerToDocumentDesk(ExpectedCaseId, ExpectedRun)
+            SetBoard(DocumentBoard, "TRAVEL ID {CurrentCaseId} | READY | NEW OFFICER MAY CLAIM")
+            SyncActiveCase()
+            return
+        set Phase = terminal_game_phase.AwaitingDecision
+        if (PassengerLocation <> terminal_passenger_location.Decision and not SecondaryChecked?):
+            MovePassengerToDecision(ExpectedCaseId, ExpectedRun)
+        RefreshDecisionControls()
+        SyncActiveCase()
 
     PersistentHUDLoop()<suspends>:void=
         loop:
@@ -1004,6 +1070,7 @@ terminal_lockdown_controller := class(creative_device):
         set QueueFrontIndex = 0
         set QueueGeneration += 1
         set ClaimGeneration += 1
+        set ClaimOwner = false
         set ClaimStage = terminal_claim_stage.None
         set CurrentDestination = terminal_case_destination.Queue
         set BagGeneration += 1
@@ -1949,13 +2016,12 @@ terminal_lockdown_controller := class(creative_device):
         Player := Message.Player
         CloseDocumentInterface(Player)
         if (Owner := ClaimOwner?, Owner = Player, ClaimStage = terminal_claim_stage.Documents, not ResolutionCommitted?):
-            set ClaimOwner = false
             set ClaimStage = terminal_claim_stage.None
-            set ClaimGeneration += 1
             if (Phase = terminal_game_phase.Inspecting):
-                set Phase = terminal_game_phase.AwaitingDecision
+                set Phase = terminal_game_phase.CaseReady
+            RefreshClaimLease(Player)
             SyncActiveCase()
-            ShowAll("Document desk released for Case {CurrentCaseId}.", 3.0)
+            ShowAgent(Player, "DOCUMENT REVIEW CLOSED | Your case ownership is retained; reopen to submit an observation.", 4.0)
 
     CloseDocumentInterface(Player:player):void=
         if (Root := DocumentRootUI[Player], PlayerUI := GetPlayerUI[Player]):
@@ -1985,26 +2051,14 @@ terminal_lockdown_controller := class(creative_device):
         if (not Claimed?):
             return
 
-        var Mandatory:logic = false
-        RequiredDisposition := RequiredDecision(CurrentTemplate)
-        if (RequiredDisposition = terminal_decision.Secondary):
-            set Mandatory = true
-        else if (ManualSearchRequested?):
-            set Mandatory = true
         var ChargeMessage:string = "SECONDARY AUTHORIZED"
         if (not SecondaryCostPaid?):
-            if (Mandatory? and TeamCash < SecondaryScreeningCost):
-                set SecondaryCostPaid = true
-                set SecondaryFeeAmount = 0
-                set ChargeMessage = "MANDATORY SECONDARY AUTHORIZED | FEE WAIVED"
+            set TeamCash -= SecondaryScreeningCost
+            set SecondaryCostPaid = true
+            set SecondaryFeeAmount = SecondaryScreeningCost
+            if (TeamCash < 0):
+                set ChargeMessage = "SECONDARY AUTHORIZED | ${SecondaryScreeningCost} OPERATIONS CREDIT"
             else:
-                if (TeamCash < SecondaryScreeningCost):
-                    ReleaseStationClaim(terminal_claim_stage.Secondary, "SECONDARY", "INSUFFICIENT OPTIONAL FUNDS")
-                    ShowAgent(Agent, "OPTIONAL SECONDARY requires ${SecondaryScreeningCost}. Team cash: ${TeamCash}.", 6.0)
-                    return
-                set TeamCash -= SecondaryScreeningCost
-                set SecondaryCostPaid = true
-                set SecondaryFeeAmount = SecondaryScreeningCost
                 set ChargeMessage = "SECONDARY AUTHORIZED | ${SecondaryScreeningCost} CHARGED"
         set Phase = terminal_game_phase.SecondaryScreening
         set CurrentDestination = terminal_case_destination.Secondary
@@ -4342,8 +4396,8 @@ terminal_lockdown_controller := class(creative_device):
             set ClaimStage = terminal_claim_stage.None
             set ClaimGeneration += 1
             SyncActiveCase()
-            ShowAll("Case {CurrentCaseId} station lease released after inactivity; completed observations are preserved.", 5.0)
-            TerminalLog(DebugEnabled, "[RECOVERY] Inactive stage lease released|CaseId={CurrentCaseId}")
+            ShowAll("Case {CurrentCaseId} ownership lease expired; completed observations are preserved for reassignment.", 5.0)
+            TerminalLog(DebugEnabled, "[RECOVERY] Inactive case ownership released|CaseId={CurrentCaseId}")
 
     TryClaim(Agent:agent, Stage:terminal_claim_stage):logic=
         if (Player := player[Agent]):
@@ -4363,12 +4417,11 @@ terminal_lockdown_controller := class(creative_device):
 
     ReleaseStationClaim(Stage:terminal_claim_stage, Station:string, Outcome:string):void=
         if (Owner := ClaimOwner?, ClaimStage = Stage):
-            set ClaimOwner = false
             set ClaimStage = terminal_claim_stage.None
-            set ClaimGeneration += 1
+            RefreshClaimLease(Owner)
             SyncActiveCase()
-            ShowAll("{Station} | {Outcome} | Case {CurrentCaseId} available for officer handoff.", 3.0)
-            TerminalLog(DebugEnabled, "[CASE] Station claim released|CaseId={CurrentCaseId}|Station={Station}|Outcome={Outcome}")
+            ShowAgent(Owner, "{Station} | {Outcome} | You retain Case {CurrentCaseId} through final disposition.", 3.0)
+            TerminalLog(DebugEnabled, "[CASE] Station complete; ownership retained|CaseId={CurrentCaseId}|Station={Station}|Outcome={Outcome}")
 
     ReleaseCurrentInspectionClaim(Outcome:string):void=
         if (ClaimStage = terminal_claim_stage.Body):
