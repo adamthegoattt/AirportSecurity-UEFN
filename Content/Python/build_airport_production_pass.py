@@ -39,11 +39,16 @@ CLASSES = {
     "stanchion": "/Game/Environments/Helios/Props/Commerce/Commerce_BeltStanchion_A/Blueprints/BP_Commerce_BeltStanchion_A.BP_Commerce_BeltStanchion_A_C",
     "breaker": "/Game/Environments/Helios/Props/Coastal/Coastal_Breakers_A/Blueprints/BP_Coastal_Breaker_A.BP_Coastal_Breaker_A_C",
     "triple_seat": "/Game/Creative/Sets/ArtDeco_Bank/Props/CP_ArtDeco_Triple_Couch_B.CP_ArtDeco_Triple_Couch_B_C",
+    "button": "/CreativeCoreDevices/Device_Button_V2.Device_Button_V2_C",
 }
 
 
 def all_actors():
     return list(ACTORS.get_all_level_actors())
+
+
+def actor_by_label(label):
+    return next((actor for actor in all_actors() if actor.get_actor_label() == label), None)
 
 
 def clear_materials(actor):
@@ -144,6 +149,34 @@ def spawn_prop(classes, suffix, class_key, ground, target_span, yaw=0.0):
         False,
         False,
     )
+    return actor
+
+
+def spawn_device(classes, label, location, rotation=(0.0, 0.0, 0.0)):
+    actor = actor_by_label(label)
+    actor_class = classes["button"]
+    if actor is not None and actor.get_class() != actor_class:
+        ACTORS.destroy_actor(actor)
+        actor = None
+    if actor is None:
+        actor = ACTORS.spawn_actor_from_class(
+            actor_class,
+            unreal.Vector(*location),
+            unreal.Rotator(*rotation),
+        )
+    if actor is None:
+        raise RuntimeError("Failed to spawn production interaction " + label)
+    actor.set_actor_label(label)
+    actor.set_folder_path(unreal.Name("TerminalLockdown/Gameplay/StationInteractions"))
+    actor.set_actor_location(unreal.Vector(*location), False, False)
+    actor.set_actor_rotation(unreal.Rotator(*rotation), False)
+    # These devices are interaction backends for the deliberately modeled
+    # consoles and cabinets. Keep the stock Creative button mesh out of the
+    # player-facing composition whenever this class exposes the option.
+    try:
+        actor.set_editor_property("visible_during_game", False)
+    except Exception as exc:
+        unreal.log_warning("Could not hide backend device {0}: {1}".format(label, exc))
     return actor
 
 
@@ -380,21 +413,43 @@ BOXES = [
     ("ScannerInnerLightLeft", (1115, -1572, 520), (195, 24, 670), "AQUA"),
     ("ScannerInnerLightRight", (1115, -1028, 520), (195, 24, 670), "AQUA"),
     ("ScannerReadyStrip", (1015, -1300, 915), (22, 500, 38), "APPLE_GREEN"),
+    ("ScannerControlPedestal", (1120, -1845, 250), (360, 260, 390), "MIDNIGHT_BLUE"),
+    ("ScannerControlFace", (1120, -1712, 365), (270, 22, 155), "AQUA"),
     ("BagMachineAccent", (2110, -1300, 735), (35, 650, 55), "AQUA"),
     ("BagEntryFrameTop", (2020, -1300, 720), (130, 600, 100), "MIDNIGHT_BLUE"),
     ("BagEntryFrameNorth", (2020, -1035, 475), (130, 80, 490), "MIDNIGHT_BLUE"),
     ("BagEntryFrameSouth", (2020, -1565, 475), (130, 80, 490), "MIDNIGHT_BLUE"),
+    ("XRayTrayInbound", (1820, -1300, 225), (300, 410, 28), "GRAY"),
+    ("XRayTrayOutbound", (3420, -1300, 225), (300, 410, 28), "GRAY"),
     # Designed officer work surfaces tie the evidence stations together.
     ("DocumentDesk", (3480, -520, 300), (950, 520, 420), "GRAY"),
     ("DocumentDeskFront", (3480, -260, 285), (950, 55, 390), "MIDNIGHT_BLUE"),
     ("SecondaryWorktop", (4620, 1760, 260), (900, 520, 330), "GRAY"),
     ("SecondaryAmberStrip", (4620, 1495, 410), (900, 32, 55), "GOLD"),
+    ("SecondaryPassengerConsole", (4230, 2040, 250), (420, 310, 390), "MIDNIGHT_BLUE"),
+    ("SecondaryPassengerSignalA", (4230, 1870, 250), (290, 22, 105), "AQUA"),
+    ("SecondaryBagSearchTable", (4590, 2040, 300), (560, 360, 430), "GRAY"),
+    ("SecondaryBagHotspotA", (4480, 2040, 530), (95, 95, 24), "GOLD"),
+    ("SecondaryBagHotspotB", (4590, 2040, 530), (95, 95, 24), "GOLD"),
+    ("SecondaryBagHotspotC", (4700, 2040, 530), (95, 95, 24), "GOLD"),
+    ("SecondaryRecordsConsole", (4860, 1860, 300), (380, 300, 470), "PACIFIC_BLUE"),
+    ("SecondaryRecordsScreen", (4860, 1700, 430), (250, 22, 170), "AQUA"),
     ("DetentionIntakeTop", (5070, 1450, 350), (500, 760, 90), "GRAY"),
     ("DetentionGateStatus", (4920, 1450, 760), (35, 500, 120), "RED_ORANGE"),
     # Apron markings and stand guidance deepen the exterior airport identity.
     ("ApronCenterline", (5200, 5050, 105), (2600, 32, 8), "GOLD"),
     ("ApronStandBar", (5200, 4800, 105), (32, 1150, 8), "GOLD"),
     ("ApronEdgeStripe", (2500, 4200, 105), (7600, 38, 8), "WHITE"),
+    # Physical actuation caps and cabinet indicators make the hidden device
+    # backends read as deliberate airport controls at player eye height.
+    ("DecisionClearActuator", (4260, -760, 485), (150, 250, 95), "APPLE_GREEN"),
+    ("DecisionSecondaryActuator", (4260, 0, 485), (150, 250, 95), "GOLD"),
+    ("DecisionDetainActuator", (4260, 760, 485), (150, 250, 95), "RED_ORANGE"),
+    ("PowerMainIndicator", (3500, -2965, 520), (125, 24, 125), "RED_ORANGE"),
+    ("PowerBackupIndicator", (3950, -2965, 520), (125, 24, 125), "GOLD"),
+    ("PowerRestartIndicator", (4400, -2965, 520), (125, 24, 125), "AQUA"),
+    ("ClosedLaneBarrier", (1120, -260, 300), (150, 980, 420), "RED_ORANGE"),
+    ("ClosedLaneHeader", (1120, -260, 820), (150, 980, 170), "MIDNIGHT_BLUE"),
 ]
 
 
@@ -472,6 +527,22 @@ PROPS = [
     ("SecondaryDesk", "desk", (4620, 1760, 110), 720.0, 90.0),
     ("SecondaryChair", "chair", (4500, 2050, 110), 150.0, 180.0),
     ("SecondaryMonitor", "monitor", (4700, 1740, 430), 230.0, -90.0),
+    # Wider red emergency coverage supports the outage/response state instead
+    # of limiting the visual alarm to one back room.
+    ("EmergencyLightCheckpoint", "emergency_light", (1700, -1850, 1030), 180.0, 0.0),
+    ("EmergencyLightBaggage", "emergency_light", (2750, -850, 980), 180.0, 0.0),
+    ("EmergencyLightDecision", "emergency_light", (4300, 1100, 980), 180.0, 180.0),
+    ("EmergencyLightSecondary", "emergency_light", (4650, 2180, 850), 180.0, 180.0),
+    ("EmergencyLightPower", "emergency_light", (4200, -2900, 850), 180.0, 0.0),
+]
+
+
+DEVICE_SPECS = [
+    ("TL_BTN_PowerBackup", (3950.0, -3190.0, 420.0), (0.0, 0.0, 0.0)),
+    ("TL_BTN_PowerRestart", (4400.0, -3190.0, 420.0), (0.0, 0.0, 0.0)),
+    ("TL_BTN_SecondaryPassenger", (4230.0, 1880.0, 320.0), (0.0, 0.0, 0.0)),
+    ("TL_BTN_SecondaryBag", (4590.0, 1870.0, 390.0), (0.0, 0.0, 0.0)),
+    ("TL_BTN_SecondaryRecords", (4860.0, 1690.0, 390.0), (0.0, 0.0, 0.0)),
 ]
 
 
@@ -568,6 +639,10 @@ for spec in BOXES:
 for spec in PROPS:
     created.append(spawn_prop(classes, *spec).get_actor_label())
 
+station_devices = []
+for spec in DEVICE_SPECS:
+    station_devices.append(spawn_device(classes, *spec).get_actor_label())
+
 # The wired scan button was previously centered in the walk-through opening.
 # Keep it as the reliable interaction fallback, but mount it beside the arch so
 # the full scanner aperture is clear in both directions.
@@ -576,6 +651,16 @@ for actor in all_actors():
     if actor.get_actor_label() == "TL_BTN_Scan":
         actor.set_actor_location(unreal.Vector(1120.0, -1850.0, 180.0), False, False)
         scan_button_relocated = True
+        break
+
+# Main, backup-bus, and checkpoint-restart controls stay independently placed
+# at their matching physical cabinets. The latter two are newly wired below in
+# the editor after this idempotent creation pass.
+power_main_relocated = False
+for actor in all_actors():
+    if actor.get_actor_label() == "TL_BTN_Power":
+        actor.set_actor_location(unreal.Vector(3500.0, -3190.0, 420.0), False, False)
+        power_main_relocated = True
         break
 
 spawn_pads_relocated = []
@@ -634,6 +719,8 @@ result = {
     "recolored_art_actors": len(recolored),
     "scanner_pad_adjustments": scanner_pad_adjustments,
     "scan_button_relocated": scan_button_relocated,
+    "power_main_relocated": power_main_relocated,
+    "station_devices": sorted(station_devices),
     "spawn_pads_relocated": sorted(spawn_pads_relocated),
     "removed_blocking_art": sorted(removed_blocking_art),
     "removed_old_seats": len(removed_old_seats),
