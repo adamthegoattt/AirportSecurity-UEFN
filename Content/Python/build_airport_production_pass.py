@@ -448,8 +448,12 @@ BOXES = [
     ("PowerMainIndicator", (3500, -2965, 520), (125, 24, 125), "RED_ORANGE"),
     ("PowerBackupIndicator", (3950, -2965, 520), (125, 24, 125), "GOLD"),
     ("PowerRestartIndicator", (4400, -2965, 520), (125, 24, 125), "AQUA"),
-    ("ClosedLaneBarrier", (1120, -260, 300), (150, 980, 420), "RED_ORANGE"),
-    ("ClosedLaneHeader", (1120, -260, 820), (150, 980, 170), "MIDNIGHT_BLUE"),
+    # Keep the inactive lane unmistakably closed without turning its marker
+    # into a full-height wall that blocks the terminal/checkpoint sightline.
+    ("ClosedLaneBarrier", (1120, -260, 235), (85, 760, 34), "MIDNIGHT_BLUE"),
+    ("ClosedLanePostSouth", (1120, -610, 285), (110, 110, 350), "MIDNIGHT_BLUE"),
+    ("ClosedLanePostNorth", (1120, 90, 285), (110, 110, 350), "MIDNIGHT_BLUE"),
+    ("ClosedLaneHeader", (1080, -260, 485), (30, 560, 92), "RED_ORANGE"),
     # Reference-facing checkpoint identity pass. These pieces frame the active
     # queue, scanner, X-ray, and decision desk from the player's normal route
     # while keeping every traversal opening and station approach unobstructed.
