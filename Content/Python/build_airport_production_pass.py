@@ -363,14 +363,26 @@ BILLBOARD_DEFAULTS = {
 }
 
 
-# Keep both players on the unobstructed entry plaza. The previous second pad at
-# X=250 overlapped TL_GEO_LaneDivider, leaving the spawned officer pressed
-# against a waist-high barrier before they could reach the briefing desk. The
-# art-floor slab tops out at Z=68, so the pads must sit at that elevation rather
-# than embedding the spawned character capsule in the slab.
+# Put both players at the far end of the detector spine. This gives the player
+# the same long, centered checkpoint reveal as the reference instead of spawning
+# beside unrelated briefing furniture. The art-floor slab tops out at Z=68.
 SPAWN_PLACEMENTS = {
-    "Player 1 Spawn Pad": (-2200.0, -400.0, 68.0, 0.0),
-    "Player 2 Spawn Pad": (-2200.0, 400.0, 68.0, 0.0),
+    "Player 1 Spawn Pad": (-2750.0, -1450.0, 68.0, 0.0),
+    "Player 2 Spawn Pad": (-2750.0, -1150.0, 68.0, 0.0),
+}
+
+
+# Gameplay actors stay bound to Verse while their physical presentation moves
+# to the perimeter. The detector approach itself remains empty from the west
+# entry to the arch; queued passengers and service controls read as side-wall
+# terminal activity rather than obstacles in the passenger lane.
+WALKUP_ACTOR_PLACEMENTS = {
+    "TL_BTN_Start": (-2700.0, -2250.0, 330.0),
+    "TL_PASSENGER_Queue1": (-1900.0, -3100.0, 70.0),
+    "TL_PASSENGER_Queue2": (-1200.0, -3100.0, 70.0),
+    "TL_PASSENGER_Queue3": (-500.0, -3100.0, 70.0),
+    "TL_BTN_Documents": (3400.0, 3050.0, 380.0),
+    "TL_BOARD_DocumentEvidence": (3400.0, 3210.0, 720.0),
 }
 
 
@@ -433,8 +445,15 @@ BOXES = [
     ("SouthWallBlueBand", (1700, -3735, 410), (9500, 55, 220), "PACIFIC_BLUE"),
     ("WestPortalBlueBand", (-3030, 0, 410), (55, 1850, 220), "PACIFIC_BLUE"),
     ("EastPortalBlueBand", (6430, 0, 410), (55, 1850, 220), "PACIFIC_BLUE"),
-    ("PassengerFlow01", (-650, -2150, 108), (2200, 36, 8), "WHITE"),
-    ("PassengerFlow02", (650, -1750, 108), (900, 36, 8), "WHITE", 35.0),
+    # A single 39 m walk-up replaces the offset queue maze. The inset and edge
+    # lines are decorative/nonblocking and taper visually into the 740 cm clear
+    # opening of the retained oversized detector.
+    ("DetectorApproachInset", (-900, -1300, 94), (3900, 860, 8), "GRAY"),
+    ("DetectorApproachEdgeSouth", (-900, -1780, 101), (3900, 24, 8), "PACIFIC_BLUE"),
+    ("DetectorApproachEdgeNorth", (-900, -820, 101), (3900, 24, 8), "PACIFIC_BLUE"),
+    ("DetectorApproachCenter01", (-2200, -1300, 101), (420, 18, 8), "WHITE"),
+    ("DetectorApproachCenter02", (-900, -1300, 101), (420, 18, 8), "WHITE"),
+    ("DetectorApproachCenter03", (350, -1300, 101), (420, 18, 8), "WHITE"),
     ("PassengerFlow03", (1550, -1300, 89), (1000, 30, 1.5), "WHITE"),
     ("DepartureFlow", (4800, 1150, 108), (2800, 46, 8), "APPLE_GREEN"),
     ("DetentionFlow", (4550, 1450, 108), (1200, 46, 8), "RED_ORANGE"),
@@ -463,7 +482,10 @@ BOXES = [
     ("CheckpointPassSymbolB", (1628, -2194, 313), (85, 18, 12), "WHITE", 42.0),
     # Detain remains a later, explicit post-Secondary action at the custody desk.
     ("DetainConsole", (4380, 760, 190), (760, 500, 300), "RED_ORANGE"),
-    ("DecisionDeskFront", (4800, 0, 320), (120, 2480, 520), "MIDNIGHT_BLUE"),
+    # The former center-spanning desks are consolidated into compact service
+    # counters at the terminal's north edge, preserving real airport functions
+    # without interrupting the checkpoint sightline.
+    ("DecisionDeskFront", (4650, 3260, 320), (1200, 120, 520), "MIDNIGHT_BLUE"),
     ("DecisionDetainPad", (4380, 760, 108), (760, 520, 12), "RED_ORANGE"),
     ("DecisionDetainBackplate", (4260, 760, 700), (45, 640, 600), "RED_ORANGE"),
     ("DecisionDetainGuide", (3920, 760, 106), (780, 42, 8), "RED_ORANGE"),
@@ -517,8 +539,8 @@ BOXES = [
     ("XRayTrayInbound", (2175, -1325, 135), (650, 220, 12), "GRAY"),
     ("XRayTrayOutbound", (2825, -1325, 135), (550, 220, 12), "GRAY"),
     # Designed officer work surfaces tie the evidence stations together.
-    ("DocumentDesk", (3480, -520, 300), (950, 520, 420), "GRAY"),
-    ("DocumentDeskFront", (3480, -260, 285), (950, 55, 390), "MIDNIGHT_BLUE"),
+    ("DocumentDesk", (3400, 3350, 300), (950, 300, 420), "GRAY"),
+    ("DocumentDeskFront", (3400, 3190, 285), (950, 55, 390), "MIDNIGHT_BLUE"),
     ("SecondaryWorktop", (4620, 1760, 260), (900, 520, 330), "GRAY"),
     ("SecondaryAmberStrip", (4620, 1495, 410), (900, 32, 55), "GOLD"),
     ("SecondaryPassengerConsole", (4230, 2040, 250), (420, 310, 390), "MIDNIGHT_BLUE"),
@@ -541,17 +563,8 @@ BOXES = [
     ("PowerMainIndicator", (3500, -2965, 520), (125, 24, 125), "RED_ORANGE"),
     ("PowerBackupIndicator", (3950, -2965, 520), (125, 24, 125), "GOLD"),
     ("PowerRestartIndicator", (4400, -2965, 520), (125, 24, 125), "AQUA"),
-    # Reference-facing checkpoint identity pass. These pieces frame the active
-    # queue, scanner, X-ray, and decision desk from the player's normal route
-    # while keeping every traversal opening and station approach unobstructed.
-    ("QueuePortalSouth", (-2200, -2540, 590), (110, 110, 980), "MIDNIGHT_BLUE"),
-    ("QueuePortalNorth", (-2200, -1760, 590), (110, 110, 980), "MIDNIGHT_BLUE"),
-    ("QueuePortalHeader", (-2200, -2150, 1060), (140, 900, 130), "PACIFIC_BLUE"),
-    ("QueuePortalStatus", (-2125, -2150, 940), (24, 610, 90), "APPLE_GREEN"),
-    ("QueueLaneGlow01", (-1750, -2460, 109), (520, 24, 9), "AQUA"),
-    ("QueueLaneGlow02", (-1150, -2460, 109), (520, 24, 9), "AQUA"),
-    ("QueueLaneGlow03", (-550, -2460, 109), (520, 24, 9), "AQUA"),
-    ("QueueLaneGlow04", (50, -2460, 109), (520, 24, 9), "AQUA"),
+    # The detector itself is the focal portal; no second arch or queue gate is
+    # allowed to compete with it along the walk-up.
     ("LargeDetectorResultTower", (1450, -650, 155.5), (100, 70, 135), "MIDNIGHT_BLUE"),
     ("LargeDetectorResultFace", (1396, -650, 178), (8, 55, 70), "AQUA"),
     ("XRayRollerInbound01", (1720, -1300, 230), (58, 430, 22), "SILVER"),
@@ -562,10 +575,6 @@ BOXES = [
     ("XRayRollerOutbound03", (3480, -1300, 230), (58, 430, 22), "SILVER"),
     ("XRayOperatorBackplate", (2860, -815, 575), (560, 36, 470), "MIDNIGHT_BLUE"),
     ("XRayOperatorStatus", (2860, -790, 690), (410, 20, 120), "AQUA"),
-    ("DecisionCanopy", (4450, 0, 1040), (980, 2450, 90), "MIDNIGHT_BLUE"),
-    ("DecisionEvidenceBand", (4260, 0, 890), (34, 2050, 95), "PACIFIC_BLUE"),
-    ("DecisionDividerClear", (4360, -380, 560), (390, 34, 540), "MIDNIGHT_BLUE"),
-    ("DecisionDividerDetain", (4360, 380, 560), (390, 34, 540), "MIDNIGHT_BLUE"),
     ("SecondaryGlassHeader", (4680, 2240, 1030), (1200, 80, 120), "GOLD"),
     ("SecondaryEntryLight", (4090, 1760, 730), (40, 640, 80), "GOLD"),
     ("DetentionBookingBackplate", (5160, 1450, 680), (34, 720, 420), "MIDNIGHT_BLUE"),
@@ -616,13 +625,18 @@ PROPS = [
     # is deliberately omitted so it cannot return on builder reruns.
     # Officer-facing technical props make the scanner/X-ray hierarchy legible.
     ("BagOperatorConsole", "monitor", (2700, -940, 365), 260.0, 180.0),
-    ("DocumentOperatorConsole", "monitor", (3300, -560, 365), 230.0, 180.0),
+    ("DocumentOperatorConsole", "monitor", (3400, 3150, 365), 230.0, -90.0),
     ("BagMonitor", "monitor", (3040, -900, 390), 240.0, 180.0),
     ("DecisionMonitorDetain", "monitor", (4380, 760, 360), 220.0, 180.0),
     # Queue/back-of-house luggage density without touching active linked props.
-    ("QueueBag01", "luggage_a", (-1850, -2570, 110), 115.0, 10.0),
-    ("QueueBag02", "luggage_b", (-1350, -2570, 110), 125.0, -10.0),
-    ("QueueBag03", "luggage_a", (-850, -2570, 110), 105.0, 18.0),
+    ("QueueBag01", "luggage_a", (-1800, -3000, 110), 115.0, 10.0),
+    ("QueueBag02", "luggage_b", (-1100, -3000, 110), 125.0, -10.0),
+    ("QueueBag03", "luggage_a", (-400, -3000, 110), 105.0, 18.0),
+    ("ApproachSideBench01", "bench", (-2500, -3420, 110), 430.0, 180.0),
+    ("ApproachSideBench02", "bench", (-1500, -3420, 110), 430.0, 180.0),
+    ("ApproachSideBench03", "bench", (-500, -3420, 110), 430.0, 180.0),
+    ("ApproachSidePlanterWest", "planter", (-2920, -3420, 110), 250.0, 0.0),
+    ("ApproachSidePlanterEast", "planter", (50, -3420, 110), 250.0, 0.0),
     ("SecondaryRetainedBag", "luggage_b", (4720, 1780, 110), 135.0, 90.0),
     # Distinct power, office, and detention props from validated native classes.
     ("PowerServiceMonitor", "monitor", (3950, -3020, 370), 250.0, 0.0),
@@ -643,12 +657,12 @@ PROPS = [
     # Modern grouped seating adds the denser waiting-area rhythm in the target.
     ("WaitingTripleSeatA", "triple_seat", (900, 2850, 105), 470.0, 0.0),
     ("WaitingTripleSeatB", "triple_seat", (1900, 2850, 105), 470.0, 0.0),
-    ("WaitingTripleSeatC", "triple_seat", (3200, 3150, 105), 470.0, 180.0),
-    ("WaitingTripleSeatD", "triple_seat", (4200, 3150, 105), 470.0, 180.0),
+    ("WaitingTripleSeatC", "triple_seat", (-1800, 3200, 105), 470.0, 180.0),
+    ("WaitingTripleSeatD", "triple_seat", (-800, 3200, 105), 470.0, 180.0),
     # Ceiling luminaires create a legible checkpoint spine and public-lounge bay.
-    ("CeilingLightCheckpoint01", "ceiling_light", (200, -2300, 1250), 330.0, 0.0),
-    ("CeilingLightCheckpoint02", "ceiling_light", (1400, -1900, 1250), 330.0, 0.0),
-    ("CeilingLightCheckpoint03", "ceiling_light", (2600, -1400, 1250), 330.0, 0.0),
+    ("CeilingLightCheckpoint01", "ceiling_light", (-1900, -1300, 1250), 330.0, 0.0),
+    ("CeilingLightCheckpoint02", "ceiling_light", (-650, -1300, 1250), 330.0, 0.0),
+    ("CeilingLightCheckpoint03", "ceiling_light", (550, -1300, 1250), 330.0, 0.0),
     ("CeilingLightDecision", "ceiling_light", (4300, 0, 1250), 360.0, 90.0),
     ("CeilingLightLounge01", "ceiling_light", (800, 2800, 1250), 360.0, 0.0),
     ("CeilingLightLounge02", "ceiling_light", (2400, 2800, 1250), 360.0, 0.0),
@@ -658,23 +672,23 @@ PROPS = [
     ("PowerBreakerBackup", "breaker", (3950, -3090, 110), 310.0, 0.0),
     ("PowerBreakerCheckpoint", "breaker", (4400, -3090, 110), 310.0, 0.0),
     # Secondary and document workstations now read as staffed inspections.
-    ("DocumentDeskChair", "chair", (3480, -850, 110), 150.0, 0.0),
+    ("DocumentDeskChair", "chair", (3400, 3530, 110), 150.0, 180.0),
     ("SecondaryDesk", "desk", (4620, 1760, 110), 720.0, 90.0),
     ("SecondaryChair", "chair", (4500, 2050, 110), 150.0, 180.0),
     ("SecondaryMonitor", "monitor", (4700, 1740, 430), 230.0, -90.0),
     # Wider red emergency coverage supports the outage/response state instead
     # of limiting the visual alarm to one back room.
-    ("EmergencyLightCheckpoint", "emergency_light", (1700, -1850, 1030), 180.0, 0.0),
+    ("EmergencyLightCheckpoint", "emergency_light", (900, -1300, 1030), 180.0, 0.0),
     ("EmergencyLightBaggage", "emergency_light", (2750, -850, 980), 180.0, 0.0),
     ("EmergencyLightDecision", "emergency_light", (4300, 1100, 980), 180.0, 180.0),
     ("EmergencyLightSecondary", "emergency_light", (4650, 2180, 850), 180.0, 180.0),
     ("EmergencyLightPower", "emergency_light", (4200, -2900, 850), 180.0, 0.0),
     # Additional native detail creates the prop density and operational read of
     # the references without turning the route into another primitive blockout.
-    ("QueueInfoMonitor", "monitor", (-2180, -2150, 720), 210.0, 90.0),
+    ("QueueInfoMonitor", "monitor", (-2750, -3500, 720), 210.0, 0.0),
     ("LargeDetectorResultMonitor", "monitor", (1450, -650, 235), 110.0, -90.0),
-    ("DecisionSupervisorChair", "chair", (4870, 0, 110), 150.0, -90.0),
-    ("DecisionEvidenceMonitor", "monitor", (4740, 0, 620), 270.0, 180.0),
+    ("DecisionSupervisorChair", "chair", (4650, 3500, 110), 150.0, 180.0),
+    ("DecisionEvidenceMonitor", "monitor", (4650, 3170, 620), 270.0, -90.0),
     ("WaitingCarryOnA", "luggage_b", (520, 3260, 110), 105.0, 12.0),
     ("WaitingCarryOnB", "luggage_a", (2350, 3200, 110), 110.0, -18.0),
     ("WaitingCarryOnC", "luggage_b", (4500, 2800, 110), 100.0, 5.0),
@@ -695,7 +709,7 @@ DEVICE_SPECS = [
 
 
 NONBLOCKING_BOX_TOKENS = (
-    "Flow", "Rug", "InfoScreen", "Hazard", "Accent", "Light",
+    "Flow", "Approach", "Rug", "InfoScreen", "Hazard", "Accent", "Light",
     "Status", "Ready", "Apron", "Stripe", "RedLine", "Threshold", "Pad",
     "Guide", "Backplate", "Roller", "Nameplate", "Divider", "Face", "Symbol",
 )
@@ -729,7 +743,27 @@ RETIRED_BLOCKING_ART_LABELS = {
     "TL_ART_BagXrayNorthRight",
     "TL_ART_BagXrayNorthTop",
     "TL_GEO_LaneDivider",
+    # Clear the long west-to-east detector sightline. Large inherited counters
+    # and offset queue dressing are replaced by compact side-wall production
+    # counters and the single centered approach authored above.
+    "TL_ART_QueueLaneSouth",
+    "TL_GEO_BriefingDesk",
+    "TL_GEO_DocDesk",
+    "TL_GEO_DecisionDesk",
+    "TL_ART_DocumentCounter",
+    "TL_ART_DocumentMonitorA",
+    "TL_ART_DocumentMonitorB",
+    "TL_ART_DecisionCounter",
+    "TL_ART_DecisionHeader",
+    "TL_ART_DecisionMonitorA",
+    "TL_ART_DecisionMonitorB",
+    "TL_ART_DecisionMonitorC",
 }
+
+RETIRED_BLOCKING_ART_PREFIXES = (
+    "TL_GEO_QueueRail_",
+    "TL_ART_QueueStanchionSouth",
+)
 
 
 world = unreal.EditorLevelLibrary.get_editor_world()
@@ -876,6 +910,36 @@ if missing_spawn_pads:
         + ", ".join(missing_spawn_pads)
     )
 
+walkup_actors_relocated = []
+for actor in all_actors():
+    placement = WALKUP_ACTOR_PLACEMENTS.get(actor.get_actor_label())
+    if placement is None:
+        continue
+    actor.set_actor_location(unreal.Vector(*placement), False, False)
+    walkup_actors_relocated.append(actor.get_actor_label())
+
+missing_walkup_actors = sorted(set(WALKUP_ACTOR_PLACEMENTS) - set(walkup_actors_relocated))
+if missing_walkup_actors:
+    raise RuntimeError(
+        "Production pass could not relocate required walk-up actors: "
+        + ", ".join(missing_walkup_actors)
+    )
+
+# FortPlayerStartCreative proxies are generated with duplicate labels, so move
+# them by their current Y ordering instead of pretending labels are unique.
+creative_starts = sorted(
+    (actor for actor in all_actors() if actor.get_class().get_name() == "FortPlayerStartCreative"),
+    key=lambda actor: actor.get_actor_location().y,
+)
+creative_start_targets = [(-2750.0, -1450.0, 184.0), (-2750.0, -1150.0, 184.0)]
+if len(creative_starts) != len(creative_start_targets):
+    raise RuntimeError(
+        f"Expected {len(creative_start_targets)} creative starts, found {len(creative_starts)}"
+    )
+for actor, placement in zip(creative_starts, creative_start_targets):
+    actor.set_actor_location(unreal.Vector(*placement), False, False)
+    actor.set_actor_rotation(unreal.Rotator(pitch=0.0, yaw=0.0, roll=0.0), False)
+
 stale = sorted(EXISTING)
 for label in stale:
     ACTORS.destroy_actor(EXISTING[label])
@@ -883,7 +947,7 @@ for label in stale:
 removed_blocking_art = []
 for actor in all_actors():
     label = actor.get_actor_label()
-    if label in RETIRED_BLOCKING_ART_LABELS:
+    if label in RETIRED_BLOCKING_ART_LABELS or label.startswith(RETIRED_BLOCKING_ART_PREFIXES):
         removed_blocking_art.append(label)
         ACTORS.destroy_actor(actor)
 
@@ -898,8 +962,8 @@ for actor in all_actors():
 saved_level = unreal.EditorLevelLibrary.save_current_level()
 saved_packages = unreal.EditorLoadingAndSavingUtils.save_dirty_packages(True, True)
 unreal.EditorLevelLibrary.set_level_viewport_camera_info(
-    unreal.Vector(-950.0, 3000.0, 620.0),
-    unreal.Rotator(pitch=-5.0, yaw=-8.0, roll=0.0),
+    unreal.Vector(-2850.0, -1300.0, 420.0),
+    unreal.Rotator(pitch=-4.0, yaw=0.0, roll=0.0),
 )
 
 actors_after = all_actors()
@@ -918,6 +982,8 @@ result = {
     "power_main_relocated": power_main_relocated,
     "station_devices": sorted(station_devices),
     "spawn_pads_relocated": sorted(spawn_pads_relocated),
+    "walkup_actors_relocated": sorted(walkup_actors_relocated),
+    "creative_starts_relocated": len(creative_starts),
     "removed_blocking_art": sorted(removed_blocking_art),
     "removed_old_seats": len(removed_old_seats),
     "production_actor_count": len(created),
