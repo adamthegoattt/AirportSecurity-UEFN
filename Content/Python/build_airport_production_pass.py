@@ -30,8 +30,6 @@ CLASSES = {
     "emergency_light": "/Game/Creative/BuildingActors/Props/CP_Apollo_TrainTunnelEmergency_Light.CP_Apollo_TrainTunnelEmergency_Light_C",
     # Native prop families proven with disposable spawn, actor validation, and
     # cleanup before they are promoted into the saved production batch.
-    "security_scanner": "/Game/Athena/Apollo/Environments/BuildingActors/Agency/Props/Apollo_Agency_SecurityScanner_02.Apollo_Agency_SecurityScanner_02_C",
-    "conveyor": "/Game/Environments/Apollo/Sets/Industrial/Props/Blueprints/Apollo_IND_ConveyorBelt_01.Apollo_IND_ConveyorBelt_01_C",
     "electrical_box": "/Game/Athena/Apollo/Environments/BuildingActors/Tinfoil/Props/Apollo_Tinfoil_ElectricalBox_01.Apollo_Tinfoil_ElectricalBox_01_C",
     "prison_bed": "/Game/Athena/Apollo/Environments/BuildingActors/SharkPrison/Props/Apollo_SharkPrison_SingleBed_01.Apollo_SharkPrison_SingleBed_01_C",
     "prison_sink": "/Game/Athena/BuildingActors/Props/Building/ActorBlueprints/Containers/Athena_Prop_Prison_Bathroom_Sink.Athena_Prop_Prison_Bathroom_Sink_C",
@@ -193,8 +191,6 @@ ART_COLORS = {
     "CorridorFloor": "MIDNIGHT_BLUE",
     "OfficeFloor": "MIDNIGHT_BLUE",
     "CellFloor": "GRAY",
-    "ScannerSouthPad": "AQUA",
-    "ScannerNorthPad": "AQUA",
     "QueueLaneSouth": "PACIFIC_BLUE",
     "QueueLaneNorth": "PACIFIC_BLUE",
     "BagBeltSouth": "BLACK",
@@ -336,25 +332,23 @@ BOXES = [
     ("EastPortalBlueBand", (6430, 0, 410), (55, 1850, 220), "PACIFIC_BLUE"),
     ("PassengerFlow01", (-650, -2150, 108), (2200, 36, 8), "WHITE"),
     ("PassengerFlow02", (650, -1750, 108), (900, 36, 8), "WHITE", 35.0),
-    ("PassengerFlow03", (1550, -1300, 108), (1000, 36, 8), "WHITE"),
+    ("PassengerFlow03", (1550, -1300, 89), (1000, 30, 1.5), "WHITE"),
     ("DepartureFlow", (4800, 1150, 108), (2800, 46, 8), "APPLE_GREEN"),
     ("DetentionFlow", (4550, 1450, 108), (1200, 46, 8), "RED_ORANGE"),
     # Thin, nonblocking color fields make the passenger route and staff work
     # zones readable from eye level without recreating a collision lip.
-    ("CheckpointApproachRug", (760, -1300, 105), (2700, 1500, 10), "GRAY"),
-    ("ScannerThresholdStripeA", (1010, -1640, 108), (420, 45, 10), "GOLD"),
-    ("ScannerThresholdStripeB", (1010, -960, 108), (420, 45, 10), "GOLD"),
-    ("BagEntryHazardStripe", (2020, -1300, 108), (180, 620, 10), "GOLD"),
-    ("BagExitHazardStripe", (3180, -1300, 108), (180, 620, 10), "AQUA"),
-    # Strong checkpoint silhouette and officer-side separation.
-    ("CheckpointHeader", (1120, -1300, 1110), (180, 1580, 250), "APPLE_GREEN"),
-    ("ScannerSideLeft", (1120, -1670, 500), (180, 150, 840), "GRAY"),
-    ("ScannerSideRight", (1120, -930, 500), (180, 150, 840), "GRAY"),
-    ("ScannerCrown", (1120, -1300, 910), (180, 890, 150), "MIDNIGHT_BLUE"),
-    ("BagMachineShell", (2480, -1300, 500), (720, 780, 720), "GRAY"),
-    ("BagTunnelVoid", (2480, -1300, 455), (760, 470, 470), "BLACK"),
-    ("OfficerBarrierA", (3400, -1030, 275), (1900, 90, 380), "MIDNIGHT_BLUE"),
-    ("OfficerBarrierB", (3400, 1030, 275), (1900, 90, 380), "MIDNIGHT_BLUE"),
+    # One passenger-scale walk-through body scanner. The old reference arch,
+    # giant green header, and paired native imaging panels are retired below.
+    # The 160 cm clear width supports centered and slightly off-center Fortnite
+    # traversal; the 260 cm clear height keeps the player camera below the beam.
+    ("ScannerSideLeft", (1120, -1410, 238), (80, 60, 300), "GRAY"),
+    ("ScannerSideRight", (1120, -1190, 238), (80, 60, 300), "GRAY"),
+    ("ScannerCrown", (1120, -1300, 368), (80, 280, 40), "MIDNIGHT_BLUE"),
+    # Low baggage belts and a hollow three-piece X-ray portal replace the old
+    # stacked solid shell/void and giant reference belt. Their centers follow
+    # the BagButton-derived entry, tunnel, and exit route at Y=-1325.
+    ("BagConveyorIn", (2175, -1325, 108), (650, 240, 40), "BLACK"),
+    ("BagConveyorOut", (2825, -1325, 108), (550, 240, 40), "BLACK"),
     # Integrated green/amber/red decision consoles around the wired buttons.
     ("ClearConsole", (4380, -760, 190), (760, 500, 300), "APPLE_GREEN"),
     ("SecondaryConsole", (4380, 0, 190), (760, 500, 300), "GOLD"),
@@ -410,17 +404,17 @@ BOXES = [
     ("WindowMullion07", (5100, 3670, 670), (85, 85, 1040), "MIDNIGHT_BLUE"),
     ("WindowMullion08", (6100, 3670, 670), (85, 85, 1040), "MIDNIGHT_BLUE"),
     # Scanner and X-ray accents are thin, nonblocking visual status elements.
-    ("ScannerInnerLightLeft", (1115, -1572, 520), (195, 24, 670), "AQUA"),
-    ("ScannerInnerLightRight", (1115, -1028, 520), (195, 24, 670), "AQUA"),
-    ("ScannerReadyStrip", (1015, -1300, 915), (22, 500, 38), "APPLE_GREEN"),
-    ("ScannerControlPedestal", (1120, -1845, 250), (360, 260, 390), "MIDNIGHT_BLUE"),
-    ("ScannerControlFace", (1120, -1712, 365), (270, 22, 155), "AQUA"),
-    ("BagMachineAccent", (2110, -1300, 735), (35, 650, 55), "AQUA"),
-    ("BagEntryFrameTop", (2020, -1300, 720), (130, 600, 100), "MIDNIGHT_BLUE"),
-    ("BagEntryFrameNorth", (2020, -1035, 475), (130, 80, 490), "MIDNIGHT_BLUE"),
-    ("BagEntryFrameSouth", (2020, -1565, 475), (130, 80, 490), "MIDNIGHT_BLUE"),
-    ("XRayTrayInbound", (1820, -1300, 225), (300, 410, 28), "GRAY"),
-    ("XRayTrayOutbound", (3420, -1300, 225), (300, 410, 28), "GRAY"),
+    ("ScannerInnerLightLeft", (1074, -1374, 215), (8, 8, 220), "AQUA"),
+    ("ScannerInnerLightRight", (1074, -1226, 215), (8, 8, 220), "AQUA"),
+    ("ScannerReadyStrip", (1074, -1300, 368), (8, 140, 14), "APPLE_GREEN"),
+    ("ScannerControlPedestal", (1120, -1750, 143), (90, 100, 110), "MIDNIGHT_BLUE"),
+    ("ScannerControlFace", (1120, -1696, 155), (70, 8, 45), "AQUA"),
+    ("BagMachineAccent", (2525, -1325, 328), (125, 330, 18), "AQUA"),
+    ("BagEntryFrameTop", (2525, -1325, 318), (125, 360, 40), "MIDNIGHT_BLUE"),
+    ("BagEntryFrameNorth", (2525, -1155, 193), (125, 50, 210), "MIDNIGHT_BLUE"),
+    ("BagEntryFrameSouth", (2525, -1495, 193), (125, 50, 210), "MIDNIGHT_BLUE"),
+    ("XRayTrayInbound", (2175, -1325, 135), (650, 220, 12), "GRAY"),
+    ("XRayTrayOutbound", (2825, -1325, 135), (550, 220, 12), "GRAY"),
     # Designed officer work surfaces tie the evidence stations together.
     ("DocumentDesk", (3480, -520, 300), (950, 520, 420), "GRAY"),
     ("DocumentDeskFront", (3480, -260, 285), (950, 55, 390), "MIDNIGHT_BLUE"),
@@ -448,12 +442,6 @@ BOXES = [
     ("PowerMainIndicator", (3500, -2965, 520), (125, 24, 125), "RED_ORANGE"),
     ("PowerBackupIndicator", (3950, -2965, 520), (125, 24, 125), "GOLD"),
     ("PowerRestartIndicator", (4400, -2965, 520), (125, 24, 125), "AQUA"),
-    # Keep the inactive lane unmistakably closed without turning its marker
-    # into a full-height wall that blocks the terminal/checkpoint sightline.
-    ("ClosedLaneBarrier", (1120, -260, 235), (85, 760, 34), "MIDNIGHT_BLUE"),
-    ("ClosedLanePostSouth", (1120, -610, 285), (110, 110, 350), "MIDNIGHT_BLUE"),
-    ("ClosedLanePostNorth", (1120, 90, 285), (110, 110, 350), "MIDNIGHT_BLUE"),
-    ("ClosedLaneHeader", (1080, -260, 485), (30, 560, 92), "RED_ORANGE"),
     # Reference-facing checkpoint identity pass. These pieces frame the active
     # queue, scanner, X-ray, and decision desk from the player's normal route
     # while keeping every traversal opening and station approach unobstructed.
@@ -465,12 +453,12 @@ BOXES = [
     ("QueueLaneGlow02", (-1150, -2460, 109), (520, 24, 9), "AQUA"),
     ("QueueLaneGlow03", (-550, -2460, 109), (520, 24, 9), "AQUA"),
     ("QueueLaneGlow04", (50, -2460, 109), (520, 24, 9), "AQUA"),
-    ("ScannerExitResultTower", (1510, -630, 455), (280, 170, 690), "MIDNIGHT_BLUE"),
-    ("ScannerExitResultFace", (1360, -630, 540), (26, 118, 300), "AQUA"),
-    ("ScannerSweepLight01", (1110, -1510, 690), (185, 22, 34), "AQUA"),
-    ("ScannerSweepLight02", (1110, -1370, 690), (185, 22, 34), "AQUA"),
-    ("ScannerSweepLight03", (1110, -1230, 690), (185, 22, 34), "AQUA"),
-    ("ScannerSweepLight04", (1110, -1090, 690), (185, 22, 34), "AQUA"),
+    ("ScannerExitResultTower", (1510, -1040, 155.5), (100, 70, 135), "MIDNIGHT_BLUE"),
+    ("ScannerExitResultFace", (1456, -1040, 178), (8, 55, 70), "AQUA"),
+    ("ScannerSweepLight01", (1074, -1345, 335), (8, 20, 8), "AQUA"),
+    ("ScannerSweepLight02", (1074, -1315, 335), (8, 20, 8), "AQUA"),
+    ("ScannerSweepLight03", (1074, -1285, 335), (8, 20, 8), "AQUA"),
+    ("ScannerSweepLight04", (1074, -1255, 335), (8, 20, 8), "AQUA"),
     ("XRayRollerInbound01", (1720, -1300, 230), (58, 430, 22), "SILVER"),
     ("XRayRollerInbound02", (1830, -1300, 230), (58, 430, 22), "SILVER"),
     ("XRayRollerInbound03", (1940, -1300, 230), (58, 430, 22), "SILVER"),
@@ -510,17 +498,12 @@ PROPS = [
     ("PlanterCenter", "planter", (2500, 3250, 110), 300.0, 0.0),
     ("PlanterEast", "planter", (5000, 3150, 110), 300.0, 0.0),
     ("PlanterEntry", "planter", (-1100, 1100, 80), 260.0, 0.0),
-    # Native scanner and conveyors replace the weakest block-only silhouettes
-    # while retaining the stable gameplay pad, button, and luggage transforms.
-    # The native prop is a solid imaging panel, so it dresses the lane edge
-    # instead of occupying the walk-through opening or its navigation path.
-    ("NativeScanner", "security_scanner", (1120, -1700, 110), 600.0, 90.0),
-    ("BagConveyorIn", "conveyor", (2050, -1300, 110), 590.0, 0.0),
-    ("BagConveyorOut", "conveyor", (3200, -1300, 110), 590.0, 0.0),
+    # The retained scanner is the open production arch above. The native Agency
+    # scanner asset is a solid imaging panel, not a walk-through detector, and
+    # is deliberately omitted so it cannot return on builder reruns.
     # Officer-facing technical props make the scanner/X-ray hierarchy legible.
     ("BagOperatorConsole", "monitor", (2700, -940, 365), 260.0, 180.0),
     ("DocumentOperatorConsole", "monitor", (3300, -560, 365), 230.0, 180.0),
-    ("ScannerStatusLight", "emergency_light", (1120, -1300, 1010), 180.0, 0.0),
     ("BagMonitor", "monitor", (3040, -900, 390), 240.0, 180.0),
     ("DecisionMonitorClear", "monitor", (4380, -760, 360), 220.0, 180.0),
     ("DecisionMonitorSecondary", "monitor", (4380, 0, 360), 220.0, 180.0),
@@ -544,8 +527,6 @@ PROPS = [
     ("DetentionBenchNative", "cell_bench", (5640, 1840, 110), 310.0, 180.0),
     ("DetentionToilet", "prison_toilet", (6020, 1810, 105), 150.0, -90.0),
     ("DetentionEmergencyLight", "emergency_light", (5580, 1980, 810), 180.0, 180.0),
-    # A second native panel completes the walk-through scanner silhouette.
-    ("NativeScannerRight", "security_scanner", (1120, -900, 110), 600.0, -90.0),
     # The reference pass already owns the validated belt-stanchion lanes.
     # Reusing that set avoids an overlapping second row of posts in the queue.
     # Modern grouped seating adds the denser waiting-area rhythm in the target.
@@ -580,7 +561,7 @@ PROPS = [
     # Additional native detail creates the prop density and operational read of
     # the references without turning the route into another primitive blockout.
     ("QueueInfoMonitor", "monitor", (-2180, -2150, 720), 210.0, 90.0),
-    ("ScannerResultMonitor", "monitor", (1510, -630, 680), 230.0, -90.0),
+    ("ScannerResultMonitor", "monitor", (1510, -1040, 235), 110.0, -90.0),
     ("DecisionSupervisorChair", "chair", (4870, 0, 110), 150.0, -90.0),
     ("DecisionEvidenceMonitor", "monitor", (4740, 0, 620), 270.0, 180.0),
     ("WaitingCarryOnA", "luggage_b", (520, 3260, 110), 105.0, 12.0),
@@ -604,17 +585,39 @@ DEVICE_SPECS = [
 
 NONBLOCKING_BOX_TOKENS = (
     "Flow", "Rug", "InfoScreen", "Hazard", "Accent", "Light",
-    "Status", "Apron", "Stripe", "RedLine", "Threshold", "Pad",
+    "Status", "Ready", "Apron", "Stripe", "RedLine", "Threshold", "Pad",
     "Guide", "Backplate", "Roller", "Nameplate", "Divider", "Face",
 )
 
-# The original reference-pass scanner mesh is a solid imaging panel. It was
-# moved into the walk-through aperture during the flush-floor pass and became
-# a full-width collision/visual blocker. The production scanner already uses
-# two copies of that native panel as side housings around an open constructed
-# arch, so retire the redundant center panel on every idempotent rerun.
+# Reference and earlier production passes layered two giant arches, two solid
+# imaging panels, a second inactive lane, and coplanar scanner pads over this
+# checkpoint. Retire all of those sources on every idempotent rerun so the one
+# passenger-scale production frame above remains authoritative.
 RETIRED_BLOCKING_ART_LABELS = {
     "TL_ART_ScannerSouth",
+    "TL_ART_ScannerSouthPad",
+    "TL_ART_ScannerNorthPad",
+    "TL_ART_WalkthroughSouthLeft",
+    "TL_ART_WalkthroughSouthRight",
+    "TL_ART_WalkthroughSouthTop",
+    "TL_ART_WalkthroughNorthLeft",
+    "TL_ART_WalkthroughNorthRight",
+    "TL_ART_WalkthroughNorthTop",
+    "TL_ART_CheckpointSignBacking",
+    "TL_ART_CheckpointSignCap",
+    "TL_ART_BagBeltSouth",
+    "TL_ART_BagRailSouthA",
+    "TL_ART_BagRailSouthB",
+    "TL_ART_BagXraySouthLeft",
+    "TL_ART_BagXraySouthRight",
+    "TL_ART_BagXraySouthTop",
+    "TL_ART_BagBeltNorth",
+    "TL_ART_BagRailNorthA",
+    "TL_ART_BagRailNorthB",
+    "TL_ART_BagXrayNorthLeft",
+    "TL_ART_BagXrayNorthRight",
+    "TL_ART_BagXrayNorthTop",
+    "TL_GEO_LaneDivider",
 }
 
 
@@ -667,24 +670,6 @@ for actor in actors_before:
     color = ART_COLORS.get(suffix)
     if color and color_actor(actor, color):
         recolored.append(label)
-    if suffix in ("ScannerSouthPad", "ScannerNorthPad") and terminal_floor_top is not None:
-        pad_origin, pad_extent = actor.get_actor_bounds(False)
-        location = actor.get_actor_location()
-        desired_origin_z = terminal_floor_top - pad_extent.z
-        actor.set_actor_location(
-            unreal.Vector(location.x, location.y, location.z + desired_origin_z - pad_origin.z),
-            False,
-            False,
-        )
-        make_decorative_nonblocking(actor)
-        adjusted_origin, adjusted_extent = actor.get_actor_bounds(False)
-        scanner_pad_adjustments.append(
-            {
-                "label": label,
-                "top": round(adjusted_origin.z + adjusted_extent.z, 3),
-                "floor_top": round(terminal_floor_top, 3),
-            }
-        )
 
 created = []
 for spec in BOXES:
@@ -705,7 +690,8 @@ for spec in DEVICE_SPECS:
 scan_button_relocated = False
 for actor in all_actors():
     if actor.get_actor_label() == "TL_BTN_Scan":
-        actor.set_actor_location(unreal.Vector(1120.0, -1850.0, 180.0), False, False)
+        actor.set_actor_location(unreal.Vector(1120.0, -1750.0, 145.0), False, False)
+        make_decorative_nonblocking(actor)
         scan_button_relocated = True
         break
 
