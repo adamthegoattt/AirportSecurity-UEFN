@@ -86,6 +86,14 @@ terminal_claim_stage := enum:
     Custody
     Response
 
+terminal_detention_state := enum:
+    None
+    MarkedForDetention
+    Handcuffed
+    BeingEscorted
+    EnteringJail
+    Jailed
+
 terminal_body_observation := enum:
     None
     NoAnomaly
@@ -140,6 +148,7 @@ terminal_active_case := struct:
     PassengerTarget:terminal_passenger_location = terminal_passenger_location.Hidden
     BagLocation:terminal_bag_location = terminal_bag_location.Hidden
     ClaimStage:terminal_claim_stage = terminal_claim_stage.None
+    DetentionState:terminal_detention_state = terminal_detention_state.None
     BodyObservation:terminal_body_observation = terminal_body_observation.None
     BagObservation:terminal_bag_observation = terminal_bag_observation.None
     DocumentObservation:terminal_document_observation = terminal_document_observation.None

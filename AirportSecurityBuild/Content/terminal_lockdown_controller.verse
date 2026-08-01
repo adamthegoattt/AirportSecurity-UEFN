@@ -79,6 +79,18 @@ terminal_lockdown_controller := class(creative_device):
     JailOccupant:character_device = character_device{}
 
     @editable
+    JailOccupant2:character_device = character_device{}
+
+    @editable
+    JailOccupant3:character_device = character_device{}
+
+    @editable
+    JailOccupant4:character_device = character_device{}
+
+    @editable
+    JailDoor:creative_prop = creative_prop{}
+
+    @editable
     BagPropSmall:creative_prop = creative_prop{}
 
     @editable
@@ -254,6 +266,13 @@ terminal_lockdown_controller := class(creative_device):
     var ResolutionCommitted:logic = false
     var CaseCompletionCommitted:logic = false
     var CustodyCommitted:logic = false
+    var DetentionState:terminal_detention_state = terminal_detention_state.None
+    var EscortGeneration:int = 0
+    var JailDoorGeneration:int = 0
+    var JailDoorState:int = 0
+    var JailDoorClosedPosition:vector3 = vector3{}
+    var JailDoorClosedRotation:rotation = IdentityRotation()
+    var NextJailOccupantSlot:int = 0
     var FinalCaseAccountingCommitted:logic = false
     var RunUpgradePurchased:logic = false
     var ScannerUpgradeLevel:int = 0
@@ -316,6 +335,7 @@ terminal_lockdown_controller := class(creative_device):
         GetPlayspace().PlayerRemovedEvent().Subscribe(OnPlayerRemoved)
 
         CaptureRouteMarkers()
+        CaptureJailDoorHome()
         ConfigureButtons()
         ConfigurePhysicalPresentation()
         spawn{PersistentHUDLoop()}
@@ -825,7 +845,8 @@ terminal_lockdown_controller := class(creative_device):
         SetBoard(EmergencyBoard, "RESPONSE SUPPLY | STANDBY")
         SetBoard(ResponseLoadoutBoard, "SECURITY RESPONSE KIT\nSIGNAL REMOTE A\nSTANDBY")
         SetDecisionControlsAvailable(false)
-        JailOccupant.Hide()
+        ResetJailOccupants()
+        ResetJailDoorNow()
         CustodyButton.Disable()
         PowerButton.Disable()
         PowerBackupButton.Disable()
@@ -874,6 +895,24 @@ terminal_lockdown_controller := class(creative_device):
             set ClaimOwner = false
             set ClaimStage = terminal_claim_stage.None
             set ClaimGeneration += 1
+            if (Phase = terminal_game_phase.Custody):
+                set EscortGeneration += 1
+                set PassengerAtIntake = false
+                set DetentionState = terminal_detention_state.MarkedForDetention
+                set CurrentCustodyMode = 1
+                CustodyButton.Disable()
+                DetainButton.SetInteractionText(TerminalMessage("HANDCUFF PASSENGER"))
+                DetainButton.Enable()
+                SetBoard(CustodyBoard, "ESCORT OWNER LEFT | HANDCUFF PASSENGER AGAIN")
+                spawn{CloseJailDoor()}
+                spawn{MovePassengerToSecurePad(InterruptedCaseId, InterruptedRun)}
+            else if (Phase = terminal_game_phase.BossSecure):
+                set EscortGeneration += 1
+                set PassengerAtIntake = false
+                set DetentionState = terminal_detention_state.Handcuffed
+                CustodyButton.Disable()
+                spawn{CloseJailDoor()}
+                spawn{MovePassengerToIntake(InterruptedCaseId, InterruptedRun)}
             if (Phase = terminal_game_phase.Inspecting):
                 set Phase = terminal_game_phase.CaseReady
             SyncActiveCase()
@@ -2237,8 +2276,10 @@ terminal_lockdown_controller := class(creative_device):
     BeginDetention():void=
         set CustodyCommitted = false
         set PassengerAtIntake = false
+        set DetentionState = terminal_detention_state.MarkedForDetention
+        set EscortGeneration += 1
         CustodyButton.Disable()
-        JailOccupant.Hide()
+        spawn{CloseJailDoor()}
         SetBoard(CellBoard, "DETENTION CELL | OPEN FOR INTAKE")
         if (CurrentTemplate = 8):
             set CurrentCustodyMode = 2
@@ -2259,11 +2300,11 @@ terminal_lockdown_controller := class(creative_device):
         set CurrentCustodyMode = 1
         set Phase = terminal_game_phase.Custody
         CustodyButton.Disable()
-        DetainButton.SetInteractionText(TerminalMessage("SECURE SUSPECT"))
+        DetainButton.SetInteractionText(TerminalMessage("HANDCUFF PASSENGER"))
         DetainButton.Enable()
-        SetBoard(CaseBoard, "CASE {CurrentCaseId} | DETAINED | SECURE AT CLOSE RANGE")
-        SetBoard(CustodyBoard, "CUSTODY PENDING | SECURE SUSPECT AT RED PAD")
-        ShowAll("CORRECT DETAIN | Approach the suspect at the red pad and use SECURE SUSPECT before escort begins.", 7.0)
+        SetBoard(CaseBoard, "CASE {CurrentCaseId} | CRIMINAL CONFIRMED | HANDCUFF")
+        SetBoard(CustodyBoard, "CUSTODY PENDING | HANDCUFF PASSENGER AT RED PAD")
+        ShowAll("CRIMINAL CONFIRMED | Approach the suspect and use HANDCUFF PASSENGER.", 7.0)
         spawn{MovePassengerToSecurePad(CurrentCaseId, RunGeneration)}
 
     SecureCompliantSuspect(Agent:agent):void=
@@ -2277,12 +2318,13 @@ terminal_lockdown_controller := class(creative_device):
         if (not Claimed?):
             return
         set CurrentCustodyMode = 5
+        set DetentionState = terminal_detention_state.Handcuffed
         DetainButton.Disable()
         DetainButton.SetInteractionText(TerminalMessage("RED | JAIL / DETAIN SUSPECT"))
-        SetBoard(CustodyBoard, "SUSPECT SECURED | ESCORTING TO INTAKE")
-        ShowAll("SUSPECT SECURED | Stay with the escort to detention intake.", 5.0)
-        TerminalLog(DebugEnabled, "[CUSTODY] Close-range secure complete|CaseId={CurrentCaseId}")
-        spawn{MovePassengerToIntake(CurrentCaseId, RunGeneration)}
+        SetBoard(CustodyBoard, "HANDCUFFS SECURED | ESCORT PASSENGER TO JAIL")
+        ShowAll("PASSENGER HANDCUFFED | Escort the passenger through the open jail gate.", 6.0)
+        TerminalLog(DebugEnabled, "[CUSTODY] Handcuff complete|CaseId={CurrentCaseId}")
+        StartPlayerEscort(Agent)
 
     CaptureRunner(Agent:agent):void=
         if (Phase <> terminal_game_phase.Runner):
@@ -2297,11 +2339,12 @@ terminal_lockdown_controller := class(creative_device):
         CleanupResponseEquipment()
         set CurrentCustodyMode = 5
         set Phase = terminal_game_phase.Custody
+        set DetentionState = terminal_detention_state.Handcuffed
         CustodyButton.Disable()
         SetBoard(CaseBoard, "CASE {CurrentCaseId} | RUNNER INTERCEPTED")
-        SetBoard(CustodyBoard, "RUNNER SECURED | ESCORTING TO INTAKE")
-        ShowAll("RUNNER INTERCEPTED AT CLOSE RANGE | Escort moving to detention intake.", 6.0)
-        spawn{MovePassengerToIntake(CurrentCaseId, RunGeneration)}
+        SetBoard(CustodyBoard, "RUNNER HANDCUFFED | ESCORT TO JAIL")
+        ShowAll("RUNNER HANDCUFFED | Escort the passenger through the jail gate.", 6.0)
+        StartPlayerEscort(Agent)
 
     OnCustodyButton(Agent:agent):void=
         if (Phase = terminal_game_phase.BossSecure):
@@ -2309,6 +2352,12 @@ terminal_lockdown_controller := class(creative_device):
             return
         if (Phase <> terminal_game_phase.Custody):
             ShowAgent(Agent, "No suspect is ready for detention intake.", 4.0)
+            return
+        if (DetentionState = terminal_detention_state.MarkedForDetention):
+            ShowAgent(Agent, "HANDCUFF THE PASSENGER FIRST.", 4.0)
+            return
+        if (DetentionState <> terminal_detention_state.EnteringJail):
+            ShowAgent(Agent, "ESCORT THE HANDCUFFED PASSENGER FULLY INSIDE THE CELL.", 4.0)
             return
         if (not PassengerAtIntake?):
             ShowAgent(Agent, "SUSPECT IN TRANSIT | Wait for detention intake to report ready.", 4.0)
@@ -2325,7 +2374,9 @@ terminal_lockdown_controller := class(creative_device):
         if (not Claimed?):
             return
         set CustodyCommitted = true
+        set EscortGeneration += 1
         set PassengerAtIntake = false
+        set DetentionState = terminal_detention_state.EnteringJail
         set Phase = terminal_game_phase.Resolving
         set CurrentDestination = terminal_case_destination.Cell
         SyncActiveCase()
@@ -2600,6 +2651,8 @@ terminal_lockdown_controller := class(creative_device):
         if (ExpectedCaseId = CurrentCaseId and ExpectedRun = RunGeneration and Phase = terminal_game_phase.Custody):
             if (VerifiedArrival?):
                 set PassengerAtIntake = true
+                set DetentionState = terminal_detention_state.EnteringJail
+                spawn{OpenJailDoor()}
                 CustodyButton.SetInteractionText(TerminalMessage("SECURE / JAIL INTAKE"))
                 CustodyButton.Enable()
                 SetBoard(CustodyBoard, "CASE {CurrentCaseId} AT INTAKE | SECURE NOW")
@@ -2612,6 +2665,8 @@ terminal_lockdown_controller := class(creative_device):
         else if (ExpectedCaseId = CurrentCaseId and ExpectedRun = RunGeneration and Phase = terminal_game_phase.BossSecure):
             if (VerifiedArrival?):
                 set PassengerAtIntake = true
+                set DetentionState = terminal_detention_state.EnteringJail
+                spawn{OpenJailDoor()}
                 CustodyButton.SetInteractionText(TerminalMessage("FINAL CUSTODY INTAKE"))
                 CustodyButton.Enable()
                 SetBoard(CustodyBoard, "FINAL THREAT AT INTAKE | SECURE NOW")
@@ -2780,7 +2835,9 @@ terminal_lockdown_controller := class(creative_device):
         if (ExpectedCaseId = CurrentCaseId and ExpectedRun = RunGeneration and Phase = terminal_game_phase.Resolving):
             Sleep(0.5)
             ActivePassengerDevice().Hide()
-            JailOccupant.Show()
+            set DetentionState = terminal_detention_state.Jailed
+            ShowNextJailOccupant()
+            spawn{CloseJailDoorWhenClear(ExpectedRun)}
             if (MoveReached?):
                 SetBoard(CellBoard, "CELL SECURED | OCCUPIED | CASE {CurrentCaseId}")
             else:
@@ -2850,6 +2907,8 @@ terminal_lockdown_controller := class(creative_device):
         set SecondaryPassengerRegions = 0
         set SecondaryBagHotspots = 0
         set PassengerAtIntake = false
+        set DetentionState = terminal_detention_state.None
+        set EscortGeneration += 1
         set ResolutionCommitted = false
         set CaseCompletionCommitted = false
         set CustodyCommitted = false
@@ -2862,6 +2921,7 @@ terminal_lockdown_controller := class(creative_device):
         set CurrentDestination = terminal_case_destination.Scanner
         SyncActiveCase()
         SetDecisionControlsAvailable(false)
+        spawn{CloseJailDoor()}
         DetainButton.SetInteractionText(TerminalMessage("RED | JAIL / DETAIN SUSPECT"))
         CustodyButton.SetInteractionText(TerminalMessage("SECURE / JAIL INTAKE"))
         CustodyButton.Disable()
@@ -3832,6 +3892,7 @@ terminal_lockdown_controller := class(creative_device):
                 ShowAgent(Agent, "FINAL THREAT OUT OF RANGE | Enter the response room before firing.", 5.0)
                 return
             set Phase = terminal_game_phase.BossSecure
+            set DetentionState = terminal_detention_state.Handcuffed
             CleanupResponseEquipment()
             ResponseButton.Disable()
             set CurrentCustodyMode = 6
@@ -3840,7 +3901,7 @@ terminal_lockdown_controller := class(creative_device):
             SetBoard(ResponseLoadoutBoard, "FINAL RESPONSE\nTHREAT INCAPACITATED\nEQUIPMENT RECALLED")
             ShowAll("THE BREACHER INCAPACITATED | Follow the suspect to detention intake and complete final custody.", 8.0)
             TerminalLog(DebugEnabled, "[BOSS] Threat incapacitated|CaseId={CurrentCaseId}")
-            spawn{MovePassengerToIntake(CurrentCaseId, RunGeneration)}
+            StartPlayerEscort(Agent)
             return
         if (Phase <> terminal_game_phase.HostileResponse):
             return
@@ -3861,6 +3922,7 @@ terminal_lockdown_controller := class(creative_device):
         CleanupResponseEquipment()
         ResponseButton.Disable()
         set CurrentCustodyMode = 5
+        set DetentionState = terminal_detention_state.Handcuffed
         CustodyButton.Disable()
         SetBoard(CheckpointBoard, "SECURITY CHECKPOINT | RESPONSE SECURED")
         SetBoard(EmergencyBoard, "SUSPECT INCAPACITATED | ALL CLEAR")
@@ -3869,7 +3931,7 @@ terminal_lockdown_controller := class(creative_device):
         ShowAll("SUSPECT INCAPACITATED | Signal remote recalled. Complete SECURE / JAIL INTAKE.", 7.0)
         PositiveAudio.Play()
         TerminalLog(DebugEnabled, "[RESPONSE] Success|CaseId={CurrentCaseId}")
-        spawn{MovePassengerToIntake(CurrentCaseId, RunGeneration)}
+        StartPlayerEscort(Agent)
 
     CleanupResponseEquipment():void=
         for (Player : GetPlayspace().GetPlayers()):
@@ -4023,7 +4085,9 @@ terminal_lockdown_controller := class(creative_device):
         )
         if (ExpectedCaseId = CurrentCaseId and ExpectedRun = RunGeneration and Phase = terminal_game_phase.BossSecure):
             ActivePassengerDevice().Hide()
-            JailOccupant.Show()
+            set DetentionState = terminal_detention_state.Jailed
+            ShowNextJailOccupant()
+            spawn{CloseJailDoorWhenClear(ExpectedRun)}
             if (MoveResult?):
                 SetBoard(CellBoard, "CELL SECURED | FINAL THREAT IN CUSTODY")
             else:
@@ -4044,7 +4108,8 @@ terminal_lockdown_controller := class(creative_device):
         ActivePassengerDevice().Hide()
         set BagGeneration += 1
         HideAllBags()
-        JailOccupant.Hide()
+        ResetJailOccupants()
+        ResetJailDoorNow()
         SyncActiveCase()
         SetBoard(CheckpointBoard, "TERMINAL SECURED | RESULTS")
         SetBoard(EmergencyBoard, "ALL CLEAR | RESPOND TO REPLAY")
@@ -4070,7 +4135,8 @@ terminal_lockdown_controller := class(creative_device):
         ActivePassengerDevice().Hide()
         set BagGeneration += 1
         HideAllBags()
-        JailOccupant.Hide()
+        ResetJailOccupants()
+        ResetJailDoorNow()
         RestoreNormalPower()
         SyncActiveCase()
         SetBoard(CheckpointBoard, "TERMINAL OVERRUN | RESULTS")
@@ -4127,7 +4193,8 @@ terminal_lockdown_controller := class(creative_device):
         SyncActiveCase()
         ActivePassengerDevice().Hide()
         HideAllBags()
-        JailOccupant.Hide()
+        ResetJailOccupants()
+        ResetJailDoorNow()
         spawn{ResetPassengerQueue(RunGeneration)}
         CustodyButton.Disable()
         CustodyButton.SetInteractionText(TerminalMessage("SECURE / JAIL INTAKE"))
@@ -4178,6 +4245,7 @@ terminal_lockdown_controller := class(creative_device):
             PassengerTarget := PassengerTarget
             BagLocation := BagLocation
             ClaimStage := ClaimStage
+            DetentionState := DetentionState
             BodyObservation := BodyObservation
             BagObservation := BagObservation
             DocumentObservation := DocumentObservation
@@ -4204,6 +4272,155 @@ terminal_lockdown_controller := class(creative_device):
         PowerTransform := PowerButton.GetTransform()
         set PowerHomePosition = PowerTransform.Translation
         set PowerHomeRotation = PowerTransform.Rotation
+
+    CaptureJailDoorHome():void=
+        DoorTransform := JailDoor.GetTransform()
+        set JailDoorClosedPosition = DoorTransform.Translation
+        set JailDoorClosedRotation = DoorTransform.Rotation
+
+    JailDoorOpenPosition()<transacts>:vector3=
+        OffsetPosition(JailDoorClosedPosition, 0.0, 560.0, 0.0)
+
+    ResetJailDoorNow():void=
+        set JailDoorGeneration += 1
+        set JailDoorState = 0
+        if (JailDoor.TeleportTo[JailDoorClosedPosition, JailDoorClosedRotation]):
+            TerminalLog(DebugEnabled, "[JAIL DOOR] Reset closed")
+
+    OpenJailDoor()<suspends>:void=
+        if (JailDoorState <> 0):
+            return
+        set JailDoorGeneration += 1
+        ExpectedDoorGeneration := JailDoorGeneration
+        set JailDoorState = 1
+        SetBoard(CellBoard, "CELL GATE OPEN | ESCORT IN PROGRESS")
+        DoorResult := JailDoor.MoveTo(JailDoorOpenPosition(), JailDoorClosedRotation, 0.75)
+        if (ExpectedDoorGeneration <> JailDoorGeneration):
+            return
+        if (DoorResult = move_to_result.DestinationReached):
+            set JailDoorState = 2
+            TerminalLog(DebugEnabled, "[JAIL DOOR] Open")
+        else:
+            set JailDoorState = 0
+            TerminalLog(DebugEnabled, "[JAIL DOOR] Open failed")
+
+    CloseJailDoor()<suspends>:void=
+        if (JailDoorState = 0 or JailDoorState = 3):
+            return
+        set JailDoorGeneration += 1
+        ExpectedDoorGeneration := JailDoorGeneration
+        set JailDoorState = 3
+        DoorResult := JailDoor.MoveTo(JailDoorClosedPosition, JailDoorClosedRotation, 0.75)
+        if (ExpectedDoorGeneration <> JailDoorGeneration):
+            return
+        if (DoorResult = move_to_result.DestinationReached):
+            set JailDoorState = 0
+            TerminalLog(DebugEnabled, "[JAIL DOOR] Closed")
+        else:
+            ResetJailDoorNow()
+
+    IsPlayerInsideJail(Player:player)<transacts>:logic=
+        if (Character := Player.GetFortCharacter[]):
+            Location := Character.GetTransform().Translation
+            if (Location.X > JailDoorClosedPosition.X - 80.0 and Location.X < JailDoorClosedPosition.X + 1750.0 and Location.Y > JailDoorClosedPosition.Y - 850.0 and Location.Y < JailDoorClosedPosition.Y + 850.0):
+                return true
+        false
+
+    CloseJailDoorWhenClear(ExpectedRun:int)<suspends>:void=
+        loop:
+            if (ExpectedRun <> RunGeneration):
+                return
+            var PlayerInside:logic = false
+            for (Player : GetPlayspace().GetPlayers()):
+                if (IsPlayerInsideJail(Player)?):
+                    set PlayerInside = true
+            if (not PlayerInside?):
+                Sleep(0.75)
+                CloseJailDoor()
+                return
+            Sleep(0.5)
+
+    ResetJailOccupants():void=
+        JailOccupant.Hide()
+        JailOccupant2.Hide()
+        JailOccupant3.Hide()
+        JailOccupant4.Hide()
+        set NextJailOccupantSlot = 0
+
+    ShowNextJailOccupant():void=
+        if (NextJailOccupantSlot = 0):
+            JailOccupant.Show()
+        else if (NextJailOccupantSlot = 1):
+            JailOccupant2.Show()
+        else if (NextJailOccupantSlot = 2):
+            JailOccupant3.Show()
+        else:
+            JailOccupant4.Show()
+        set NextJailOccupantSlot += 1
+        if (NextJailOccupantSlot >= 4):
+            set NextJailOccupantSlot = 0
+
+    StartPlayerEscort(Agent:agent):void=
+        if (AutomatedReplayEnabled?):
+            set DetentionState = terminal_detention_state.BeingEscorted
+            spawn{MovePassengerToIntake(CurrentCaseId, RunGeneration)}
+            return
+        if (EscortPlayer := player[Agent]):
+            set EscortGeneration += 1
+            ExpectedEscortGeneration := EscortGeneration
+            set DetentionState = terminal_detention_state.BeingEscorted
+            set PassengerAtIntake = false
+            SyncActiveCase()
+            spawn{EscortPassenger(EscortPlayer, CurrentCaseId, RunGeneration, ExpectedEscortGeneration)}
+            return
+        set DetentionState = terminal_detention_state.BeingEscorted
+        spawn{MovePassengerToIntake(CurrentCaseId, RunGeneration)}
+
+    EscortPassenger(EscortPlayer:player, ExpectedCaseId:int, ExpectedRun:int, ExpectedEscortGeneration:int)<suspends>:void=
+        var BlockedMoves:int = 0
+        set CurrentDestination = terminal_case_destination.Detention
+        set PassengerTarget = terminal_passenger_location.DetentionIntake
+        set PassengerLocation = terminal_passenger_location.Transit
+        SyncActiveCase()
+        loop:
+            if (ExpectedCaseId <> CurrentCaseId or ExpectedRun <> RunGeneration or ExpectedEscortGeneration <> EscortGeneration):
+                return
+            if (Phase <> terminal_game_phase.Custody and Phase <> terminal_game_phase.BossSecure):
+                return
+            if (Owner := ClaimOwner?, Owner <> EscortPlayer):
+                return
+            if (EscortCharacter := EscortPlayer.GetFortCharacter[]):
+                PlayerLocation := EscortCharacter.GetTransform().Translation
+                if (IsAgentNear(EscortPlayer, IntakePosition(), 1050.0)?):
+                    spawn{OpenJailDoor()}
+                ActivePassenger := ActivePassengerDevice()
+                EscortResult := ActivePassenger.MoveTo(PlayerLocation, IdentityRotation(), 0.4)
+                if (EscortResult = move_to_result.DestinationReached):
+                    set BlockedMoves = 0
+                else:
+                    set BlockedMoves += 1
+                    if (BlockedMoves >= 3):
+                        if (ActivePassenger.TeleportTo[PlayerLocation, IdentityRotation()]):
+                            set BlockedMoves = 0
+                            TerminalLog(DebugEnabled, "[CUSTODY] Escort obstruction recovered|CaseId={CurrentCaseId}")
+                if (IsActivePassengerNear(IntakePosition(), 340.0)? and IsAgentNear(EscortPlayer, IntakePosition(), 520.0)?):
+                    set PassengerAtIntake = true
+                    set PassengerLocation = terminal_passenger_location.DetentionIntake
+                    set DetentionState = terminal_detention_state.EnteringJail
+                    CustodyButton.SetInteractionText(TerminalMessage("REGISTER PASSENGER IN JAIL"))
+                    CustodyButton.Enable()
+                    SetBoard(CustodyBoard, "PASSENGER INSIDE INTAKE | REGISTER NOW")
+                    ShowAgent(EscortPlayer, "PASSENGER INSIDE CELL | Use REGISTER PASSENGER IN JAIL.", 5.0)
+                    SyncActiveCase()
+                    return
+            else:
+                set EscortGeneration += 1
+                set PassengerAtIntake = false
+                set DetentionState = terminal_detention_state.MarkedForDetention
+                CustodyButton.Disable()
+                spawn{CloseJailDoor()}
+                return
+            Sleep(0.05)
 
     OffsetPosition(Base:vector3, XOffset:float, YOffset:float, ZOffset:float)<computes>:vector3=
         vector3{X := Base.X + XOffset, Y := Base.Y + YOffset, Z := Base.Z + ZOffset}
