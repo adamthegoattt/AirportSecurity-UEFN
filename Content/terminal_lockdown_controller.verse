@@ -194,7 +194,7 @@ terminal_lockdown_controller := class(creative_device):
     # Production runs wait for an officer to use the physical START SHIFT
     # control. This remains an opt-in convenience for isolated local testing.
     @editable
-    AutoStartEnabled:logic = false
+    AutoStartEnabled:logic = true
 
     # Development-only end-to-end replay. Keep false in production. When
     # enabled, it invokes the same public interaction handlers used by players
@@ -340,6 +340,7 @@ terminal_lockdown_controller := class(creative_device):
             OnScanButton(Player)
             Sleep(2.25)
             Sleep(2.25)
+            PrimeAutomatedDecision(false, false)
             OnClearButton(Player)
             Sleep(7.0)
             TerminalLog(true, "[QA] Shift 1 body/clear path complete")
@@ -366,8 +367,10 @@ terminal_lockdown_controller := class(creative_device):
             Sleep(2.25)
             OnDocumentButton(Player)
             Sleep(4.0)
+            PrimeAutomatedDecision(true, true)
             OnSecondaryButton(Player)
             Sleep(9.0)
+            PrimeAutomatedSecondaryFinal()
             OnCustodyButton(Player)
             OnClearButton(Player)
             Sleep(7.0)
@@ -397,6 +400,7 @@ terminal_lockdown_controller := class(creative_device):
             Sleep(2.25)
             OnDocumentButton(Player)
             Sleep(4.0)
+            PrimeAutomatedDecision(true, true)
             OnDetainButton(Player)
             Sleep(3.5)
             OnDetainButton(Player)
@@ -442,6 +446,7 @@ terminal_lockdown_controller := class(creative_device):
             set ClaimOwner = false
             set Phase = terminal_game_phase.AwaitingDecision
             SyncActiveCase()
+            PrimeAutomatedDecision(true, true)
             OnDetainButton(Player)
             TerminalLog(true, "[QA] Final detected accounting|Resolved={TotalCasesResolved}|Correct={CorrectDecisions}|Missed={MissedThreats}")
             Sleep(1.0)
@@ -467,6 +472,7 @@ terminal_lockdown_controller := class(creative_device):
             Sleep(2.25)
             set ClaimOwner = false
             TerminalLog(true, "[QA2] Simulated owner loss released CaseId={CurrentCaseId}")
+            PrimeAutomatedDecision(false, false)
             OnClearButton(Player)
             OnClearButton(Player)
             Sleep(7.0)
@@ -487,6 +493,7 @@ terminal_lockdown_controller := class(creative_device):
             set ClaimOwner = false
             set Phase = terminal_game_phase.AwaitingDecision
             SyncActiveCase()
+            PrimeAutomatedDecision(true, true)
             OnClearButton(Player)
             TerminalLog(true, "[QA2] Final missed accounting|Resolved={TotalCasesResolved}|Correct={CorrectDecisions}|Missed={MissedThreats}")
             Sleep(1.0)
@@ -527,6 +534,7 @@ terminal_lockdown_controller := class(creative_device):
             Sleep(2.25)
             OnDocumentButton(Player)
             Sleep(4.0)
+            PrimeAutomatedDecision(true, true)
             OnDetainButton(Player)
             FalseDetentionResolved := WaitForCaseResolution(1, 15.0)
             if (not FalseDetentionResolved?):
@@ -551,6 +559,7 @@ terminal_lockdown_controller := class(creative_device):
             Sleep(2.25)
             OnDocumentButton(Player)
             Sleep(4.0)
+            PrimeAutomatedDecision(true, true)
             OnDetainButton(Player)
             Sleep(1.0)
             OnDetainButton(Player)
@@ -583,6 +592,7 @@ terminal_lockdown_controller := class(creative_device):
             Sleep(2.25)
             OnDocumentButton(Player)
             Sleep(4.0)
+            PrimeAutomatedDecision(true, true)
             OnDetainButton(Player)
             RunnerEscapeResolved := WaitForCaseResolution(1, 40.0)
             if (not RunnerEscapeResolved?):
@@ -609,6 +619,7 @@ terminal_lockdown_controller := class(creative_device):
             Sleep(2.25)
             OnDocumentButton(Player)
             Sleep(4.0)
+            PrimeAutomatedDecision(true, true)
             OnDetainButton(Player)
             Sleep(9.0)
             SecureResponseThreat(Player)
@@ -634,6 +645,7 @@ terminal_lockdown_controller := class(creative_device):
             OnScanButton(Player)
             Sleep(2.25)
             Sleep(2.25)
+            PrimeAutomatedDecision(false, false)
             OnClearButton(Player)
             CleanCaseResolved := WaitForCaseResolution(1, 15.0)
             if (not CleanCaseResolved?):
@@ -645,6 +657,52 @@ terminal_lockdown_controller := class(creative_device):
             ResetToWaiting()
             TerminalLog(true, "[QA3] Failure-branch replay complete; returned to waiting")
             return
+
+    # The production scanners now require explicit player UI observations.
+    # The disabled replay still exercises their timing and movement, then
+    # establishes the same authoritative post-observation state before it
+    # invokes the public decision handlers. This keeps QA deterministic without
+    # adding a second gameplay path or weakening normal interaction checks.
+    PrimeAutomatedDecision(WithBag:logic, WithDocuments:logic):void=
+        set BodyChecked = true
+        set BodyObservation = terminal_body_observation.NoAnomaly
+        set BagChecked = WithBag
+        if (WithBag?):
+            set BagObservation = terminal_bag_observation.ClearImage
+            set BagLocation = terminal_bag_location.ConveyorExit
+        else:
+            set BagObservation = terminal_bag_observation.None
+            set BagLocation = terminal_bag_location.Hidden
+        set DocumentsChecked = WithDocuments
+        if (WithDocuments?):
+            set DocumentObservation = terminal_document_observation.NoVisibleIssue
+        else:
+            set DocumentObservation = terminal_document_observation.None
+        set ManualSearchRequested = false
+        set ScanInProgress = false
+        set BagScanInProgress = false
+        set PassengerReadyForScan = false
+        set PassengerLocation = terminal_passenger_location.Decision
+        set PassengerTarget = terminal_passenger_location.Decision
+        set Phase = terminal_game_phase.AwaitingDecision
+        set ResolutionCommitted = false
+        set ClaimOwner = false
+        SyncActiveCase()
+        RefreshDecisionControls()
+
+    PrimeAutomatedSecondaryFinal():void=
+        set SecondaryChecked = true
+        set SecondaryPassengerChecked = true
+        set SecondaryBagChecked = true
+        set SecondaryRecordsChecked = true
+        set PassengerLocation = terminal_passenger_location.SecondaryPassenger
+        set PassengerTarget = terminal_passenger_location.SecondaryPassenger
+        set BagLocation = terminal_bag_location.SecondaryTable
+        set Phase = terminal_game_phase.AwaitingDecision
+        set ResolutionCommitted = false
+        set ClaimOwner = false
+        SyncActiveCase()
+        SetSecondaryFinalControls()
 
     WaitForCaseResolution(TargetResolved:int, MaxWaitSeconds:float)<suspends>:logic=
         var Elapsed:float = 0.0
@@ -670,16 +728,50 @@ terminal_lockdown_controller := class(creative_device):
         Sleep(3.0)
         if (Phase = terminal_game_phase.Waiting):
             for (Player : GetPlayspace().GetPlayers()):
+                PositionOfficerAtCheckpoint(Player)
                 ShowAgent(Player, "Officer online. Opening Shift 1...", 3.0)
                 OnStartButton(Player)
                 return
+
+    PositionOfficerAtCheckpoint(Player:player):void=
+        if (Character := Player.GetFortCharacter[]):
+            WorkstationPosition := vector3{X := 800.0, Y := -2100.0, Z := 100.0}
+            WorkstationFacing := MakeRotationFromYawPitchRollDegrees(90.0, 0.0, 0.0)
+            if (Character.TeleportTo[WorkstationPosition, WorkstationFacing]):
+                TerminalLog(DebugEnabled, "[PLAYER] Officer positioned at checkpoint workstation")
+
+    PositionOfficerAtCustody(Agent:agent):logic=
+        if (Character := Agent.GetFortCharacter[]):
+            IntakeDevicePosition := CustodyButton.GetTransform().Translation
+            IntakeOfficerPosition := vector3{
+                # The custody device and its pedestal are mounted on the open
+                # platform. Keep the officer and escorted suspect on opposite
+                # sides so neither blocks the other's verified arrival.
+                X := IntakeDevicePosition.X + 180.0,
+                Y := IntakeDevicePosition.Y,
+                Z := IntakeDevicePosition.Z
+            }
+            IntakeFacing := MakeRotationFromYawPitchRollDegrees(0.0, 0.0, 0.0)
+            if (Character.TeleportTo[IntakeOfficerPosition, IntakeFacing]):
+                TerminalLog(DebugEnabled, "[PLAYER] Officer transferred to detention intake")
+                return true
+            FallbackIntakePosition := vector3{
+                X := IntakeDevicePosition.X + 220.0,
+                Y := IntakeDevicePosition.Y + 100.0,
+                Z := IntakeDevicePosition.Z + 50.0
+            }
+            if (Character.TeleportTo[FallbackIntakePosition, IntakeFacing]):
+                TerminalLog(DebugEnabled, "[PLAYER] Officer transferred to detention intake fallback")
+                return true
+            TerminalLog(true, "[PLAYER ERROR] Detention transfer blocked by collision")
+        return false
 
     ConfigureButtons():void=
         StartButton.SetInteractionText(TerminalMessage("START SHIFT"))
         StartButton.SetInteractionTime(0.25)
         StartButton.SetMaxTriggerCount(0)
         ScanButton.SetInteractionText(TerminalMessage("BODY SCAN"))
-        ScanButton.SetInteractionTime(0.75)
+        ScanButton.SetInteractionTime(0.0)
         ScanButton.SetMaxTriggerCount(0)
         BagButton.SetInteractionText(TerminalMessage("CHECK BAG"))
         BagButton.SetInteractionTime(0.75)
@@ -687,14 +779,14 @@ terminal_lockdown_controller := class(creative_device):
         DocumentButton.SetInteractionText(TerminalMessage("CHECK DOCUMENTS"))
         DocumentButton.SetInteractionTime(0.5)
         DocumentButton.SetMaxTriggerCount(0)
-        ClearButton.SetInteractionText(TerminalMessage("GREEN | PASS PASSENGER"))
-        ClearButton.SetInteractionTime(0.25)
+        ClearButton.SetInteractionText(TerminalMessage("PASS | LET PASSENGER GO"))
+        ClearButton.SetInteractionTime(0.0)
         ClearButton.SetMaxTriggerCount(0)
-        SecondaryButton.SetInteractionText(TerminalMessage("AMBER | DENY ENTRY | SEND TO SECONDARY"))
+        SecondaryButton.SetInteractionText(TerminalMessage("SECONDARY | EXTRA CHECKS"))
         SecondaryButton.SetInteractionTime(0.5)
         SecondaryButton.SetMaxTriggerCount(0)
-        DetainButton.SetInteractionText(TerminalMessage("RED | JAIL / DETAIN SUSPECT"))
-        DetainButton.SetInteractionTime(0.75)
+        DetainButton.SetInteractionText(TerminalMessage("JAIL | DETAIN PASSENGER"))
+        DetainButton.SetInteractionTime(0.0)
         DetainButton.SetMaxTriggerCount(0)
         ResponseButton.SetInteractionText(TerminalMessage("RESPOND / SECURE"))
         ResponseButton.SetInteractionTime(0.75)
@@ -702,8 +794,8 @@ terminal_lockdown_controller := class(creative_device):
         UpgradeButton.SetInteractionText(TerminalMessage("UPGRADE / NEXT SHIFT"))
         UpgradeButton.SetInteractionTime(0.5)
         UpgradeButton.SetMaxTriggerCount(0)
-        CustodyButton.SetInteractionText(TerminalMessage("SECURE / JAIL INTAKE"))
-        CustodyButton.SetInteractionTime(0.75)
+        CustodyButton.SetInteractionText(TerminalMessage("JAIL INTAKE | SECURE IN CELL"))
+        CustodyButton.SetInteractionTime(0.0)
         CustodyButton.SetMaxTriggerCount(0)
         PowerButton.SetInteractionText(TerminalMessage("RESTORE TERMINAL POWER"))
         PowerButton.SetInteractionTime(1.5)
@@ -733,7 +825,10 @@ terminal_lockdown_controller := class(creative_device):
         BagPropMedium.Hide()
         BagPropHardShell.Hide()
         spawn{ResetPassengerQueue(RunGeneration)}
-        CheckpointBoard.SetShowBorder(true)
+        # Keep the approach sightline open: the device border renders at a
+        # fixed runtime size even when the authored actor is scaled down.
+        CheckpointBoard.SetShowBorder(false)
+        CheckpointBoard.HideText()
         CaseBoard.SetShowBorder(true)
         BagBoard.SetShowBorder(true)
         DocumentBoard.SetShowBorder(true)
@@ -988,7 +1083,7 @@ terminal_lockdown_controller := class(creative_device):
         if (Phase = terminal_game_phase.SecondaryScreening):
             return "FOLLOW THE PASSENGER; PERFORM THE CONTROLLED SEARCH"
         if (Phase = terminal_game_phase.Custody):
-            return "COMPLETE SECURE / JAIL INTAKE AT DETENTION"
+            return "COMPLETE JAIL INTAKE / SECURE IN CELL AT DETENTION"
         if (Phase = terminal_game_phase.UpgradeBreak):
             return "USE UPGRADE DESK; CHOOSE ONE SYSTEM OR CONTINUE"
         if (Phase = terminal_game_phase.BossJammer):
@@ -1353,6 +1448,9 @@ terminal_lockdown_controller := class(creative_device):
             return
         set BodyObservation = Observation
         set BodyChecked = true
+        # The scanner housing stays visible, but its completed interaction must
+        # stop competing with the adjacent PASS and JAIL prompts.
+        ScanButton.Disable()
         set Phase = terminal_game_phase.AwaitingDecision
         CloseBodyScanInterface(Player)
         SyncActiveCase()
@@ -2040,7 +2138,7 @@ terminal_lockdown_controller := class(creative_device):
         ResolveDecision(Agent, terminal_decision.Clear)
 
     OnSecondaryButton(Agent:agent):void=
-        # The detector-side amber DENY control preserves the project's staged
+        # The detector-side red NO PASS control preserves the project's staged
         # rules: it routes the same active passenger to Secondary, where the
         # later release/detain choice remains authoritative.
         Legal := IsCaseInteractionLegal(Agent)
@@ -2054,7 +2152,7 @@ terminal_lockdown_controller := class(creative_device):
             ShowAgent(Agent, "SECONDARY already completed for Case {CurrentCaseId}.", 4.0)
             return
         if (not IsAgentNear(Agent, SecondaryButton.GetTransform().Translation, 650.0)?):
-            ShowAgent(Agent, "MOVE TO THE AMBER DENY CONTROL BESIDE THE DETECTOR.", 4.0)
+            ShowAgent(Agent, "MOVE TO THE YELLOW SECONDARY CONTROL BESIDE THE DETECTOR.", 4.0)
             return
         Claimed := TryClaim(Agent, terminal_claim_stage.Secondary)
         if (not Claimed?):
@@ -2211,7 +2309,10 @@ terminal_lockdown_controller := class(creative_device):
     SecureCompliantSuspect(Agent:agent):void=
         if (Phase <> terminal_game_phase.Custody or CurrentCustodyMode <> 1):
             return
-        if (not IsAgentNearActivePassenger(Agent, 500.0)?):
+        # The secure pad sits beyond the compact detector console. Keep this
+        # close-range, but include the normal officer interaction position so
+        # the player never has to climb over the console to start the escort.
+        if (not IsAgentNearActivePassenger(Agent, 800.0)?):
             ShowAgent(Agent, "TOO FAR TO SECURE | Move beside the suspect at the red pad.", 4.0)
             TerminalLog(DebugEnabled, "[CUSTODY] Remote secure rejected for CaseId={CurrentCaseId}")
             return
@@ -2220,9 +2321,13 @@ terminal_lockdown_controller := class(creative_device):
             return
         set CurrentCustodyMode = 5
         DetainButton.Disable()
-        DetainButton.SetInteractionText(TerminalMessage("RED | JAIL / DETAIN SUSPECT"))
+        DetainButton.SetInteractionText(TerminalMessage("JAIL | DETAIN PASSENGER"))
         SetBoard(CustodyBoard, "SUSPECT SECURED | ESCORTING TO INTAKE")
-        ShowAll("SUSPECT SECURED | Stay with the escort to detention intake.", 5.0)
+        OfficerTransferred := PositionOfficerAtCustody(Agent)
+        if (OfficerTransferred?):
+            ShowAll("SUSPECT SECURED | Officer transferred to detention intake. Await the escort, then use JAIL INTAKE.", 6.0)
+        else:
+            ShowAll("SUSPECT SECURED | Detention transfer obstructed. Follow the marked escort route to JAIL INTAKE.", 6.0)
         TerminalLog(DebugEnabled, "[CUSTODY] Close-range secure complete|CaseId={CurrentCaseId}")
         spawn{MovePassengerToIntake(CurrentCaseId, RunGeneration)}
 
@@ -2400,7 +2505,7 @@ terminal_lockdown_controller := class(creative_device):
         if (Shift >= 2, not SecondaryBagReady?):
             ShowAgent(Agent, "SECONDARY BAG IN TRANSIT | Wait for the linked bag at the inspection table.", 4.0)
             return
-        if (not IsAgentNear(Agent, CustodyButton.GetTransform().Translation, 750.0)?):
+        if (not IsAgentNear(Agent, LegacyCustodyOrigin(), 750.0)?):
             ShowAgent(Agent, "SECONDARY CHECK OUT OF RANGE | Enter the controlled screening room.", 5.0)
             return
         if (SecondaryChecked?):
@@ -2427,7 +2532,7 @@ terminal_lockdown_controller := class(creative_device):
         set Phase = terminal_game_phase.AwaitingDecision
         set CurrentDestination = terminal_case_destination.Decision
         CustodyButton.Disable()
-        CustodyButton.SetInteractionText(TerminalMessage("SECURE / JAIL INTAKE"))
+        CustodyButton.SetInteractionText(TerminalMessage("JAIL INTAKE | SECURE IN CELL"))
         SetSecondaryFinalControls()
         SetBoard(CaseBoard, "CASE {CurrentCaseId} | SECONDARY RESULT | {SecondaryResultText(CurrentTemplate)}")
         SetBoard(SecondaryBoard, "SECONDARY 2/2 COMPLETE\nPASS AT DETECTOR OR DETAIN")
@@ -2542,7 +2647,7 @@ terminal_lockdown_controller := class(creative_device):
         if (ExpectedCaseId = CurrentCaseId and ExpectedRun = RunGeneration and Phase = terminal_game_phase.Custody):
             if (VerifiedArrival?):
                 set PassengerAtIntake = true
-                CustodyButton.SetInteractionText(TerminalMessage("SECURE / JAIL INTAKE"))
+                CustodyButton.SetInteractionText(TerminalMessage("JAIL INTAKE | SECURE IN CELL"))
                 CustodyButton.Enable()
                 SetBoard(CustodyBoard, "CASE {CurrentCaseId} AT INTAKE | SECURE NOW")
             else:
@@ -2676,7 +2781,7 @@ terminal_lockdown_controller := class(creative_device):
         set ClaimStage = terminal_claim_stage.None
         set ClaimGeneration += 1
         CustodyButton.Disable()
-        CustodyButton.SetInteractionText(TerminalMessage("SECURE / JAIL INTAKE"))
+        CustodyButton.SetInteractionText(TerminalMessage("JAIL INTAKE | SECURE IN CELL"))
         RefreshDecisionControls()
         SetBoard(SecondaryBoard, "SECONDARY ROUTE OFFLINE\nCOST REFUNDED | RETURN TO DETECTOR")
         SetBoard(CaseBoard, "CASE {CurrentCaseId} | SECONDARY ABORTED | COST REFUNDED")
@@ -2803,9 +2908,12 @@ terminal_lockdown_controller := class(creative_device):
         set Phase = terminal_game_phase.CaseReady
         set CurrentDestination = terminal_case_destination.Scanner
         SyncActiveCase()
+        # Each case gets a fresh scanner interaction after the prior completed
+        # prompt was disabled to give PASS/JAIL prompt priority.
+        ScanButton.Enable()
         SetDecisionControlsAvailable(false)
-        DetainButton.SetInteractionText(TerminalMessage("RED | JAIL / DETAIN SUSPECT"))
-        CustodyButton.SetInteractionText(TerminalMessage("SECURE / JAIL INTAKE"))
+        DetainButton.SetInteractionText(TerminalMessage("JAIL | DETAIN PASSENGER"))
+        CustodyButton.SetInteractionText(TerminalMessage("JAIL INTAKE | SECURE IN CELL"))
         CustodyButton.Disable()
         SecondaryPassengerButton.Disable()
         SecondaryBagButton.Disable()
@@ -2950,37 +3058,92 @@ terminal_lockdown_controller := class(creative_device):
             SetBoard(CheckpointBoard, "PASSENGER ROUTE RESET | CASE {CurrentCaseId}")
             return
         MoveResult1 := MoveActivePassengerChecked(
-            OffsetPosition(QueuePassengerStagePosition(), 550.0, 0.0, 0.0),
+            QueueSwitchbackEastSouthPosition(),
             QueuePassengerStagePosition(),
-            1.0,
+            2.4,
             ExpectedCaseId,
             ExpectedRun,
             terminal_passenger_location.Transit,
-            "scanner-approach-a"
+            "queue-switchback-east-south"
         )
         if (not MoveResult1? or ExpectedCaseId <> CurrentCaseId or ExpectedRun <> RunGeneration):
             return
         MoveResult2 := MoveActivePassengerChecked(
-            OffsetPosition(ScannerEntryPosition(), -250.0, -600.0, 0.0),
-            OffsetPosition(QueuePassengerStagePosition(), 550.0, 0.0, 0.0),
-            1.0,
+            QueueSwitchbackEastMiddlePosition(),
+            QueueSwitchbackEastSouthPosition(),
+            0.8,
             ExpectedCaseId,
             ExpectedRun,
             terminal_passenger_location.Transit,
-            "scanner-approach-b"
+            "queue-switchback-east-turn"
         )
         if (not MoveResult2? or ExpectedCaseId <> CurrentCaseId or ExpectedRun <> RunGeneration):
             return
         MoveResult3 := MoveActivePassengerChecked(
+            QueueSwitchbackWestMiddlePosition(),
+            QueueSwitchbackEastMiddlePosition(),
+            2.4,
+            ExpectedCaseId,
+            ExpectedRun,
+            terminal_passenger_location.Transit,
+            "queue-switchback-west-middle"
+        )
+        if (not MoveResult3? or ExpectedCaseId <> CurrentCaseId or ExpectedRun <> RunGeneration):
+            return
+        MoveResult4 := MoveActivePassengerChecked(
+            QueueSwitchbackWestNorthPosition(),
+            QueueSwitchbackWestMiddlePosition(),
+            0.8,
+            ExpectedCaseId,
+            ExpectedRun,
+            terminal_passenger_location.Transit,
+            "queue-switchback-west-turn"
+        )
+        if (not MoveResult4? or ExpectedCaseId <> CurrentCaseId or ExpectedRun <> RunGeneration):
+            return
+        MoveResult5 := MoveActivePassengerChecked(
+            QueueSwitchbackEastNorthPosition(),
+            QueueSwitchbackWestNorthPosition(),
+            2.4,
+            ExpectedCaseId,
+            ExpectedRun,
+            terminal_passenger_location.Transit,
+            "queue-switchback-east-north"
+        )
+        if (not MoveResult5? or ExpectedCaseId <> CurrentCaseId or ExpectedRun <> RunGeneration):
+            return
+        MoveResult6 := MoveActivePassengerChecked(
+            QueueSwitchbackExitPosition(),
+            QueueSwitchbackEastNorthPosition(),
+            0.8,
+            ExpectedCaseId,
+            ExpectedRun,
+            terminal_passenger_location.Transit,
+            "queue-switchback-exit-turn"
+        )
+        if (not MoveResult6? or ExpectedCaseId <> CurrentCaseId or ExpectedRun <> RunGeneration):
+            return
+        MoveResult7 := MoveActivePassengerChecked(
+            QueueScannerLeadInPosition(),
+            QueueSwitchbackExitPosition(),
+            0.7,
+            ExpectedCaseId,
+            ExpectedRun,
+            terminal_passenger_location.Transit,
+            "queue-scanner-lead-in"
+        )
+        if (not MoveResult7? or ExpectedCaseId <> CurrentCaseId or ExpectedRun <> RunGeneration):
+            return
+        MoveResult8 := MoveActivePassengerChecked(
             ScannerEntryPosition(),
-            OffsetPosition(ScannerEntryPosition(), -250.0, -600.0, 0.0),
-            1.0,
+            QueueScannerLeadInPosition(),
+            0.7,
             ExpectedCaseId,
             ExpectedRun,
             terminal_passenger_location.ScannerEntry,
             "scanner-position"
         )
-        if (MoveResult3? and ExpectedCaseId = CurrentCaseId and ExpectedRun = RunGeneration):
+        if (MoveResult8? and ExpectedCaseId = CurrentCaseId and ExpectedRun = RunGeneration):
             set PassengerReadyForScan = true
             SyncActiveCase()
             SetBoard(CheckpointBoard, "ACTIVE PASSENGER | CASE {CurrentCaseId} | BODY SCAN")
@@ -3271,8 +3434,8 @@ terminal_lockdown_controller := class(creative_device):
         SecondaryPassengerButton.Disable()
         SecondaryBagButton.Disable()
         SecondaryRecordsButton.Disable()
-        CustodyButton.SetInteractionText(TerminalMessage("SECURE / JAIL INTAKE"))
-        DetainButton.SetInteractionText(TerminalMessage("RED | JAIL / DETAIN SUSPECT"))
+        CustodyButton.SetInteractionText(TerminalMessage("JAIL INTAKE | SECURE IN CELL"))
+        DetainButton.SetInteractionText(TerminalMessage("JAIL | DETAIN PASSENGER"))
         PowerButton.Disable()
         ActivePassengerDevice().Hide()
         set BagGeneration += 1
@@ -3753,7 +3916,7 @@ terminal_lockdown_controller := class(creative_device):
         SetBoard(EmergencyBoard, "SUSPECT INCAPACITATED | ALL CLEAR")
         SetBoard(CustodyBoard, "SUSPECT SECURED | COMPLETE JAIL INTAKE")
         SetBoard(ResponseLoadoutBoard, "SECURITY RESPONSE KIT\nEVENT COMPLETE\nEQUIPMENT RECALLED")
-        ShowAll("SUSPECT INCAPACITATED | Signal remote recalled. Complete SECURE / JAIL INTAKE.", 7.0)
+        ShowAll("SUSPECT INCAPACITATED | Signal remote recalled. Complete JAIL INTAKE / SECURE IN CELL.", 7.0)
         PositiveAudio.Play()
         TerminalLog(DebugEnabled, "[RESPONSE] Success|CaseId={CurrentCaseId}")
         spawn{MovePassengerToIntake(CurrentCaseId, RunGeneration)}
@@ -3892,7 +4055,7 @@ terminal_lockdown_controller := class(creative_device):
             return
         set CustodyCommitted = true
         CustodyButton.Disable()
-        CustodyButton.SetInteractionText(TerminalMessage("SECURE / JAIL INTAKE"))
+        CustodyButton.SetInteractionText(TerminalMessage("JAIL INTAKE | SECURE IN CELL"))
         SetBoard(CustodyBoard, "FINAL CUSTODY ACCEPTED | CELL GATE CLOSING")
         spawn{MoveBossIntoCell(CurrentCaseId, RunGeneration)}
 
@@ -3924,7 +4087,7 @@ terminal_lockdown_controller := class(creative_device):
         PowerButton.Disable()
         PowerButton.SetInteractionText(TerminalMessage("RESTORE TERMINAL POWER"))
         CustodyButton.Disable()
-        CustodyButton.SetInteractionText(TerminalMessage("SECURE / JAIL INTAKE"))
+        CustodyButton.SetInteractionText(TerminalMessage("JAIL INTAKE | SECURE IN CELL"))
         set Phase = terminal_game_phase.Results
         set CurrentDestination = terminal_case_destination.None
         set TeamCash += 500
@@ -3947,7 +4110,7 @@ terminal_lockdown_controller := class(creative_device):
         PowerButton.Disable()
         PowerButton.SetInteractionText(TerminalMessage("RESTORE TERMINAL POWER"))
         CustodyButton.Disable()
-        CustodyButton.SetInteractionText(TerminalMessage("SECURE / JAIL INTAKE"))
+        CustodyButton.SetInteractionText(TerminalMessage("JAIL INTAKE | SECURE IN CELL"))
         set Phase = terminal_game_phase.Results
         set ClaimOwner = false
         set ClaimStage = terminal_claim_stage.None
@@ -4017,8 +4180,8 @@ terminal_lockdown_controller := class(creative_device):
         JailOccupant.Hide()
         spawn{ResetPassengerQueue(RunGeneration)}
         CustodyButton.Disable()
-        CustodyButton.SetInteractionText(TerminalMessage("SECURE / JAIL INTAKE"))
-        DetainButton.SetInteractionText(TerminalMessage("RED | JAIL / DETAIN SUSPECT"))
+        CustodyButton.SetInteractionText(TerminalMessage("JAIL INTAKE | SECURE IN CELL"))
+        DetainButton.SetInteractionText(TerminalMessage("JAIL | DETAIN PASSENGER"))
         RestoreNormalPower()
         SetBoard(CheckpointBoard, "SECURITY CHECKPOINT | OPEN")
         SetBoard(CaseBoard, "CURRENT PASSENGER | WAITING FOR SHIFT")
@@ -4085,10 +4248,9 @@ terminal_lockdown_controller := class(creative_device):
     # movement. Queue markers are captured before any Character device moves;
     # the remaining stations follow their physical control or status device.
     CaptureRouteMarkers():void=
-        AuthoredQueueFront := PassengerQueue1.GetTransform().Translation
-        set QueueFrontMarker = OffsetPosition(AuthoredQueueFront, -650.0, 0.0, 0.0)
-        set QueueMiddleMarker = OffsetPosition(QueueFrontMarker, -500.0, 0.0, 0.0)
-        set QueueRearMarker = OffsetPosition(QueueMiddleMarker, -500.0, 0.0, 0.0)
+        set QueueFrontMarker = PassengerQueue1.GetTransform().Translation
+        set QueueMiddleMarker = PassengerQueue2.GetTransform().Translation
+        set QueueRearMarker = PassengerQueue3.GetTransform().Translation
         PowerTransform := PowerButton.GetTransform()
         set PowerHomePosition = PowerTransform.Translation
         set PowerHomeRotation = PowerTransform.Rotation
@@ -4100,10 +4262,31 @@ terminal_lockdown_controller := class(creative_device):
         OffsetPosition(QueueFrontMarker, 400.0, 0.0, 0.0)
 
     QueueRecyclePosition()<transacts>:vector3=
-        OffsetPosition(QueueRearMarker, 0.0, -300.0, 0.0)
+        OffsetPosition(QueueRearMarker, 0.0, -1200.0, 0.0)
 
     QueuePassengerStagePosition()<transacts>:vector3=
-        OffsetPosition(QueueFrontMarker, 550.0, 0.0, 0.0)
+        QueueRecyclePosition()
+
+    QueueSwitchbackEastSouthPosition()<transacts>:vector3=
+        OffsetPosition(QueuePassengerStagePosition(), 2150.0, 0.0, 0.0)
+
+    QueueSwitchbackEastMiddlePosition()<transacts>:vector3=
+        OffsetPosition(QueuePassengerStagePosition(), 2150.0, 600.0, 0.0)
+
+    QueueSwitchbackWestMiddlePosition()<transacts>:vector3=
+        OffsetPosition(QueuePassengerStagePosition(), 0.0, 600.0, 0.0)
+
+    QueueSwitchbackWestNorthPosition()<transacts>:vector3=
+        OffsetPosition(QueuePassengerStagePosition(), 0.0, 1200.0, 0.0)
+
+    QueueSwitchbackEastNorthPosition()<transacts>:vector3=
+        OffsetPosition(QueuePassengerStagePosition(), 2150.0, 1200.0, 0.0)
+
+    QueueSwitchbackExitPosition()<transacts>:vector3=
+        OffsetPosition(QueuePassengerStagePosition(), 2150.0, 1800.0, 0.0)
+
+    QueueScannerLeadInPosition()<transacts>:vector3=
+        OffsetPosition(ScannerEntryPosition(), -250.0, -300.0, 0.0)
 
     ScannerEntryPosition()<transacts>:vector3=
         OffsetPosition(CheckpointBoard.GetTransform().Translation, -300.0, 0.0, -1050.0)
@@ -4151,22 +4334,27 @@ terminal_lockdown_controller := class(creative_device):
         OffsetPosition(DetainButton.GetTransform().Translation, 305.0, 300.0, -185.0)
 
     DeparturePosition()<transacts>:vector3=
-        OffsetPosition(CustodyButton.GetTransform().Translation, 2000.0, -350.0, -110.0)
+        OffsetPosition(LegacyCustodyOrigin(), 2000.0, -350.0, -110.0)
 
     DepartureRetryPosition()<transacts>:vector3=
-        OffsetPosition(CustodyButton.GetTransform().Translation, 200.0, -550.0, -110.0)
+        OffsetPosition(LegacyCustodyOrigin(), 200.0, -550.0, -110.0)
+
+    LegacyCustodyOrigin()<transacts>:vector3=
+        # All pre-existing detention, secondary, cell, and departure route
+        # anchors remain based on the original custody pedestal position.
+        OffsetPosition(CustodyButton.GetTransform().Translation, 150.0, 200.0, -450.0)
 
     IntakePosition()<transacts>:vector3=
-        OffsetPosition(CustodyButton.GetTransform().Translation, 0.0, 0.0, -110.0)
+        OffsetPosition(CustodyButton.GetTransform().Translation, -180.0, 0.0, 0.0)
 
     CellPosition()<transacts>:vector3=
-        OffsetPosition(CustodyButton.GetTransform().Translation, 550.0, 0.0, -110.0)
+        OffsetPosition(LegacyCustodyOrigin(), 550.0, 0.0, -110.0)
 
     SecondaryPassengerPosition()<transacts>:vector3=
-        OffsetPosition(CustodyButton.GetTransform().Translation, 400.0, 650.0, -110.0)
+        OffsetPosition(LegacyCustodyOrigin(), 400.0, 650.0, -110.0)
 
     SecondaryBagPosition()<transacts>:vector3=
-        OffsetPosition(CustodyButton.GetTransform().Translation, -280.0, 330.0, -5.0)
+        OffsetPosition(LegacyCustodyOrigin(), -280.0, 330.0, -5.0)
 
     ResponsePassengerPosition()<transacts>:vector3=
         OffsetPosition(ResponseButton.GetTransform().Translation, -450.0, 1100.0, -350.0)
@@ -4190,7 +4378,7 @@ terminal_lockdown_controller := class(creative_device):
         DepartureRetryPosition()
 
     RunnerExitAPosition()<transacts>:vector3=
-        OffsetPosition(CustodyButton.GetTransform().Translation, 2000.0, 150.0, -110.0)
+        OffsetPosition(LegacyCustodyOrigin(), 2000.0, 150.0, -110.0)
 
     RunnerRouteBPosition()<transacts>:vector3=
         OffsetPosition(ResponseButton.GetTransform().Translation, -500.0, 2150.0, -350.0)
@@ -4582,9 +4770,9 @@ terminal_lockdown_controller := class(creative_device):
                 ClearButton.Disable()
                 SecondaryButton.Enable()
                 DetainButton.Disable()
-                SetBoard(ClearBoard, "PASS / CLEAR\nLOCKED - MANUAL SEARCH")
-                SetBoard(SecondaryBoard, "AMBER | DENY ENTRY\nSECONDARY REQUIRED")
-                SetBoard(DetainBoard, "JAIL / DETAIN\nLOCKED - MANUAL SEARCH")
+                SetBoard(ClearBoard, "PASS | LET PASSENGER GO\nLOCKED - MANUAL SEARCH")
+                SetBoard(SecondaryBoard, "SECONDARY | EXTRA CHECKS\nREQUIRED")
+                SetBoard(DetainBoard, "JAIL | DETAIN PASSENGER\nLOCKED - MANUAL SEARCH")
                 return
             Ready := ReadyForDecision()
             SetDecisionControlsAvailable(Ready)
@@ -4596,42 +4784,42 @@ terminal_lockdown_controller := class(creative_device):
             ClearButton.Enable()
             SecondaryButton.Enable()
             DetainButton.Enable()
-            SetBoard(ClearBoard, "GREEN | PASS / CLEAR\nAUTHORIZED")
-            SetBoard(SecondaryBoard, "AMBER | DENY ENTRY\nSEND TO SECONDARY")
-            SetBoard(DetainBoard, "RED | JAIL / DETAIN\nAUTHORIZED")
+            SetBoard(ClearBoard, "PASS | LET PASSENGER GO\nAUTHORIZED")
+            SetBoard(SecondaryBoard, "SECONDARY | EXTRA CHECKS\nAUTHORIZED")
+            SetBoard(DetainBoard, "JAIL | DETAIN PASSENGER\nAUTHORIZED")
             return
         ClearButton.Disable()
         SecondaryButton.Disable()
         DetainButton.Disable()
-        SetBoard(ClearBoard, "PASS / CLEAR\nLOCKED - COMPLETE CHECKS")
-        SetBoard(SecondaryBoard, "DENY / SECONDARY\nLOCKED - COMPLETE CHECKS")
-        SetBoard(DetainBoard, "JAIL / DETAIN\nLOCKED - COMPLETE CHECKS")
+        SetBoard(ClearBoard, "PASS | LET PASSENGER GO\nLOCKED - COMPLETE CHECKS")
+        SetBoard(SecondaryBoard, "SECONDARY | EXTRA CHECKS\nLOCKED - COMPLETE CHECKS")
+        SetBoard(DetainBoard, "JAIL | DETAIN PASSENGER\nLOCKED - COMPLETE CHECKS")
 
     SetSecondaryFinalControls():void=
         ClearButton.Enable()
         SecondaryButton.Disable()
         DetainButton.Enable()
-        SetBoard(ClearBoard, "GREEN | PASS / RELEASE\nAUTHORIZED")
-        SetBoard(SecondaryBoard, "DENY / SECONDARY\nCHECK COMPLETE")
-        SetBoard(DetainBoard, "RED | JAIL / DETAIN\nAUTHORIZED")
+        SetBoard(ClearBoard, "PASS | LET PASSENGER GO\nAUTHORIZED")
+        SetBoard(SecondaryBoard, "SECONDARY | EXTRA CHECKS\nCHECK COMPLETE")
+        SetBoard(DetainBoard, "JAIL | DETAIN PASSENGER\nAUTHORIZED")
 
     ShowDecisionSubmitted(Decision:terminal_decision):void=
         ClearButton.Disable()
         SecondaryButton.Disable()
         DetainButton.Disable()
         if (Decision = terminal_decision.Clear):
-            SetBoard(ClearBoard, "PASS / CLEAR\nSUBMITTED")
-            SetBoard(SecondaryBoard, "DENY / SECONDARY\nSTANDBY")
-            SetBoard(DetainBoard, "JAIL / DETAIN\nSTANDBY")
+            SetBoard(ClearBoard, "PASS | LET PASSENGER GO\nSUBMITTED")
+            SetBoard(SecondaryBoard, "SECONDARY | EXTRA CHECKS\nSTANDBY")
+            SetBoard(DetainBoard, "JAIL | DETAIN PASSENGER\nSTANDBY")
             return
         if (Decision = terminal_decision.Secondary):
-            SetBoard(ClearBoard, "PASS / CLEAR\nSTANDBY")
-            SetBoard(SecondaryBoard, "DENY / SECONDARY\nSUBMITTED")
-            SetBoard(DetainBoard, "JAIL / DETAIN\nSTANDBY")
+            SetBoard(ClearBoard, "PASS | LET PASSENGER GO\nSTANDBY")
+            SetBoard(SecondaryBoard, "SECONDARY | EXTRA CHECKS\nSUBMITTED")
+            SetBoard(DetainBoard, "JAIL | DETAIN PASSENGER\nSTANDBY")
             return
-        SetBoard(ClearBoard, "PASS / CLEAR\nSTANDBY")
-        SetBoard(SecondaryBoard, "DENY / SECONDARY\nSTANDBY")
-        SetBoard(DetainBoard, "JAIL / DETAIN\nSUBMITTED")
+        SetBoard(ClearBoard, "PASS | LET PASSENGER GO\nSTANDBY")
+        SetBoard(SecondaryBoard, "SECONDARY | EXTRA CHECKS\nSTANDBY")
+        SetBoard(DetainBoard, "JAIL | DETAIN PASSENGER\nSUBMITTED")
 
     IsAgentNear(Agent:agent, Target:vector3, Radius:float)<transacts>:logic=
         if (AutomatedReplayEnabled?):

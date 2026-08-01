@@ -81,6 +81,18 @@ def make_decorative_nonblocking(actor):
             pass
 
 
+def restore_interactive_device(actor):
+    """Undo any persisted decorative collision flags on a real device."""
+    for property_name in ("no_collision", "no_pawn_collision", "no_physics_collision"):
+        try:
+            actor.set_editor_property(property_name, False)
+        except Exception:
+            pass
+    for component in actor.get_components_by_class(unreal.SphereComponent):
+        if component.get_name() == "SphereCollision":
+            component.set_collision_enabled(unreal.CollisionEnabled.QUERY_ONLY)
+
+
 def center_actor(actor, center):
     origin, _ = actor.get_actor_bounds(False)
     location = actor.get_actor_location()
@@ -221,7 +233,7 @@ def spawn_device(classes, label, location, rotation=(0.0, 0.0, 0.0)):
     return actor
 
 
-def spawn_label(classes, suffix, location, text, scale=0.62):
+def spawn_label(classes, suffix, location, text, scale=0.001):
     """Add a concise physical-console label; gameplay remains on real buttons."""
     label = PREFIX + suffix
     actor = EXISTING.pop(label, None)
@@ -236,7 +248,10 @@ def spawn_label(classes, suffix, location, text, scale=0.62):
     actor.set_actor_label(label)
     actor.set_folder_path(FOLDER)
     actor.set_actor_location(unreal.Vector(*location), False, False)
-    actor.set_actor_rotation(unreal.Rotator(pitch=0.0, yaw=0.0, roll=0.0), False)
+    # The detector console is approached from the south. Billboard fronts face
+    # south at 180 degrees, keeping the player-facing copy visible instead of
+    # exposing the blank rear panel.
+    actor.set_actor_rotation(unreal.Rotator(pitch=0.0, yaw=180.0, roll=0.0), False)
     actor.set_actor_scale3d(unreal.Vector(scale, scale, scale))
     actor.set_editor_property("text", text)
     make_decorative_nonblocking(actor)
@@ -357,18 +372,27 @@ BILLBOARD_DEFAULTS = {
     "TL_BOARD_CellStatus": "DETENTION CELL | VACANT",
     "TL_BOARD_EmergencyStatus": "RESPONSE SUPPLY | STANDBY",
     "TL_BOARD_ResponseLoadout": "SECURITY RESPONSE KIT\nSIGNAL REMOTE A\nSTANDBY",
-    "TL_BOARD_ClearControl": "PASS / CLEAR\nLOCKED - COMPLETE CHECKS",
-    "TL_BOARD_SecondaryControl": "AMBER | DENY ENTRY\nLOCKED - COMPLETE CHECKS",
-    "TL_BOARD_DetainControl": "RED | JAIL / DETAIN\nLOCKED - COMPLETE CHECKS",
+    "TL_BOARD_ClearControl": "PASS\nLET PASSENGER GO | LOCKED - COMPLETE CHECKS",
+    "TL_BOARD_SecondaryControl": "SECONDARY\nEXTRA CHECKS | LOCKED - COMPLETE CHECKS",
+    "TL_BOARD_DetainControl": "JAIL\nDETAIN PASSENGER | LOCKED - COMPLETE CHECKS",
 }
 
 
-# Put both players at the far end of the detector spine. This gives the player
-# the same long, centered checkpoint reveal as the reference instead of spawning
-# beside unrelated briefing furniture. The art-floor slab tops out at Z=68.
+# The legacy checkpoint billboard is useful context, but its device-default
+# one-metre scale creates a giant opaque panel in the player camera. Author it
+# as a compact header above the physical PASS/JAIL console instead.
+BILLBOARD_PLACEMENTS = {
+    "TL_BOARD_Checkpoint": ((700.0, -1510.0, 420.0), (0.0, 180.0, 0.0), 0.001),
+}
+
+
+# Spawn both players on the officer-side checkpoint approach, facing the
+# physical console. The primary pad is within a few walking steps of the scan
+# control; the second remains behind it so both players enter through the same
+# unobstructed service lane. The art-floor slab tops out at Z=68.
 SPAWN_PLACEMENTS = {
-    "Player 1 Spawn Pad": (-2750.0, -1450.0, 68.0, 0.0),
-    "Player 2 Spawn Pad": (-2750.0, -1150.0, 68.0, 0.0),
+    "Player 1 Spawn Pad": (800.0, -2000.0, 68.0, 90.0),
+    "Player 2 Spawn Pad": (800.0, -2250.0, 68.0, 90.0),
 }
 
 
@@ -377,7 +401,7 @@ SPAWN_PLACEMENTS = {
 # entry to the arch; queued passengers and service controls read as side-wall
 # terminal activity rather than obstacles in the passenger lane.
 WALKUP_ACTOR_PLACEMENTS = {
-    "TL_BTN_Start": (-2700.0, -2250.0, 330.0),
+    "TL_BTN_Start": (700.0, -2500.0, 100.0),
     "TL_PASSENGER_Queue1": (-1900.0, -3100.0, 70.0),
     "TL_PASSENGER_Queue2": (-1200.0, -3100.0, 70.0),
     "TL_PASSENGER_Queue3": (-500.0, -3100.0, 70.0),
@@ -445,9 +469,8 @@ BOXES = [
     ("SouthWallBlueBand", (1700, -3735, 410), (9500, 55, 220), "PACIFIC_BLUE"),
     ("WestPortalBlueBand", (-3030, 0, 410), (55, 1850, 220), "PACIFIC_BLUE"),
     ("EastPortalBlueBand", (6430, 0, 410), (55, 1850, 220), "PACIFIC_BLUE"),
-    # A single 39 m walk-up replaces the offset queue maze. The inset and edge
-    # lines are decorative/nonblocking and taper visually into the 740 cm clear
-    # opening of the retained oversized detector.
+    # The approach markings stay decorative/nonblocking and taper into the
+    # player-scale detector centered on the authoritative scanner route.
     ("DetectorApproachInset", (-900, -1300, 94), (3900, 860, 8), "GRAY"),
     ("DetectorApproachEdgeSouth", (-900, -1780, 101), (3900, 24, 8), "PACIFIC_BLUE"),
     ("DetectorApproachEdgeNorth", (-900, -820, 101), (3900, 24, 8), "PACIFIC_BLUE"),
@@ -459,34 +482,35 @@ BOXES = [
     ("DetentionFlow", (4550, 1450, 108), (1200, 46, 8), "RED_ORANGE"),
     # Thin, nonblocking color fields make the passenger route and staff work
     # zones readable from eye level without recreating a collision lip.
-    # Restore the original oversized, wall-backed detector proportions requested
-    # by the map owner. Its 740 cm clear opening stays centered on Y=-1300, and
-    # the pillars start at the finished floor top so there is no traversal lip.
-    ("LargeDetectorLeft", (1050, -1760, 548), (140, 180, 920), "SILVER"),
-    ("LargeDetectorRight", (1050, -840, 548), (140, 180, 920), "SILVER"),
-    ("LargeDetectorTop", (1050, -1300, 960), (140, 1100, 120), "SILVER"),
+    # One 240 cm clear opening sits on ScannerCenterPosition (X=470, Y=-1300).
+    # Pillars begin at finished-floor top (Z=88), so there is no threshold lip.
+    ("LargeDetectorLeft", (470, -1460, 243), (90, 80, 310), "MIDNIGHT_BLUE"),
+    ("LargeDetectorRight", (470, -1140, 243), (90, 80, 310), "MIDNIGHT_BLUE"),
+    ("LargeDetectorTop", (470, -1300, 433), (90, 400, 70), "MIDNIGHT_BLUE"),
     # Low baggage belts and a hollow three-piece X-ray portal replace the old
     # stacked solid shell/void and giant reference belt. Their centers follow
     # the BagButton-derived entry, tunnel, and exit route at Y=-1325.
     ("BagConveyorIn", (2175, -1325, 108), (650, 240, 40), "BLACK"),
     ("BagConveyorOut", (2825, -1325, 108), (550, 240, 40), "BLACK"),
-    # The detector-side console is the authoritative three-way decision station:
-    # amber DENY routes to secondary, green PASS releases the passenger, and red
-    # JAIL starts the existing physical custody route. It remains outside the
-    # Y=-1300 passenger path while all three controls stay readable at a glance.
-    ("CheckpointDecisionBase", (1615, -2200, 165), (820, 260, 154), "MIDNIGHT_BLUE"),
-    ("CheckpointDecisionTop", (1615, -2200, 251), (820, 260, 18), "GRAY"),
-    ("CheckpointDecisionDividerLeft", (1500, -2200, 276), (18, 210, 32), "SILVER"),
-    ("CheckpointDecisionDividerRight", (1730, -2200, 276), (18, 210, 32), "SILVER"),
-    ("CheckpointNoPassSymbolA", (1385, -2200, 307), (70, 18, 12), "WHITE", 45.0),
-    ("CheckpointNoPassSymbolB", (1385, -2200, 307), (70, 18, 12), "WHITE", -45.0),
-    ("CheckpointPassSymbolA", (1592, -2205, 300), (50, 18, 12), "WHITE", -40.0),
-    ("CheckpointPassSymbolB", (1628, -2194, 313), (85, 18, 12), "WHITE", 42.0),
-    ("CheckpointJailSymbolA", (1845, -2200, 307), (70, 18, 12), "WHITE", 45.0),
-    ("CheckpointJailSymbolB", (1845, -2200, 307), (70, 18, 12), "WHITE", -45.0),
+    # Primary officer console: red JAIL on the left and green PASS on the
+    # right. Both remain in the normal detector camera and outside the clear
+    # Y=-1300 passenger opening.
+    ("CheckpointDecisionBase", (800, -1770, 110), (600, 260, 80), "MIDNIGHT_BLUE"),
+    ("CheckpointDecisionTop", (800, -1770, 154), (600, 260, 8), "GRAY"),
+    ("CheckpointDecisionDivider", (800, -1770, 166), (18, 210, 24), "SILVER"),
+    ("CheckpointJailSymbolA", (600, -1770, 184), (70, 18, 10), "WHITE", 45.0),
+    ("CheckpointJailSymbolB", (600, -1770, 184), (70, 18, 10), "WHITE", -45.0),
+    ("CheckpointPassSymbolA", (977, -1775, 178), (50, 18, 10), "WHITE", -40.0),
+    ("CheckpointPassSymbolB", (1013, -1764, 189), (85, 18, 10), "WHITE", 42.0),
+    # Secondary remains an optional third outcome on a separate amber station
+    # so it cannot visually compete with the two primary choices.
+    ("CheckpointSecondaryBase", (1300, -2100, 165), (260, 260, 154), "MIDNIGHT_BLUE"),
+    ("CheckpointSecondaryTop", (1300, -2100, 251), (260, 260, 18), "GRAY"),
+    ("CheckpointSecondarySymbolA", (1300, -2100, 307), (70, 18, 12), "WHITE", 45.0),
+    ("CheckpointSecondarySymbolB", (1300, -2100, 307), (70, 18, 12), "WHITE", -45.0),
     # A separate close-range pad beside the console keeps the post-decision
     # SECURE SUSPECT interaction out of both the console collision and lane.
-    ("CheckpointSecurePad", (2150, -1900, 108), (280, 240, 12), "RED_ORANGE"),
+    ("CheckpointSecurePad", (1605, -1800, 94), (280, 240, 6), "RED_ORANGE"),
     # The former center-spanning desks are consolidated into compact service
     # counters at the terminal's north edge, preserving real airport functions
     # without interrupting the checkpoint sightline.
@@ -532,8 +556,8 @@ BOXES = [
     ("WindowMullion07", (5100, 3670, 670), (85, 85, 1040), "MIDNIGHT_BLUE"),
     ("WindowMullion08", (6100, 3670, 670), (85, 85, 1040), "MIDNIGHT_BLUE"),
     # The scan control stays outside the retained large detector's south pillar.
-    ("LargeDetectorControlPedestal", (1050, -2010, 143), (100, 120, 110), "MIDNIGHT_BLUE"),
-    ("LargeDetectorControlFace", (1050, -1946, 155), (80, 8, 45), "AQUA"),
+    ("LargeDetectorControlPedestal", (920, -1770, 143), (100, 120, 110), "MIDNIGHT_BLUE"),
+    ("LargeDetectorControlFace", (920, -1706, 155), (80, 8, 45), "AQUA"),
     ("BagMachineAccent", (2525, -1325, 328), (125, 330, 18), "AQUA"),
     ("BagEntryFrameTop", (2525, -1325, 318), (125, 360, 40), "MIDNIGHT_BLUE"),
     ("BagEntryFrameNorth", (2525, -1155, 193), (125, 50, 210), "MIDNIGHT_BLUE"),
@@ -555,6 +579,11 @@ BOXES = [
     ("SecondaryRecordsScreen", (4860, 1700, 430), (250, 22, 170), "AQUA"),
     ("DetentionIntakeTop", (5070, 1450, 350), (500, 760, 90), "GRAY"),
     ("DetentionGateStatus", (4920, 1450, 760), (35, 500, 120), "RED_ORANGE"),
+    # Visible housing for the authoritative CustodyButton. The backend device
+    # stays precisely at the center of this nonblocking control, preserving the
+    # existing route-anchor math in Verse.
+    ("DetentionCustodyPedestal", (5750, 1600, 585), (220, 220, 90), "MIDNIGHT_BLUE"),
+    ("DetentionCustodyTop", (5750, 1600, 634), (220, 220, 10), "GRAY"),
     # Apron markings and stand guidance deepen the exterior airport identity.
     ("ApronCenterline", (5200, 5050, 105), (2600, 32, 8), "GOLD"),
     ("ApronStandBar", (5200, 4800, 105), (32, 1150, 8), "GOLD"),
@@ -590,24 +619,27 @@ BOXES = [
 
 
 # Rounded, two-layer physical actuators avoid placeholder cubes and make the
-# amber/green/red choice readable from the normal player position. Rims and caps
+# red/green choice readable from the normal player position. Rims and caps
 # are separated vertically, so no coplanar color surfaces can flicker.
 SHAPES = [
     ("WestWindowPane", "glass", (-2200, 3775, 810), (1600, 36, 1000), "PACIFIC_BLUE"),
-    ("CheckpointNoPassRim", "cylinder", (1385, -2200, 277), (150, 150, 36), "SILVER"),
-    ("CheckpointNoPassCap", "cylinder", (1385, -2200, 297), (122, 122, 44), "GOLD"),
-    ("CheckpointPassRim", "cylinder", (1615, -2200, 277), (150, 150, 36), "SILVER"),
-    ("CheckpointPassCap", "cylinder", (1615, -2200, 297), (122, 122, 44), "APPLE_GREEN"),
-    ("CheckpointJailRim", "cylinder", (1845, -2200, 277), (150, 150, 36), "SILVER"),
-    ("CheckpointJailCap", "cylinder", (1845, -2200, 297), (122, 122, 44), "RED_ORANGE"),
+    ("CheckpointJailRim", "cylinder", (600, -1770, 160), (150, 150, 24), "SILVER"),
+    ("CheckpointJailCap", "cylinder", (600, -1770, 174), (122, 122, 24), "RED_ORANGE"),
+    ("CheckpointPassRim", "cylinder", (1000, -1770, 160), (150, 150, 24), "SILVER"),
+    ("CheckpointPassCap", "cylinder", (1000, -1770, 174), (122, 122, 24), "APPLE_GREEN"),
+    ("CheckpointSecondaryRim", "cylinder", (1300, -2100, 277), (150, 150, 36), "SILVER"),
+    ("CheckpointSecondaryCap", "cylinder", (1300, -2100, 297), (122, 122, 44), "GOLD"),
+    ("DetentionCustodyRim", "cylinder", (5750, 1600, 637), (150, 150, 24), "SILVER"),
+    ("DetentionCustodyCap", "cylinder", (5750, 1600, 655), (122, 122, 32), "RED_ORANGE"),
 ]
 
 
 LABELS = [
-    ("CheckpointNoPassLabel", (1385, -2025, 405), "DENY\nSECONDARY"),
-    ("CheckpointPassLabel", (1615, -2025, 405), "PASS\nCLEAR"),
-    ("CheckpointJailLabel", (1845, -2025, 405), "JAIL\nDETAIN"),
-    ("CheckpointSecureLabel", (2150, -1760, 255), "SECURE\nSUSPECT"),
+    ("CheckpointJailLabel", (600, -1595, 205), "JAIL\nDETAIN PASSENGER"),
+    ("CheckpointPassLabel", (1000, -1595, 205), "PASS\nLET PASSENGER GO"),
+    ("CheckpointSecondaryLabel", (1300, -1925, 405), "SECONDARY\nEXTRA CHECKS"),
+    ("CheckpointSecureLabel", (1605, -1660, 255), "SECURE\nSUSPECT"),
+    ("DetentionCustodyLabel", (5750, 1390, 835), "JAIL INTAKE\nSECURE IN CELL"),
 ]
 
 
@@ -791,6 +823,16 @@ for actor in actors_before:
     except Exception as exc:
         raise RuntimeError(f"Failed to author default billboard text for {label}: {exc}") from exc
 
+    placement = BILLBOARD_PLACEMENTS.get(label)
+    if placement is not None:
+        location, rotation, scale = placement
+        actor.set_actor_location(unreal.Vector(*location), False, False)
+        actor.set_actor_rotation(
+            unreal.Rotator(pitch=rotation[0], yaw=rotation[1], roll=rotation[2]),
+            False,
+        )
+        actor.set_actor_scale3d(unreal.Vector(scale, scale, scale))
+
 missing_billboard_defaults = sorted(set(BILLBOARD_DEFAULTS) - set(billboard_defaults_updated))
 if missing_billboard_defaults:
     raise RuntimeError(
@@ -853,39 +895,78 @@ station_devices = []
 for spec in DEVICE_SPECS:
     station_devices.append(spawn_device(classes, *spec).get_actor_label())
 
-# Mount the wired scan button outside the retained large detector's south
-# pillar so the full 740 cm aperture remains clear in both directions.
+# Mount the wired scan button on the compact pedestal beside the console.
 scan_button_relocated = False
 for actor in all_actors():
     if actor.get_actor_label() == "TL_BTN_Scan":
-        actor.set_actor_location(unreal.Vector(1050.0, -2010.0, 145.0), False, False)
-        make_decorative_nonblocking(actor)
+        actor.set_actor_location(unreal.Vector(920.0, -1900.0, 215.0), False, False)
+        restore_interactive_device(actor)
         scan_button_relocated = True
         break
 
-# Reuse the authoritative, already-bound CLEAR, SECONDARY, and DETAIN Button
-# devices as PASS, DENY, and JAIL backends. Moving the existing actors preserves
-# every Verse reference and avoids a parallel/fake decision system. Their stock
-# meshes stay hidden beneath the modeled caps while Fortnite interaction remains.
-decision_button_placements = {
-    "TL_BTN_Clear": (1615.0, -2200.0, 295.0),
-    "TL_BTN_Secondary": (1385.0, -2200.0, 295.0),
-    "TL_BTN_Detain": (1845.0, -2200.0, 295.0),
+# Reuse the authoritative, already-bound ClearButton and DetainButton actors.
+# Renaming the actors does not change the serialized Verse object references,
+# but makes the saved map unambiguous to future audits. The hidden interaction
+# backends sit exactly inside nonblocking modeled caps; live prompt tests prove
+# that the visible housings and interaction volumes agree.
+decision_button_specs = {
+    "TL_BTN_Pass": ({"TL_BTN_Pass", "TL_BTN_Clear"}, (1000.0, -1770.0, 174.0)),
+    "TL_BTN_Jail": ({"TL_BTN_Jail", "TL_BTN_Detain"}, (600.0, -1770.0, 174.0)),
+    "TL_BTN_Secondary": ({"TL_BTN_Secondary"}, (1300.0, -2100.0, 295.0)),
 }
 decision_buttons_relocated = []
-for actor in all_actors():
-    location = decision_button_placements.get(actor.get_actor_label())
-    if location is None:
-        continue
+for canonical_label, (accepted_labels, location) in decision_button_specs.items():
+    matching = [actor for actor in all_actors() if actor.get_actor_label() in accepted_labels]
+    if len(matching) != 1:
+        raise RuntimeError(
+            f"Expected exactly one authoritative device for {canonical_label}; found {len(matching)}"
+        )
+    actor = matching[0]
+    actor.set_actor_label(canonical_label)
     actor.set_actor_location(unreal.Vector(*location), False, False)
     actor.set_actor_rotation(unreal.Rotator(pitch=0.0, yaw=0.0, roll=0.0), False)
     actor.set_actor_scale3d(unreal.Vector(0.72, 0.72, 0.72))
-    try:
-        actor.set_editor_property("visible_during_game", False)
-    except Exception:
-        pass
-    make_decorative_nonblocking(actor)
-    decision_buttons_relocated.append(actor.get_actor_label())
+    restore_interactive_device(actor)
+    decision_buttons_relocated.append(canonical_label)
+
+# Match the real focus/collision volume to each modeled actuator rather than
+# leaving the stock 25 cm sphere buried inside a 122-150 cm physical cap. Keep
+# the adjacent PASS and JAIL volumes compact: oversized, overlapping spheres
+# make Fortnite focus a disabled decision control instead of the enabled scan
+# control during the evidence-locked phase.
+interaction_sphere_radii = {
+    "TL_BTN_Scan": 450.0,
+    "TL_BTN_Pass": 225.0,
+    "TL_BTN_Jail": 225.0,
+    # The officer transfer intentionally lands on the open overhead intake
+    # platform to avoid the benches and cell walls below. Keep the custody
+    # device's focus volume large enough to reach that safe arrival point.
+    "TL_BTN_Custody": 650.0,
+}
+interaction_spheres_updated = []
+for actor in all_actors():
+    actor_label = actor.get_actor_label()
+    interaction_radius = interaction_sphere_radii.get(actor_label)
+    if interaction_radius is None:
+        continue
+    restore_interactive_device(actor)
+    collision_updated = False
+    for component in actor.get_components_by_class(unreal.SphereComponent):
+        if component.get_name() == "SphereCollision":
+            component.set_sphere_radius(interaction_radius, True)
+            collision_updated = True
+    if actor_label == "TL_BTN_Custody":
+        actor.set_actor_location(unreal.Vector(5750.0, 1600.0, 630.0), False, False)
+        option_updated = False
+        for component in actor.get_components_by_class(unreal.ActorComponent):
+            if component.get_name() == "ToyOptionsComponent":
+                component.set_property_override_values({"InteractionRadius": "6.500000"})
+                option_updated = True
+        if not option_updated:
+            raise RuntimeError("Missing ToyOptionsComponent on " + actor_label)
+    if not collision_updated:
+        raise RuntimeError("Missing SphereCollision on " + actor.get_actor_label())
+    interaction_spheres_updated.append(actor_label)
 
 # Main, backup-bus, and checkpoint-restart controls stay independently placed
 # at their matching physical cabinets. The latter two are newly wired below in
@@ -937,14 +1018,14 @@ creative_starts = sorted(
     (actor for actor in all_actors() if actor.get_class().get_name() == "FortPlayerStartCreative"),
     key=lambda actor: actor.get_actor_location().y,
 )
-creative_start_targets = [(-2750.0, -1450.0, 184.0), (-2750.0, -1150.0, 184.0)]
+creative_start_targets = [(800.0, -2250.0, 184.0), (800.0, -2000.0, 184.0)]
 if len(creative_starts) != len(creative_start_targets):
     raise RuntimeError(
         f"Expected {len(creative_start_targets)} creative starts, found {len(creative_starts)}"
     )
 for actor, placement in zip(creative_starts, creative_start_targets):
     actor.set_actor_location(unreal.Vector(*placement), False, False)
-    actor.set_actor_rotation(unreal.Rotator(pitch=0.0, yaw=0.0, roll=0.0), False)
+    actor.set_actor_rotation(unreal.Rotator(pitch=0.0, yaw=90.0, roll=0.0), False)
 
 stale = sorted(EXISTING)
 for label in stale:
@@ -985,6 +1066,7 @@ result = {
     "scanner_pad_adjustments": scanner_pad_adjustments,
     "scan_button_relocated": scan_button_relocated,
     "decision_buttons_relocated": sorted(decision_buttons_relocated),
+    "interaction_spheres_updated": sorted(interaction_spheres_updated),
     "power_main_relocated": power_main_relocated,
     "station_devices": sorted(station_devices),
     "spawn_pads_relocated": sorted(spawn_pads_relocated),
