@@ -823,7 +823,7 @@ terminal_lockdown_controller := class(creative_device):
         SecondaryBoard.SetShowBorder(true)
         DetainBoard.SetShowBorder(true)
         ResponseLoadoutBoard.SetShowBorder(true)
-        CheckpointBoard.SetTextSize(24)
+        CheckpointBoard.SetTextSize(30)
         CaseBoard.SetTextSize(18)
         BagBoard.SetTextSize(16)
         DocumentBoard.SetTextSize(16)
@@ -835,7 +835,7 @@ terminal_lockdown_controller := class(creative_device):
         SecondaryBoard.SetTextSize(26)
         DetainBoard.SetTextSize(26)
         ResponseLoadoutBoard.SetTextSize(20)
-        SetBoard(CheckpointBoard, "SECURITY CHECKPOINT | OPEN")
+        SetBoard(CheckpointBoard, "CHECKPOINT\nPASSENGER SCREENING | OPEN")
         SetBoard(CaseBoard, "CURRENT PASSENGER | WAITING FOR SHIFT")
         SetBoard(BagBoard, "BAG INSPECTION | NO ACTIVE BAG")
         SetBoard(DocumentBoard, "TRAVEL DOCUMENTS | NO ACTIVE CASE")
@@ -4456,13 +4456,13 @@ terminal_lockdown_controller := class(creative_device):
         OffsetPosition(ScannerEntryPosition(), -250.0, -300.0, 0.0)
 
     ScannerEntryPosition()<transacts>:vector3=
-        OffsetPosition(CheckpointBoard.GetTransform().Translation, -300.0, 0.0, -1050.0)
+        OffsetPosition(CheckpointBoard.GetTransform().Translation, -420.0, 0.0, -770.0)
 
     ScannerCenterPosition()<transacts>:vector3=
-        OffsetPosition(CheckpointBoard.GetTransform().Translation, 120.0, 0.0, -1050.0)
+        OffsetPosition(CheckpointBoard.GetTransform().Translation, 0.0, 0.0, -770.0)
 
     ScannerExitPosition()<transacts>:vector3=
-        OffsetPosition(CheckpointBoard.GetTransform().Translation, 500.0, 0.0, -1050.0)
+        OffsetPosition(CheckpointBoard.GetTransform().Translation, 380.0, 0.0, -770.0)
 
     BagStagePosition()<transacts>:vector3=
         OffsetPosition(BagButton.GetTransform().Translation, -700.0, -25.0, -165.0)
@@ -4492,19 +4492,21 @@ terminal_lockdown_controller := class(creative_device):
         # Keep the decision passenger immediately beyond the detector instead
         # of coupling movement to the old remote decision desk. The player can
         # inspect the passenger and both physical choices from one position.
-        OffsetPosition(CheckpointBoard.GetTransform().Translation, 700.0, 0.0, -1050.0)
+        OffsetPosition(CheckpointBoard.GetTransform().Translation, 580.0, 0.0, -770.0)
 
     SecurePadPosition()<transacts>:vector3=
-        # The wired JAIL button is mounted below the detector console cap. Keep
-        # the close-range secure position on the separate red floor pad beside
-        # the console instead of underneath its blocking cabinet.
-        OffsetPosition(DetainButton.GetTransform().Translation, 305.0, 300.0, -185.0)
+        # Keep the detained passenger on the visible red pad. This is anchored
+        # to the checkpoint sign, not the hidden interaction device, so visual
+        # console adjustments cannot push the passenger below the floor.
+        OffsetPosition(CheckpointBoard.GetTransform().Translation, 1135.0, -500.0, -770.0)
 
     DeparturePosition()<transacts>:vector3=
-        OffsetPosition(CustodyButton.GetTransform().Translation, 2000.0, -350.0, -110.0)
+        # Approved passengers use the rear-center concourse and never cross the
+        # right-side jail escort path.
+        OffsetPosition(CheckpointBoard.GetTransform().Translation, 7130.0, 100.0, -770.0)
 
     DepartureRetryPosition()<transacts>:vector3=
-        OffsetPosition(CustodyButton.GetTransform().Translation, 200.0, -550.0, -110.0)
+        OffsetPosition(CheckpointBoard.GetTransform().Translation, 1080.0, 300.0, -770.0)
 
     IntakePosition()<transacts>:vector3=
         OffsetPosition(CustodyButton.GetTransform().Translation, 0.0, 0.0, -110.0)
@@ -4513,10 +4515,12 @@ terminal_lockdown_controller := class(creative_device):
         OffsetPosition(CustodyButton.GetTransform().Translation, 550.0, 0.0, -110.0)
 
     SecondaryPassengerPosition()<transacts>:vector3=
-        OffsetPosition(CustodyButton.GetTransform().Translation, 400.0, 650.0, -110.0)
+        # Secondary remains at its dedicated far-right perimeter room even
+        # when the jail and intake move closer to the checkpoint.
+        OffsetPosition(SecondaryPassengerButton.GetTransform().Translation, 1170.0, 220.0, -250.0)
 
     SecondaryBagPosition()<transacts>:vector3=
-        OffsetPosition(CustodyButton.GetTransform().Translation, -280.0, 330.0, -5.0)
+        OffsetPosition(SecondaryBagButton.GetTransform().Translation, 130.0, -90.0, -215.0)
 
     ResponsePassengerPosition()<transacts>:vector3=
         OffsetPosition(ResponseButton.GetTransform().Translation, -450.0, 1100.0, -350.0)
@@ -4540,7 +4544,7 @@ terminal_lockdown_controller := class(creative_device):
         DepartureRetryPosition()
 
     RunnerExitAPosition()<transacts>:vector3=
-        OffsetPosition(CustodyButton.GetTransform().Translation, 2000.0, 150.0, -110.0)
+        OffsetPosition(CheckpointBoard.GetTransform().Translation, 7130.0, 1800.0, -770.0)
 
     RunnerRouteBPosition()<transacts>:vector3=
         OffsetPosition(ResponseButton.GetTransform().Translation, -500.0, 2150.0, -350.0)
